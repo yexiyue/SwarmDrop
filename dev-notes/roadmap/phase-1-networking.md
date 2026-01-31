@@ -1,5 +1,7 @@
-# Phase 1: 网络连接
+# Phase 1: 网络连接 ✅
 
+> **状态**: 已完成
+>
 > **范围**: 仅桌面端 (Windows / macOS / Linux)
 >
 > **参考**: [implementation-roadmap.md](implementation-roadmap.md) 查看整体规划
@@ -47,9 +49,9 @@ tokio = { version = "1", features = ["full"] }
 ```
 
 **验收标准**：
-- [ ] Swarm 能成功启动并监听端口
-- [ ] 能生成并持久化本地 PeerId
-- [ ] 日志显示 Swarm 运行状态
+- [x] Swarm 能成功启动并监听端口
+- [x] 能生成并持久化本地 PeerId
+- [x] 日志显示 Swarm 运行状态
 
 ---
 
@@ -85,7 +87,7 @@ listen('device-lost', (event) => { ... });
 ```
 
 **验收标准**：
-- [ ] 同一局域网两台设备能互相发现
+- [x] 同一局域网两台设备能互相发现
 - [ ] 设备离线后能正确移除
 - [ ] 隐身模式能阻止被发现
 
@@ -106,7 +108,7 @@ listen('device-lost', (event) => { ... });
 4. 存储对方的 Identify 信息
 
 **验收标准**：
-- [ ] 连接后能获取对方设备信息
+- [x] 连接后能获取对方设备信息
 - [ ] 显示对方的设备名称和版本
 
 ---
@@ -145,8 +147,8 @@ fn get_dht_status() -> DhtStatus;
 ```
 
 **验收标准**：
-- [ ] 能成功连接引导节点
-- [ ] DHT 路由表能填充
+- [x] 能成功连接引导节点
+- [x] DHT 路由表能填充
 - [ ] 能发布和查询 Provider
 
 ---
@@ -167,7 +169,7 @@ fn get_dht_status() -> DhtStatus;
 4. 建立 Relay 连接
 
 **验收标准**：
-- [ ] 能通过 Relay 连接到 NAT 后的设备
+- [x] 能通过 Relay 连接到 NAT 后的设备
 - [ ] Relay 连接稳定可用
 
 ---
@@ -186,8 +188,8 @@ fn get_dht_status() -> DhtStatus;
 3. 处理打洞成功/失败事件
 
 **验收标准**：
-- [ ] 部分 NAT 场景能成功打洞
-- [ ] 打洞失败自动降级到 Relay
+- [x] 部分 NAT 场景能成功打洞
+- [x] 打洞失败自动降级到 Relay
 
 ---
 
