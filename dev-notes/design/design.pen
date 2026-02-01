@@ -5473,6 +5473,7 @@
                       "type": "frame",
                       "id": "AEC0U",
                       "name": "Network Status",
+                      "fill": "#22C55E1A",
                       "cornerRadius": 4,
                       "gap": 4,
                       "padding": [
@@ -5483,8 +5484,8 @@
                       "children": [
                         {
                           "type": "ellipse",
-                          "id": "NkDTK",
-                          "name": "netDot",
+                          "id": "SMt0k",
+                          "name": "Status Dot",
                           "fill": "#22C55E",
                           "width": 6,
                           "height": 6
@@ -16373,6 +16374,621 @@
                   ]
                 }
               ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "bOHB9",
+      "x": 7600,
+      "y": 0,
+      "name": "Dialog - Network Node",
+      "theme": {
+        "Accent": "Blue",
+        "Mode": "Light",
+        "Base": "Neutral"
+      },
+      "width": 420,
+      "fill": "$--background",
+      "cornerRadius": 12,
+      "stroke": {
+        "align": "inside",
+        "thickness": 1,
+        "fill": "$--border"
+      },
+      "effect": {
+        "type": "shadow",
+        "shadowType": "outer",
+        "color": "#00000026",
+        "offset": {
+          "x": 0,
+          "y": 8
+        },
+        "blur": 24
+      },
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "ya4VR",
+          "name": "Dialog Header",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 4,
+          "padding": 24,
+          "children": [
+            {
+              "type": "text",
+              "id": "Gzty7",
+              "name": "Dialog Title",
+              "fill": "$--foreground",
+              "content": "网络节点",
+              "fontFamily": "Inter",
+              "fontSize": 18,
+              "fontWeight": "600"
+            },
+            {
+              "type": "text",
+              "id": "O5R2D",
+              "name": "Dialog Description",
+              "fill": "$--muted-foreground",
+              "content": "管理 P2P 网络节点的启动和连接状态",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "El0qt",
+          "name": "Dialog Content",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 16,
+          "padding": [
+            0,
+            24
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "OFwG0",
+              "name": "Status Row",
+              "width": "fill_container",
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "kBPn2",
+                  "name": "statusLabel",
+                  "fill": "$--muted-foreground",
+                  "content": "节点状态",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "4mOGr",
+                  "name": "Status Badge",
+                  "fill": "#DCFCE7",
+                  "cornerRadius": 4,
+                  "gap": 6,
+                  "padding": [
+                    4,
+                    8
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "E0MKa",
+                      "name": "Status Dot",
+                      "fill": "#22C55E",
+                      "width": 8,
+                      "height": 8
+                    },
+                    {
+                      "type": "text",
+                      "id": "SVK4H",
+                      "name": "statusText",
+                      "fill": "#16A34A",
+                      "content": "运行中",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "SjKp8",
+              "name": "Divider",
+              "width": "fill_container",
+              "height": 1,
+              "fill": "$--border"
+            },
+            {
+              "type": "frame",
+              "id": "LE9TU",
+              "name": "Address Section",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "s9knL",
+                  "name": "addrLabel",
+                  "fill": "$--muted-foreground",
+                  "content": "监听地址",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "kaJMX",
+                  "name": "Address List",
+                  "width": "fill_container",
+                  "fill": "$--muted",
+                  "cornerRadius": 6,
+                  "layout": "vertical",
+                  "gap": 4,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "BDRXx",
+                      "name": "addr1",
+                      "fill": "$--foreground",
+                      "content": "/ip4/192.168.1.100/tcp/9000",
+                      "fontFamily": "JetBrains Mono, monospace",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "X0g3u",
+                      "name": "addr2",
+                      "fill": "$--muted-foreground",
+                      "content": "/ip4/127.0.0.1/tcp/9000",
+                      "fontFamily": "JetBrains Mono, monospace",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "mTwRN",
+              "name": "Divider",
+              "width": "fill_container",
+              "height": 1,
+              "fill": "$--border"
+            },
+            {
+              "type": "frame",
+              "id": "fxXlY",
+              "name": "Stats Row",
+              "width": "fill_container",
+              "gap": 16,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "35ajH",
+                  "name": "Connected Stat",
+                  "width": "fill_container",
+                  "fill": "$--muted",
+                  "cornerRadius": 6,
+                  "layout": "vertical",
+                  "gap": 4,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Gj261",
+                      "name": "connLabel",
+                      "fill": "$--muted-foreground",
+                      "content": "已连接节点",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "tWo6l",
+                      "name": "connValue",
+                      "fill": "$--foreground",
+                      "content": "3",
+                      "fontFamily": "Inter",
+                      "fontSize": 24,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "fVAjr",
+                  "name": "Discovered Stat",
+                  "width": "fill_container",
+                  "fill": "$--muted",
+                  "cornerRadius": 6,
+                  "layout": "vertical",
+                  "gap": 4,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "BLTr0",
+                      "name": "discLabel",
+                      "fill": "$--muted-foreground",
+                      "content": "已发现节点",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "d3FL3",
+                      "name": "discValue",
+                      "fill": "$--foreground",
+                      "content": "8",
+                      "fontFamily": "Inter",
+                      "fontSize": 24,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "3mxHg",
+          "name": "Dialog Footer",
+          "width": "fill_container",
+          "stroke": {
+            "align": "inside",
+            "thickness": {
+              "top": 1
+            },
+            "fill": "$--border"
+          },
+          "gap": 12,
+          "padding": 24,
+          "justifyContent": "end",
+          "children": [
+            {
+              "id": "jCtcT",
+              "type": "ref",
+              "ref": "YKnjc",
+              "name": "stopBtn",
+              "descendants": {
+                "PqjlB": {
+                  "enabled": false
+                },
+                "NDadS": {
+                  "content": "停止节点"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "3TCgY",
+      "x": 7600,
+      "y": 500,
+      "name": "Dialog - Network Node (Offline)",
+      "theme": {
+        "Accent": "Blue",
+        "Mode": "Light",
+        "Base": "Neutral"
+      },
+      "width": 420,
+      "fill": "$--background",
+      "cornerRadius": 12,
+      "stroke": {
+        "align": "inside",
+        "thickness": 1,
+        "fill": "$--border"
+      },
+      "effect": {
+        "type": "shadow",
+        "shadowType": "outer",
+        "color": "#00000026",
+        "offset": {
+          "x": 0,
+          "y": 8
+        },
+        "blur": 24
+      },
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "frame",
+          "id": "qNIqQ",
+          "name": "Dialog Header",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 4,
+          "padding": 24,
+          "children": [
+            {
+              "type": "text",
+              "id": "94x8f",
+              "name": "Dialog Title",
+              "fill": "$--foreground",
+              "content": "网络节点",
+              "fontFamily": "Inter",
+              "fontSize": 18,
+              "fontWeight": "600"
+            },
+            {
+              "type": "text",
+              "id": "F9BUq",
+              "name": "Dialog Description",
+              "fill": "$--muted-foreground",
+              "content": "管理 P2P 网络节点的启动和连接状态",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "YSH2i",
+          "name": "Dialog Content",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 16,
+          "padding": [
+            0,
+            24
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "9gNik",
+              "name": "Status Row",
+              "width": "fill_container",
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "DqhoN",
+                  "name": "statusLabel",
+                  "fill": "$--muted-foreground",
+                  "content": "节点状态",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "zipVw",
+                  "name": "Status Badge",
+                  "fill": "$--muted",
+                  "cornerRadius": 4,
+                  "gap": 6,
+                  "padding": [
+                    4,
+                    8
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "5bzrp",
+                      "name": "Status Dot",
+                      "fill": "$--muted-foreground",
+                      "width": 8,
+                      "height": 8
+                    },
+                    {
+                      "type": "text",
+                      "id": "TV7t5",
+                      "name": "statusText",
+                      "fill": "$--muted-foreground",
+                      "content": "未启动",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "8qfHb",
+              "name": "Divider",
+              "width": "fill_container",
+              "height": 1,
+              "fill": "$--border"
+            },
+            {
+              "type": "frame",
+              "id": "os4Ck",
+              "name": "Address Section",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "mHv2I",
+                  "name": "addrLabel",
+                  "fill": "$--muted-foreground",
+                  "content": "监听地址",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                },
+                {
+                  "type": "frame",
+                  "id": "r2iCx",
+                  "name": "Address List",
+                  "width": "fill_container",
+                  "fill": "$--muted",
+                  "cornerRadius": 6,
+                  "layout": "vertical",
+                  "gap": 4,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "aktOL",
+                      "name": "addr1",
+                      "fill": "$--muted-foreground",
+                      "content": "节点未启动",
+                      "fontFamily": "JetBrains Mono, monospace",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "5AhVv",
+                      "name": "addr2",
+                      "enabled": false,
+                      "fill": "$--muted-foreground",
+                      "content": "/ip4/127.0.0.1/tcp/9000",
+                      "fontFamily": "JetBrains Mono, monospace",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "4fEkU",
+              "name": "Divider",
+              "width": "fill_container",
+              "height": 1,
+              "fill": "$--border"
+            },
+            {
+              "type": "frame",
+              "id": "U8rzY",
+              "name": "Stats Row",
+              "width": "fill_container",
+              "gap": 16,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "hdwsi",
+                  "name": "Connected Stat",
+                  "width": "fill_container",
+                  "fill": "$--muted",
+                  "cornerRadius": 6,
+                  "layout": "vertical",
+                  "gap": 4,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "z0vJE",
+                      "name": "connLabel",
+                      "fill": "$--muted-foreground",
+                      "content": "已连接节点",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "HYpSr",
+                      "name": "connValue",
+                      "fill": "$--foreground",
+                      "content": "0",
+                      "fontFamily": "Inter",
+                      "fontSize": 24,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Ug9GV",
+                  "name": "Discovered Stat",
+                  "width": "fill_container",
+                  "fill": "$--muted",
+                  "cornerRadius": 6,
+                  "layout": "vertical",
+                  "gap": 4,
+                  "padding": 12,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "LK31o",
+                      "name": "discLabel",
+                      "fill": "$--muted-foreground",
+                      "content": "已发现节点",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "8KF3E",
+                      "name": "discValue",
+                      "fill": "$--foreground",
+                      "content": "0",
+                      "fontFamily": "Inter",
+                      "fontSize": 24,
+                      "fontWeight": "600"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "ubmlI",
+          "name": "Dialog Footer",
+          "width": "fill_container",
+          "stroke": {
+            "align": "inside",
+            "thickness": {
+              "top": 1
+            },
+            "fill": "$--border"
+          },
+          "gap": 12,
+          "padding": 24,
+          "justifyContent": "end",
+          "children": [
+            {
+              "id": "11DlH",
+              "type": "ref",
+              "ref": "VSnC2",
+              "name": "startBtn",
+              "descendants": {
+                "8jVfJ": {
+                  "enabled": false
+                },
+                "8tnXG": {
+                  "content": "启动节点"
+                }
+              }
             }
           ]
         }

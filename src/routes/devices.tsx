@@ -74,7 +74,7 @@ function DevicesPage() {
   return (
     <main className="flex h-full flex-1 flex-col bg-background">
       {/* Toolbar */}
-      <header className="flex h-[52px] items-center justify-between border-b border-border px-5">
+      <header className="flex h-13 items-center justify-between border-b border-border px-5">
         <div className="flex items-center gap-2">
           <h1 className="text-[15px] font-medium text-foreground">
             <Trans>设备</Trans>
@@ -86,7 +86,7 @@ function DevicesPage() {
             onClick={handleAddDevice}
             className="h-auto gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-[13px] font-medium hover:bg-blue-700"
           >
-            <LinkIcon className="h-4 w-4" />
+            <LinkIcon className="size-4" />
             <Trans>连接设备</Trans>
           </Button>
         </div>

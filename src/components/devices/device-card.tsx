@@ -89,10 +89,10 @@ export function DeviceCard({ device, onSend, onConnect }: DeviceCardProps) {
     <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
+        <div className="flex size-10 items-center justify-center rounded-full bg-muted">
           <DeviceIcon
             className={cn(
-              "h-5 w-5",
+              "size-5",
               isOnline ? "text-blue-600" : "text-muted-foreground"
             )}
           />
@@ -106,7 +106,7 @@ export function DeviceCard({ device, onSend, onConnect }: DeviceCardProps) {
               <>
                 <span
                   className={cn(
-                    "h-1.5 w-1.5 rounded-full",
+                    "size-1.5 rounded-full",
                     isOnline ? "bg-green-500" : "bg-muted-foreground"
                   )}
                 />
@@ -138,7 +138,7 @@ export function DeviceCard({ device, onSend, onConnect }: DeviceCardProps) {
               connConfig.bgColor
             )}
           >
-            <connConfig.icon className={cn("h-2.5 w-2.5", connConfig.textColor)} />
+            <connConfig.icon className={cn("size-2.5", connConfig.textColor)} />
             <span className={cn("text-[10px] font-medium", connConfig.textColor)}>
               {_(connConfig.label)}
             </span>
@@ -163,7 +163,7 @@ export function DeviceCard({ device, onSend, onConnect }: DeviceCardProps) {
                 : "text-muted-foreground"
             )}
           >
-            <Send className="h-3.5 w-3.5" />
+            <Send className="size-3.5" />
             <Trans>发送</Trans>
           </Button>
         ) : (
@@ -173,7 +173,7 @@ export function DeviceCard({ device, onSend, onConnect }: DeviceCardProps) {
             onClick={() => onConnect?.(device)}
             className="h-auto gap-1.5 rounded-md border-blue-600 px-3 py-1.5 text-xs text-blue-600 hover:bg-blue-50"
           >
-            <Link className="h-3.5 w-3.5" />
+            <Link className="size-3.5" />
             <Trans>连接</Trans>
           </Button>
         )}

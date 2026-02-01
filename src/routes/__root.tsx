@@ -1,6 +1,8 @@
 import { createRootRoute, Outlet } from "@tanstack/react-router";
-import { TanStackRouterDevtools } from "@tanstack/router-devtools";
-import { Sidebar } from "@/components/layout/sidebar";
+// import { TanStackRouterDevtools } from "@tanstack/router-devtools";
+import { AppSidebar } from "@/components/layout/sidebar";
+import { NetworkProvider } from "@/contexts/network-context";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
 export const Route = createRootRoute({
   component: RootLayout,
@@ -8,14 +10,21 @@ export const Route = createRootRoute({
 
 function RootLayout() {
   return (
-    <>
-      <div className="flex h-screen bg-background font-sans antialiased">
-        <Sidebar />
-        <div className="flex-1 overflow-hidden">
+    <NetworkProvider>
+      <SidebarProvider
+        className="h-svh"
+        style={
+          {
+            "--sidebar-width": "220px",
+          } as React.CSSProperties
+        }
+      >
+        <AppSidebar />
+        <SidebarInset className="overflow-hidden">
           <Outlet />
-        </div>
-      </div>
-      {import.meta.env.DEV && <TanStackRouterDevtools />}
-    </>
+        </SidebarInset>
+      </SidebarProvider>
+      {/* {import.meta.env.DEV && <TanStackRouterDevtools />} */}
+    </NetworkProvider>
   );
 }
