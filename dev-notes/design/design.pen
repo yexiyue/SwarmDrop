@@ -16993,6 +16993,919 @@
           ]
         }
       ]
+    },
+    {
+      "type": "frame",
+      "id": "ptoz5",
+      "x": 0,
+      "y": 5200,
+      "name": "Auth - Welcome",
+      "theme": {
+        "Accent": "Blue",
+        "Mode": "Light"
+      },
+      "width": 480,
+      "height": 640,
+      "fill": "$--background",
+      "cornerRadius": 12,
+      "layout": "vertical",
+      "gap": 32,
+      "padding": 48,
+      "justifyContent": "center",
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "frame",
+          "id": "zDTCM",
+          "name": "logoFrame",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 16,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "VOflM",
+              "name": "logoIcon",
+              "width": 80,
+              "height": 80,
+              "fill": "$--primary",
+              "cornerRadius": 20,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "4ingA",
+                  "x": 20,
+                  "y": 20,
+                  "name": "logoIconInner",
+                  "width": 40,
+                  "height": 40,
+                  "iconFontName": "send",
+                  "iconFontFamily": "lucide",
+                  "fill": "$--primary-foreground"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "4Z9cr",
+              "name": "appName",
+              "fill": "$--foreground",
+              "content": "SwarmDrop",
+              "fontFamily": "Inter",
+              "fontSize": 32,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "3XgRd",
+              "name": "tagline",
+              "fill": "$--muted-foreground",
+              "content": "安全、快速的跨网络文件传输",
+              "fontFamily": "Inter",
+              "fontSize": 16,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "H0asF",
+          "name": "featuresFrame",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 20,
+          "padding": [
+            24,
+            0
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "jXDRb",
+              "name": "feature1",
+              "width": "fill_container",
+              "gap": 12,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "p8I4r",
+                  "name": "feature1Icon",
+                  "width": 40,
+                  "height": 40,
+                  "fill": "$--secondary",
+                  "cornerRadius": 10,
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "eCAED",
+                      "x": 10,
+                      "y": 10,
+                      "name": "feature1IconInner",
+                      "width": 20,
+                      "height": 20,
+                      "iconFontName": "shield-check",
+                      "iconFontFamily": "lucide",
+                      "fill": "$--foreground"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "vLn06",
+                  "name": "feature1Text",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 2,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "lOAQn",
+                      "name": "feature1Title",
+                      "fill": "$--foreground",
+                      "content": "端到端加密",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "A5scO",
+                      "name": "feature1Desc",
+                      "fill": "$--muted-foreground",
+                      "content": "文件传输全程加密保护",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "atZ0K",
+              "name": "feature2",
+              "width": "fill_container",
+              "gap": 12,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "6kWD5",
+                  "name": "feature2Icon",
+                  "width": 40,
+                  "height": 40,
+                  "fill": "$--secondary",
+                  "cornerRadius": 10,
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "IjzVW",
+                      "x": 10,
+                      "y": 10,
+                      "name": "feature2IconInner",
+                      "width": 20,
+                      "height": 20,
+                      "iconFontName": "globe",
+                      "iconFontFamily": "lucide",
+                      "fill": "$--foreground"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "mYa0R",
+                  "name": "feature2Text",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 2,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "s8rqD",
+                      "name": "feature2Title",
+                      "fill": "$--foreground",
+                      "content": "跨网络传输",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "8BUzA",
+                      "name": "feature2Desc",
+                      "fill": "$--muted-foreground",
+                      "content": "局域网和广域网无缝切换",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "qBOoW",
+              "name": "feature3",
+              "width": "fill_container",
+              "gap": 12,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "1sHNO",
+                  "name": "feature3Icon",
+                  "width": 40,
+                  "height": 40,
+                  "fill": "$--secondary",
+                  "cornerRadius": 10,
+                  "layout": "none",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "C5VfX",
+                      "x": 10,
+                      "y": 10,
+                      "name": "feature3IconInner",
+                      "width": 20,
+                      "height": 20,
+                      "iconFontName": "server-off",
+                      "iconFontFamily": "lucide",
+                      "fill": "$--foreground"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "DfPk0",
+                  "name": "feature3Text",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 2,
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "8SUA7",
+                      "name": "feature3Title",
+                      "fill": "$--foreground",
+                      "content": "无需服务器",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "text",
+                      "id": "7MtaY",
+                      "name": "feature3Desc",
+                      "fill": "$--muted-foreground",
+                      "content": "点对点直连，无需注册账号",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "cVXq3",
+          "type": "ref",
+          "ref": "C3KOZ",
+          "width": "fill_container",
+          "name": "startBtn",
+          "descendants": {
+            "RO4Ll": {
+              "enabled": false
+            },
+            "NEMHS": {
+              "content": "开始使用"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "lMP1m",
+      "x": 580,
+      "y": 5200,
+      "name": "Auth - Set Password",
+      "theme": {
+        "Accent": "Blue",
+        "Mode": "Light"
+      },
+      "width": 480,
+      "height": 640,
+      "fill": "$--background",
+      "cornerRadius": 12,
+      "layout": "vertical",
+      "gap": 24,
+      "padding": 48,
+      "children": [
+        {
+          "type": "frame",
+          "id": "8fkRd",
+          "name": "headerFrame",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "children": [
+            {
+              "type": "frame",
+              "id": "lToK7",
+              "name": "backBtn",
+              "gap": 4,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "jpuPW",
+                  "name": "backIcon",
+                  "width": 16,
+                  "height": 16,
+                  "iconFontName": "arrow-left",
+                  "iconFontFamily": "lucide",
+                  "fill": "$--muted-foreground"
+                },
+                {
+                  "type": "text",
+                  "id": "Ea4z7",
+                  "name": "backText",
+                  "fill": "$--muted-foreground",
+                  "content": "返回",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "mNQAD",
+              "name": "titleFrame",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 4,
+              "padding": [
+                16,
+                0,
+                0,
+                0
+              ],
+              "children": [
+                {
+                  "type": "text",
+                  "id": "fHrBe",
+                  "name": "title",
+                  "fill": "$--foreground",
+                  "content": "创建主密码",
+                  "fontFamily": "Inter",
+                  "fontSize": 24,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "text",
+                  "id": "P7vKD",
+                  "name": "subtitle",
+                  "fill": "$--muted-foreground",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "此密码用于保护您的设备身份，请妥善保管",
+                  "fontFamily": "Inter",
+                  "fontSize": 14,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "8mgn2",
+          "name": "formFrame",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 16,
+          "children": [
+            {
+              "id": "60F8o",
+              "type": "ref",
+              "ref": "1415a",
+              "width": "fill_container",
+              "name": "passwordInput",
+              "descendants": {
+                "BX0XX": {
+                  "content": "密码"
+                },
+                "SDRKn": {
+                  "content": "输入至少 8 位密码"
+                }
+              }
+            },
+            {
+              "id": "29rMR",
+              "type": "ref",
+              "ref": "1415a",
+              "width": "fill_container",
+              "name": "confirmInput",
+              "descendants": {
+                "BX0XX": {
+                  "content": "确认密码"
+                },
+                "SDRKn": {
+                  "content": "再次输入密码"
+                }
+              }
+            },
+            {
+              "type": "frame",
+              "id": "7kbt1",
+              "name": "strengthFrame",
+              "width": "fill_container",
+              "layout": "vertical",
+              "gap": 8,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "oy2sp",
+                  "name": "strengthBar",
+                  "width": "fill_container",
+                  "height": 4,
+                  "gap": 4,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "f8hIq",
+                      "name": "strengthSeg1",
+                      "width": "fill_container",
+                      "height": 4,
+                      "fill": "$--primary",
+                      "cornerRadius": 2
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Ymmfk",
+                      "name": "strengthSeg2",
+                      "width": "fill_container",
+                      "height": 4,
+                      "fill": "$--primary",
+                      "cornerRadius": 2
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Ld8Jf",
+                      "name": "strengthSeg3",
+                      "width": "fill_container",
+                      "height": 4,
+                      "fill": "$--muted",
+                      "cornerRadius": 2
+                    },
+                    {
+                      "type": "frame",
+                      "id": "QQ6wS",
+                      "name": "strengthSeg4",
+                      "width": "fill_container",
+                      "height": 4,
+                      "fill": "$--muted",
+                      "cornerRadius": 2
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "vuoKn",
+                  "name": "strengthText",
+                  "fill": "$--muted-foreground",
+                  "content": "密码强度：中等",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "lmETA",
+          "name": "requirementsFrame",
+          "width": "fill_container",
+          "fill": "$--muted",
+          "cornerRadius": 8,
+          "layout": "vertical",
+          "gap": 8,
+          "padding": 16,
+          "children": [
+            {
+              "type": "text",
+              "id": "ehOdu",
+              "name": "requirementsTitle",
+              "fill": "$--foreground",
+              "content": "密码要求",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "600"
+            },
+            {
+              "type": "frame",
+              "id": "WCC90",
+              "name": "req1",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "MGoey",
+                  "name": "req1Icon",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "check",
+                  "iconFontFamily": "lucide",
+                  "fill": "$--primary"
+                },
+                {
+                  "type": "text",
+                  "id": "DOGPF",
+                  "name": "req1Text",
+                  "fill": "$--muted-foreground",
+                  "content": "至少 8 个字符",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "uuXDA",
+              "name": "req2",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "E9Ms8",
+                  "name": "req2Icon",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "check",
+                  "iconFontFamily": "lucide",
+                  "fill": "$--primary"
+                },
+                {
+                  "type": "text",
+                  "id": "ovSD6",
+                  "name": "req2Text",
+                  "fill": "$--muted-foreground",
+                  "content": "包含字母和数字",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "bWWv8",
+              "name": "req3",
+              "gap": 8,
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "8IHwP",
+                  "name": "req3Icon",
+                  "width": 14,
+                  "height": 14,
+                  "iconFontName": "circle",
+                  "iconFontFamily": "lucide",
+                  "fill": "$--muted-foreground"
+                },
+                {
+                  "type": "text",
+                  "id": "YNHvH",
+                  "name": "req3Text",
+                  "fill": "$--muted-foreground",
+                  "content": "推荐包含特殊字符",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "41rtt",
+          "type": "ref",
+          "ref": "C3KOZ",
+          "width": "fill_container",
+          "name": "nextBtn",
+          "descendants": {
+            "RO4Ll": {
+              "enabled": false
+            },
+            "NEMHS": {
+              "content": "下一步"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "jCSBz",
+      "x": 1160,
+      "y": 5200,
+      "name": "Auth - Enable Biometric",
+      "theme": {
+        "Accent": "Blue",
+        "Mode": "Light"
+      },
+      "width": 480,
+      "height": 480,
+      "fill": "$--background",
+      "cornerRadius": 12,
+      "layout": "vertical",
+      "gap": 32,
+      "padding": 48,
+      "justifyContent": "center",
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "frame",
+          "id": "QrJuq",
+          "name": "bioIconFrame",
+          "width": 120,
+          "height": 120,
+          "fill": "$--secondary",
+          "cornerRadius": 60,
+          "layout": "none",
+          "children": [
+            {
+              "type": "icon_font",
+              "id": "VEIOd",
+              "x": 32,
+              "y": 32,
+              "name": "bioIcon",
+              "width": 56,
+              "height": 56,
+              "iconFontName": "scan-face",
+              "iconFontFamily": "lucide",
+              "fill": "$--foreground"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "DAtBS",
+          "name": "bioTextFrame",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "text",
+              "id": "WOkru",
+              "name": "bioTitle",
+              "fill": "$--foreground",
+              "content": "启用快捷解锁？",
+              "textAlign": "center",
+              "fontFamily": "Inter",
+              "fontSize": 24,
+              "fontWeight": "700"
+            },
+            {
+              "type": "text",
+              "id": "ivC6m",
+              "name": "bioDesc",
+              "fill": "$--muted-foreground",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "使用指纹或面容快速解锁应用，无需每次输入密码",
+              "textAlign": "center",
+              "fontFamily": "Inter",
+              "fontSize": 14,
+              "fontWeight": "normal"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "f0cPf",
+          "name": "buttonsFrame",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 12,
+          "children": [
+            {
+              "id": "zGzEC",
+              "type": "ref",
+              "ref": "C3KOZ",
+              "width": "fill_container",
+              "name": "enableBtn",
+              "descendants": {
+                "RO4Ll": {
+                  "enabled": false
+                },
+                "NEMHS": {
+                  "content": "启用生物识别"
+                }
+              }
+            },
+            {
+              "id": "fMBFa",
+              "type": "ref",
+              "ref": "ghKmL",
+              "width": "fill_container",
+              "name": "skipBtn",
+              "descendants": {
+                "vLff5": {
+                  "enabled": false
+                },
+                "ydXf3": {
+                  "content": "稍后设置"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "BitW4",
+      "x": 1740,
+      "y": 5200,
+      "name": "Auth - Unlock",
+      "theme": {
+        "Accent": "Blue",
+        "Mode": "Light"
+      },
+      "width": 480,
+      "height": 520,
+      "fill": "$--background",
+      "cornerRadius": 12,
+      "layout": "vertical",
+      "gap": 32,
+      "padding": 48,
+      "justifyContent": "center",
+      "alignItems": "center",
+      "children": [
+        {
+          "type": "frame",
+          "id": "OyIy6",
+          "name": "unlockLogoFrame",
+          "layout": "vertical",
+          "gap": 12,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "Ge7hs",
+              "name": "unlockLogo",
+              "width": 64,
+              "height": 64,
+              "fill": "$--primary",
+              "cornerRadius": 16,
+              "layout": "none",
+              "children": [
+                {
+                  "type": "icon_font",
+                  "id": "vJMaZ",
+                  "x": 16,
+                  "y": 16,
+                  "name": "unlockLogoIcon",
+                  "width": 32,
+                  "height": 32,
+                  "iconFontName": "send",
+                  "iconFontFamily": "lucide",
+                  "fill": "$--primary-foreground"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "xmU6D",
+              "name": "unlockTitle",
+              "fill": "$--foreground",
+              "content": "SwarmDrop",
+              "fontFamily": "Inter",
+              "fontSize": 20,
+              "fontWeight": "600"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "JDoyJ",
+          "name": "bioUnlockBtn",
+          "width": 80,
+          "height": 80,
+          "fill": "$--secondary",
+          "cornerRadius": 40,
+          "layout": "none",
+          "children": [
+            {
+              "type": "icon_font",
+              "id": "Wk16Q",
+              "x": 20,
+              "y": 20,
+              "name": "bioUnlockIcon",
+              "width": 40,
+              "height": 40,
+              "iconFontName": "scan-face",
+              "iconFontFamily": "lucide",
+              "fill": "$--foreground"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "xMYIG",
+          "name": "dividerFrame",
+          "width": "fill_container",
+          "gap": 16,
+          "alignItems": "center",
+          "children": [
+            {
+              "type": "frame",
+              "id": "SLCGs",
+              "name": "dividerLine1",
+              "width": "fill_container",
+              "height": 1,
+              "fill": "$--border"
+            },
+            {
+              "type": "text",
+              "id": "Nz37F",
+              "name": "dividerText",
+              "fill": "$--muted-foreground",
+              "content": "或",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "normal"
+            },
+            {
+              "type": "frame",
+              "id": "GE2yR",
+              "name": "dividerLine2",
+              "width": "fill_container",
+              "height": 1,
+              "fill": "$--border"
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "EqkPN",
+          "name": "formFrame2",
+          "width": "fill_container",
+          "layout": "vertical",
+          "gap": 16,
+          "children": [
+            {
+              "id": "hBSNB",
+              "type": "ref",
+              "ref": "1415a",
+              "width": "fill_container",
+              "name": "passwordInput2",
+              "descendants": {
+                "QRy7x": {
+                  "enabled": false
+                },
+                "SDRKn": {
+                  "content": "输入密码"
+                }
+              }
+            },
+            {
+              "id": "IL1Xl",
+              "type": "ref",
+              "ref": "C3KOZ",
+              "width": "fill_container",
+              "name": "unlockBtn",
+              "descendants": {
+                "RO4Ll": {
+                  "enabled": false
+                },
+                "NEMHS": {
+                  "content": "解锁"
+                }
+              }
+            }
+          ]
+        }
+      ]
     }
   ],
   "themes": {

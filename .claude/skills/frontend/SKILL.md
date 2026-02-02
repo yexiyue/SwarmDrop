@@ -1,11 +1,11 @@
 ---
 name: frontend
-description: 前端开发最佳实践指南。包含 TanStack Router、Lingui 国际化、React 等库的最佳实践和模式。当编写、审查或重构前端代码时使用。触发场景包括：路由配置、数据加载、搜索参数、认证守卫、代码分割、导航模式、国际化翻译、多语言支持等。
+description: 前端开发最佳实践指南。包含 TanStack Router、Zustand 状态管理、Lingui 国际化、React 等库的最佳实践和模式。当编写、审查或重构前端代码时使用。触发场景包括：路由配置、数据加载、搜索参数、认证守卫、代码分割、导航模式、状态管理、全局状态、Store 设计、国际化翻译、多语言支持等。
 ---
 
 # 前端最佳实践
 
-前端开发的类型安全和性能优化指南，包含 TanStack Router 和 Lingui 国际化相关规则。
+前端开发的类型安全和性能优化指南，包含 TanStack Router、Zustand 状态管理和 Lingui 国际化相关规则。
 
 ## 何时使用
 
@@ -16,6 +16,9 @@ description: 前端开发最佳实践指南。包含 TanStack Router、Lingui �
 - 设置认证和受保护路由
 - 组织路由文件和代码分割
 - 实现导航模式
+- 设计全局状态管理 (Zustand)
+- 创建 Store、Slices 和 Selectors
+- 持久化状态到 localStorage 或自定义存储
 - 添加多语言支持和国际化
 - 处理翻译消息和复数形式
 
@@ -29,6 +32,16 @@ description: 前端开发最佳实践指南。包含 TanStack Router、Lingui �
 | 4 | 认证守卫 | 中高 | `auth-` |
 | 5 | 代码分割 | 中 | `split-` |
 | 6 | 导航模式 | 中 | `nav-` |
+
+## Zustand 状态管理规则分类
+
+| 优先级 | 分类 | 影响 | 前缀 |
+|--------|------|------|------|
+| 1 | Store 模式 | 高 | `zustand-` |
+| 2 | Selectors | 高 | `zustand-` |
+| 3 | Slices 模式 | 中高 | `zustand-` |
+| 4 | 持久化 | 中 | `zustand-` |
+| 5 | TypeScript | 中 | `zustand-` |
 
 ## Lingui 国际化规则分类
 
@@ -71,6 +84,28 @@ description: 前端开发最佳实践指南。包含 TanStack Router、Lingui �
 
 - `nav-link-component` - 优先使用 Link 组件而非 useNavigate
 - `nav-preload-intent` - 使用 preload="intent" 加速导航
+
+### Zustand 状态管理规则
+
+### 1. Store 模式 (高优先级)
+
+- `zustand-store-pattern` - 使用 hook-based store 模式，保持简洁
+
+### 2. Selectors (高优先级)
+
+- `zustand-selectors` - 使用 selectors 避免不必要的重渲染
+
+### 3. Slices 模式 (中高优先级)
+
+- `zustand-slices` - 大型应用使用 slices 模式组织状态
+
+### 4. 持久化 (中优先级)
+
+- `zustand-persist` - 使用 persist middleware 实现状态持久化
+
+### 5. TypeScript (中优先级)
+
+- `zustand-typescript` - 正确使用 TypeScript 类型定义
 
 ### Lingui 国际化规则
 
@@ -167,6 +202,52 @@ export const Route = createFileRoute('/posts')({
 export const Route = createLazyFileRoute('/posts')({
   component: PostsComponent,
 })
+```
+
+### Zustand 状态管理模式
+
+```tsx
+import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
+import { useShallow } from 'zustand/react/shallow'
+
+// 基础 Store 模式
+interface BearState {
+  bears: number
+  increase: () => void
+  reset: () => void
+}
+
+const useBearStore = create<BearState>()((set) => ({
+  bears: 0,
+  increase: () => set((state) => ({ bears: state.bears + 1 })),
+  reset: () => set({ bears: 0 }),
+}))
+
+// 使用 selector 避免重渲染
+function BearCounter() {
+  const bears = useBearStore((state) => state.bears)
+  return <h1>{bears} bears</h1>
+}
+
+// useShallow 选择多个值
+function BearStats() {
+  const { bears, increase } = useBearStore(
+    useShallow((state) => ({ bears: state.bears, increase: state.increase }))
+  )
+  return <button onClick={increase}>{bears} bears</button>
+}
+
+// persist 中间件
+const useSettingsStore = create<SettingsState>()(
+  persist(
+    (set) => ({
+      theme: 'light',
+      setTheme: (theme) => set({ theme }),
+    }),
+    { name: 'settings-storage' }
+  )
+)
 ```
 
 ### Lingui 国际化模式
