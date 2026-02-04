@@ -3,9 +3,8 @@
  * 使用 Zustand + Stronghold 安全存储密钥对
  */
 
-import { createWithEqualityFn } from "zustand/traditional";
+import { create } from "zustand";
 import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
-import { shallow } from "zustand/shallow";
 import { getStrongholdStorage, isStrongholdInitialized } from "@/lib/stronghold";
 import { generateKeypair, registerKeypair } from "@/commands/identity";
 
@@ -72,7 +71,7 @@ const lazyStrongholdStorage: StateStorage = {
   },
 };
 
-export const useSecretStore = createWithEqualityFn<SecretState>()(
+export const useSecretStore = create<SecretState>()(
   persist(
     (set, get) => ({
       keypair: null,
@@ -133,8 +132,7 @@ export const useSecretStore = createWithEqualityFn<SecretState>()(
       name: "secret-store",
       storage: createJSONStorage(() => lazyStrongholdStorage),
     }
-  ),
-  shallow
+  )
 );
 
 /**

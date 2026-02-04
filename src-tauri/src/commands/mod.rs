@@ -53,9 +53,8 @@ pub async fn start(
 #[tauri::command]
 pub async fn shutdown(app: AppHandle) -> crate::AppResult<()> {
     if let Some(state) = app.try_state::<NetClientState>() {
-        if let Some(client) = state.lock().await.take() {
-            client.shutdown();
-        }
+        // drop client 会关闭 command channel，通知 runtime 停止
+        state.lock().await.take();
     }
 
     Ok(())

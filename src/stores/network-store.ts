@@ -3,8 +3,7 @@
  * 管理 P2P 网络状态和设备列表
  */
 
-import { createWithEqualityFn } from "zustand/traditional";
-import { shallow } from "zustand/shallow";
+import { create } from "zustand";
 import type { Device, DeviceType, ConnectionType } from "@/components/devices/device-card";
 import type { NodeEvent, PeerId, Multiaddr, NatStatus } from "@/commands/network";
 import { start, shutdown } from "@/commands/network";
@@ -143,7 +142,7 @@ export const selectConnectedCount = (state: NetworkState): number =>
 export const selectDiscoveredCount = (state: NetworkState): number =>
   state.peers.size;
 
-export const useNetworkStore = createWithEqualityFn<NetworkState>()(
+export const useNetworkStore = create<NetworkState>()(
   (set, get) => ({
   status: "stopped",
   listenAddrs: [],
@@ -348,6 +347,5 @@ export const useNetworkStore = createWithEqualityFn<NetworkState>()(
   clearError() {
     set({ error: null });
   },
-  }),
-  shallow
+  })
 );
