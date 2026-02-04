@@ -1,8 +1,6 @@
 mod identity;
-mod keychain;
 
 pub use identity::*;
-pub use keychain::*;
 
 use swarm_p2p_core::{libp2p::identity::Keypair, NetClient, NodeConfig, NodeEvent};
 use tauri::{ipc::Channel, AppHandle, Manager, State};

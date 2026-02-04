@@ -36,9 +36,6 @@ pub fn run() {
             commands::shutdown,
             commands::generate_keypair,
             commands::register_keypair,
-            commands::keychain_set,
-            commands::keychain_get,
-            commands::keychain_delete,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

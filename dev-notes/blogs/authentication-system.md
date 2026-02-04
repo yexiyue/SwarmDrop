@@ -56,20 +56,17 @@ graph TB
 
     subgraph Security["安全层"]
         SH[Stronghold<br/>加密存储]
-        KC[Keychain<br/>系统密钥链]
-        BIO[Biometry<br/>生物识别]
+        BIO[Biometry<br/>生物识别 + 安全存储]
     end
 
     W --> SP --> EB --> APP
     UL --> APP
 
     AS --> |解锁| SH
-    AS --> |存取密码| KC
-    AS --> |验证| BIO
+    AS --> |存取密码 + 验证| BIO
     SH --> SS
 
     style SH fill:#ff6b6b,color:#fff
-    style KC fill:#4ecdc4,color:#fff
     style BIO fill:#45b7d1,color:#fff
 ```
 
@@ -80,8 +77,7 @@ graph TB
 | 路由 | TanStack Router | 文件路由、类型安全、路由守卫 |
 | 状态管理 | Zustand + persist | 轻量、支持部分持久化 |
 | 加密存储 | Stronghold | 用户密码保护的安全存储 |
-| 系统密钥链 | keyring-core | 跨平台系统凭据存储 |
-| 生物识别 | tauri-plugin-biometry | 指纹/面容验证 |
+| 生物识别 + 密钥存储 | tauri-plugin-biometry | 指纹/面容验证 + 安全数据存储 |
 | UI | shadcn/ui + Aurora | 现代化设计语言 |
 | 国际化 | Lingui | 编译时提取、类型安全 |
 
@@ -97,7 +93,7 @@ sequenceDiagram
     participant EB as EnableBiometric
     participant AS as AuthStore
     participant SH as Stronghold
-    participant KC as Keychain
+    participant BIO as Biometry
 
     U->>W: 启动应用
     W->>SP: 点击"开始使用"
@@ -116,8 +112,9 @@ sequenceDiagram
 
     alt 启用生物识别
         U->>EB: 点击"启用"
-        EB->>KC: keychainSet("stronghold_password", password)
-        KC-->>EB: 存储成功
+        EB->>BIO: setData(domain, name, password)
+        Note over BIO: 存储到系统安全存储
+        BIO-->>EB: 存储成功
         EB->>AS: biometricEnabled = true
     else 跳过
         U->>EB: 点击"稍后设置"
@@ -164,7 +161,6 @@ sequenceDiagram
     participant UL as Unlock
     participant AS as AuthStore
     participant BIO as Biometry
-    participant KC as Keychain
     participant SH as Stronghold
 
     U->>UL: 启动应用
@@ -173,13 +169,11 @@ sequenceDiagram
     U->>UL: 点击生物识别图标
     UL->>AS: unlockWithBiometric()
 
-    AS->>BIO: authenticate("解锁 SwarmDrop")
-    Note over BIO: 系统弹出指纹/面容验证
+    AS->>BIO: getData(domain, name, reason)
+    Note over BIO: 自动触发指纹/面容验证
 
     alt 验证成功
-        BIO-->>AS: 认证通过
-        AS->>KC: keychainGet("stronghold_password")
-        KC-->>AS: 返回密码
+        BIO-->>AS: 返回密码
         AS->>SH: initStronghold(password)
         SH-->>AS: 解锁成功
         AS-->>UL: isUnlocked = true
@@ -300,14 +294,17 @@ stateDiagram-v2
 // src/stores/auth-store.ts
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { keychainGet, keychainSet, keychainDelete } from "@/commands/keychain";
 import { rehydrateSecretStore } from "@/stores/secret-store";
 import {
   checkStatus,
-  authenticate,
+  setData,
+  getData,
+  removeData,
   BiometryType,
 } from "@choochmeque/tauri-plugin-biometry-api";
 
+/** Biometry 数据存储配置 */
+const BIOMETRY_DOMAIN = "com.gy.swarmdrop";
 const STRONGHOLD_PASSWORD_KEY = "stronghold_password";
 
 interface AuthState {
@@ -360,8 +357,12 @@ export const useAuthStore = create<AuthState>()(
         const pwd = password || get()._tempPassword;
         if (!pwd) throw new Error("无法获取密码");
 
-        // 将密码存储到系统密钥链
-        await keychainSet(STRONGHOLD_PASSWORD_KEY, pwd);
+        // 使用 biometry 插件将密码存储到系统安全存储
+        await setData({
+          domain: BIOMETRY_DOMAIN,
+          name: STRONGHOLD_PASSWORD_KEY,
+          data: pwd,
+        });
         set({ biometricEnabled: true, _tempPassword: null });
       },
 
@@ -376,15 +377,15 @@ export const useAuthStore = create<AuthState>()(
 
       // 生物识别解锁
       async unlockWithBiometric() {
-        // 触发系统生物识别验证
-        await authenticate("解锁 SwarmDrop", {
-          fallbackTitle: "使用密码",
-          cancelTitle: "取消",
-          allowDeviceCredential: true,
+        // 使用 biometry 插件获取密码（会自动触发生物识别验证）
+        const response = await getData({
+          domain: BIOMETRY_DOMAIN,
+          name: STRONGHOLD_PASSWORD_KEY,
+          reason: "Unlock SwarmDrop",
+          cancelTitle: "Cancel",
         });
 
-        // 从系统密钥链获取密码
-        const password = await keychainGet(STRONGHOLD_PASSWORD_KEY);
+        const password = response.data;
         if (!password) throw new Error("未找到存储的密码");
 
         // 使用密码解锁
@@ -424,7 +425,7 @@ graph TB
         TP[_tempPassword]
     end
 
-    subgraph 安全存储["系统密钥链 (Keychain)"]
+    subgraph 安全存储["Biometry 安全存储"]
         PWD[stronghold_password]
     end
 
@@ -435,87 +436,39 @@ graph TB
     style 安全存储 fill:#45b7d1,color:#fff
 ```
 
-### 第四步：跨平台密钥链实现
+### 第四步：Biometry 插件的安全存储
 
-创建 Rust 后端命令，使用各平台原生的密钥链存储密码：
+`tauri-plugin-biometry` 插件提供了 `setData`/`getData`/`removeData` API，可以将敏感数据存储到系统安全存储中，并与生物识别验证绑定：
 
-```rust
-// src-tauri/src/commands/keychain.rs
-use keyring_core::Entry;
-use std::sync::Once;
+```typescript
+import { setData, getData, removeData } from "@choochmeque/tauri-plugin-biometry-api";
 
-const SERVICE: &str = "com.gy.swarmdrop";
-static INIT: Once = Once::new();
+// 存储数据到系统安全存储
+await setData({
+  domain: "com.gy.swarmdrop",
+  name: "stronghold_password",
+  data: password,
+});
 
-/// 初始化平台特定的 keyring store
-fn init_keyring_store() {
-    INIT.call_once(|| {
-        #[cfg(target_os = "macos")]
-        {
-            let store = apple_native_keyring_store::Store::new()
-                .expect("Failed to create keychain store");
-            keyring_core::set_default_store(store);
-        }
+// 获取数据（会自动触发生物识别验证）
+const response = await getData({
+  domain: "com.gy.swarmdrop",
+  name: "stronghold_password",
+  reason: "Unlock SwarmDrop",
+});
+const password = response.data;
 
-        #[cfg(target_os = "ios")]
-        {
-            let store = apple_native_keyring_store::Store::new()
-                .expect("Failed to create keychain store");
-            keyring_core::set_default_store(store);
-        }
-
-        #[cfg(target_os = "windows")]
-        {
-            let store = windows_native_keyring_store::Store::new()
-                .expect("Failed to create credential store");
-            keyring_core::set_default_store(store);
-        }
-
-        #[cfg(target_os = "linux")]
-        {
-            let store = dbus_secret_service_keyring_store::Store::new()
-                .expect("Failed to create secret service store");
-            keyring_core::set_default_store(store);
-        }
-
-        #[cfg(target_os = "android")]
-        {
-            let store = android_native_keyring_store::Store::new()
-                .expect("Failed to create android keystore");
-            keyring_core::set_default_store(store);
-        }
-    });
-}
-
-#[tauri::command]
-pub async fn keychain_set(key: String, value: String) -> AppResult<()> {
-    init_keyring_store();
-    let entry = Entry::new(SERVICE, &key)?;
-    entry.set_password(&value)?;
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn keychain_get(key: String) -> AppResult<Option<String>> {
-    init_keyring_store();
-    let entry = Entry::new(SERVICE, &key)?;
-    match entry.get_password() {
-        Ok(pass) => Ok(Some(pass)),
-        Err(keyring_core::Error::NoEntry) => Ok(None),
-        Err(e) => Err(e.into()),
-    }
-}
-
-#[tauri::command]
-pub async fn keychain_delete(key: String) -> AppResult<()> {
-    init_keyring_store();
-    let entry = Entry::new(SERVICE, &key)?;
-    match entry.delete_credential() {
-        Ok(()) | Err(keyring_core::Error::NoEntry) => Ok(()),
-        Err(e) => Err(e.into()),
-    }
-}
+// 删除数据
+await removeData({
+  domain: "com.gy.swarmdrop",
+  name: "stronghold_password",
+});
 ```
+
+**优势：**
+- 无需自己实现跨平台密钥链代码
+- `getData` 自动触发生物识别验证，无需分两步调用
+- 插件内部使用各平台原生安全存储
 
 **跨平台存储位置：**
 
@@ -523,7 +476,7 @@ pub async fn keychain_delete(key: String) -> AppResult<()> {
 |------|----------|----------|
 | macOS | Keychain Services | 硬件加密、ACL 控制 |
 | iOS | Keychain Services | Secure Enclave 保护 |
-| Windows | Credential Manager | DPAPI 加密 |
+| Windows | Windows Hello + Credential Manager | AES-256 加密 |
 | Linux | Secret Service (GNOME Keyring/KWallet) | 会话密钥保护 |
 | Android | Android Keystore | TEE/StrongBox |
 
@@ -761,9 +714,9 @@ graph TB
         VAULT[(vault.hold)]
     end
 
-    subgraph Keychain["系统密钥链 (可选)"]
+    subgraph Biometry["Biometry 安全存储 (可选)"]
         KC_PWD["存储主密码"]
-        BIO["生物识别保护"]
+        BIO["生物识别验证"]
     end
 
     PWD --> ARGON
@@ -782,7 +735,7 @@ graph TB
 | 方面 | 实现方式 | 安全等级 |
 |------|----------|----------|
 | 密码存储 | Argon2id + Stronghold AES-256-GCM | 高 |
-| 生物识别密码 | 系统密钥链 (Keychain/Credential Manager) | 高 |
+| 生物识别密码 | Biometry 插件安全存储 (Keychain/Windows Hello) | 高 |
 | 运行时状态 | 内存中，不持久化 isUnlocked | 中 |
 | 临时密码 | 设置完成后立即清除 | 中 |
 | 密码强度 | 强制 8+ 字符 + 字母数字 | 中 |
@@ -798,16 +751,16 @@ graph LR
     end
 
     subgraph 依赖系统安全
-        D[Root 访问] --> |Keychain 保护| KC
+        D[Root 访问] --> |安全存储保护| BIO_STORE
         E[物理攻击] --> |取决于设备| BIO
     end
 
     VAULT[(Stronghold)]
-    KC[系统密钥链]
+    BIO_STORE[Biometry 安全存储]
     BIO[生物识别]
 
     style VAULT fill:#22c55e,color:#fff
-    style KC fill:#f59e0b,color:#fff
+    style BIO_STORE fill:#f59e0b,color:#fff
     style BIO fill:#f59e0b,color:#fff
 ```
 
@@ -817,24 +770,10 @@ graph LR
 
 ```toml
 [dependencies]
-# 密钥链核心
-keyring-core = "0.1"
-
-# 平台特定实现
-[target.'cfg(target_os = "macos")'.dependencies]
-apple-native-keyring-store = "0.1"
-
-[target.'cfg(target_os = "ios")'.dependencies]
-apple-native-keyring-store = "0.1"
-
-[target.'cfg(target_os = "windows")'.dependencies]
-windows-native-keyring-store = "0.1"
-
-[target.'cfg(target_os = "linux")'.dependencies]
-dbus-secret-service-keyring-store = "0.1"
-
-[target.'cfg(target_os = "android")'.dependencies]
-android-native-keyring-store = "0.1"
+# 加密存储
+tauri-plugin-stronghold = "2"
+# 生物识别 + 安全存储
+tauri-plugin-biometry = "0.2"
 ```
 
 ### 前端依赖 (package.json)
@@ -851,16 +790,16 @@ pnpm add @choochmeque/tauri-plugin-biometry-api
     "stronghold:default",
     "stronghold:allow-initialize",
     "stronghold:allow-save",
-    "biometry:default",
-    "biometry:allow-authenticate",
-    "biometry:allow-check-status"
+    "biometry:default"
   ]
 }
 ```
 
+> **注意：** `biometry:default` 包含了 `authenticate`、`check-status`、`set-data`、`get-data`、`has-data`、`remove-data` 等所有权限。
+
 ## 文件结构总览
 
-```
+```text
 swarmdrop/
 ├── src/
 │   ├── routes/
@@ -875,11 +814,8 @@ swarmdrop/
 │   │   └── _app/
 │   │       └── devices.lazy.tsx    # 设备列表
 │   ├── stores/
-│   │   ├── auth-store.ts           # 认证状态管理
+│   │   ├── auth-store.ts           # 认证状态管理（含 biometry 调用）
 │   │   └── secret-store.ts         # 密钥存储
-│   ├── commands/
-│   │   ├── keychain.ts             # 密钥链命令封装
-│   │   └── identity.ts             # 身份命令封装
 │   ├── lib/
 │   │   └── stronghold.ts           # Stronghold 适配器
 │   └── components/ui/
@@ -888,7 +824,6 @@ swarmdrop/
 └── src-tauri/src/
     ├── commands/
     │   ├── mod.rs
-    │   ├── keychain.rs             # 密钥链命令
     │   └── identity.rs             # 身份命令
     └── lib.rs                      # Tauri 入口
 ```
@@ -932,7 +867,6 @@ console.log({
 
 - [TanStack Router - File-based Routing](https://tanstack.com/router/latest/docs/framework/react/guide/file-based-routing)
 - [Zustand - Persist Middleware](https://docs.pmnd.rs/zustand/integrations/persisting-store-data)
-- [keyring-core](https://github.com/AlistairKeiller/keyring-core) - 跨平台密钥链抽象
-- [tauri-plugin-biometry](https://github.com/AlistairKeiller/keyring-core) - Tauri 生物识别插件
+- [tauri-plugin-biometry](https://crates.io/crates/tauri-plugin-biometry) - Tauri 生物识别 + 安全存储插件
 - [IOTA Stronghold](https://github.com/iotaledger/stronghold.rs) - 安全存储库
 - [Aceternity UI - Aurora Background](https://ui.aceternity.com/components/aurora-background) - Aurora 背景组件
