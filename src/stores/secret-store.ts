@@ -3,22 +3,46 @@
  * 使用 Zustand + Stronghold 安全存储密钥对
  */
 
-import { create } from "zustand";
+import { createWithEqualityFn } from "zustand/traditional";
 import { createJSONStorage, persist, type StateStorage } from "zustand/middleware";
+import { shallow } from "zustand/shallow";
 import { getStrongholdStorage, isStrongholdInitialized } from "@/lib/stronghold";
 import { generateKeypair, registerKeypair } from "@/commands/identity";
+
+/** 已配对设备信息（持久化存储） */
+export interface PairedDevice {
+  /** PeerId */
+  id: string;
+  /** 设备名称 */
+  name: string;
+  /** 操作系统类型（原始值，如 windows, macos, linux, ios, android） */
+  os: string;
+  /** 配对时间戳 */
+  pairedAt: number;
+}
 
 interface SecretState {
   /** protobuf 编码的密钥对 */
   keypair: number[] | null;
   /** 设备 ID (PeerId) */
   deviceId: string | null;
+  /** 已配对设备列表 */
+  pairedDevices: PairedDevice[];
   /** 是否已完成 hydration */
   _hasHydrated: boolean;
+
+  // === Actions ===
+
   /** 设置 hydration 状态 */
   setHasHydrated: (state: boolean) => void;
   /** 初始化密钥对（生成或加载） */
   init: () => Promise<void>;
+  /** 添加已配对设备 */
+  addPairedDevice: (device: Omit<PairedDevice, "pairedAt">) => void;
+  /** 移除已配对设备 */
+  removePairedDevice: (id: string) => void;
+  /** 更新已配对设备名称 */
+  updatePairedDeviceName: (id: string, name: string) => void;
 }
 
 /**
@@ -48,11 +72,12 @@ const lazyStrongholdStorage: StateStorage = {
   },
 };
 
-export const useSecretStore = create(
-  persist<SecretState>(
+export const useSecretStore = createWithEqualityFn<SecretState>()(
+  persist(
     (set, get) => ({
       keypair: null,
       deviceId: null,
+      pairedDevices: [],
       _hasHydrated: false,
 
       setHasHydrated: (state) => set({ _hasHydrated: state }),
@@ -75,12 +100,41 @@ export const useSecretStore = create(
           console.log("Keypair loaded, deviceId:", deviceId);
         }
       },
+
+      addPairedDevice(device) {
+        const { pairedDevices } = get();
+        // 检查是否已存在
+        if (pairedDevices.some((d) => d.id === device.id)) {
+          return;
+        }
+        set({
+          pairedDevices: [
+            ...pairedDevices,
+            { ...device, pairedAt: Date.now() },
+          ],
+        });
+      },
+
+      removePairedDevice(id) {
+        set({
+          pairedDevices: get().pairedDevices.filter((d) => d.id !== id),
+        });
+      },
+
+      updatePairedDeviceName(id, name) {
+        set({
+          pairedDevices: get().pairedDevices.map((d) =>
+            d.id === id ? { ...d, name } : d
+          ),
+        });
+      },
     }),
     {
       name: "secret-store",
       storage: createJSONStorage(() => lazyStrongholdStorage),
     }
-  )
+  ),
+  shallow
 );
 
 /**

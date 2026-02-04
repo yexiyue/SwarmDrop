@@ -3,18 +3,21 @@
  * 管理应用认证状态
  */
 
-import { create } from "zustand";
+import { createWithEqualityFn } from "zustand/traditional";
 import { persist } from "zustand/middleware";
-import { keychainGet, keychainSet, keychainDelete } from "@/commands/keychain";
+import { shallow } from "zustand/shallow";
 import { rehydrateSecretStore } from "@/stores/secret-store";
 import {
   checkStatus,
-  authenticate,
+  setData,
+  getData,
+  removeData,
   BiometryType,
   type Status,
 } from "@choochmeque/tauri-plugin-biometry-api";
 
-/** Keychain 中存储 Stronghold 密码的键名 */
+/** Biometry 数据存储配置 */
+const BIOMETRY_DOMAIN = "com.gy.swarmdrop";
 const STRONGHOLD_PASSWORD_KEY = "stronghold_password";
 
 // 重新导出 BiometryType 供外部使用
@@ -88,7 +91,7 @@ interface AuthState {
   clearError: () => void;
 }
 
-export const useAuthStore = create<AuthState>()(
+export const useAuthStore = createWithEqualityFn<AuthState>()(
   persist(
     (set, get) => ({
       isSetupComplete: false,
@@ -168,8 +171,12 @@ export const useAuthStore = create<AuthState>()(
             throw new Error("password_not_found");
           }
 
-          // 将密码存储到系统密钥链
-          await keychainSet(STRONGHOLD_PASSWORD_KEY, pwd);
+          // 使用 biometry 插件将密码存储到系统安全存储
+          await setData({
+            domain: BIOMETRY_DOMAIN,
+            name: STRONGHOLD_PASSWORD_KEY,
+            data: pwd,
+          });
           set({
             biometricEnabled: true,
             isLoading: false,
@@ -188,8 +195,11 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
 
         try {
-          // 从系统密钥链删除密码
-          await keychainDelete(STRONGHOLD_PASSWORD_KEY);
+          // 使用 biometry 插件从系统安全存储删除密码
+          await removeData({
+            domain: BIOMETRY_DOMAIN,
+            name: STRONGHOLD_PASSWORD_KEY,
+          });
           set({ biometricEnabled: false, isLoading: false });
         } catch (err) {
           set({
@@ -238,16 +248,16 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
 
         try {
-          // 触发系统生物识别验证
-          // 注意：这些字符串由系统 API 显示，不经过我们的 i18n 系统
-          await authenticate("Unlock SwarmDrop", {
-            fallbackTitle: "Use Password",
+          // 使用 biometry 插件获取密码（会自动触发生物识别验证）
+          // 注意：reason 字符串由系统 API 显示，不经过我们的 i18n 系统
+          const response = await getData({
+            domain: BIOMETRY_DOMAIN,
+            name: STRONGHOLD_PASSWORD_KEY,
+            reason: "Unlock SwarmDrop",
             cancelTitle: "Cancel",
-            allowDeviceCredential: true,
           });
 
-          // 从系统密钥链获取密码
-          const password = await keychainGet(STRONGHOLD_PASSWORD_KEY);
+          const password = response.data;
           if (!password) {
             throw new Error("stored_password_not_found");
           }
@@ -290,5 +300,6 @@ export const useAuthStore = create<AuthState>()(
         biometricEnabled: state.biometricEnabled,
       }),
     }
-  )
+  ),
+  shallow
 );

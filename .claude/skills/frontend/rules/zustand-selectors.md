@@ -5,9 +5,10 @@
 ## 规则
 
 1. 始终使用 selector 函数选择需要的状态片段
-2. 使用 `useShallow` 选择多个值，避免对象引用变化导致重渲染
-3. 避免在 selector 中创建新对象/数组
-4. 考虑使用自动生成 selectors 的模式
+2. **优先使用 `createWithEqualityFn` 创建 store**，自动应用 shallow 比较
+3. 如果 store 已用 `create` 创建，使用 `useShallow` 选择多个值
+4. 避免在 selector 中创建新对象/数组
+5. 考虑使用自动生成 selectors 的模式
 
 ## 正确示例
 
@@ -137,6 +138,6 @@ const bears = useBearStore((s) => s.bears, Object.is)
 ## 性能提示
 
 - 单个原始值：直接 selector
-- 多个值：使用 `useShallow` 或 `createWithEqualityFn` + `shallow`
+- 多个值：**优先使用 `createWithEqualityFn`**，次选 `useShallow`
 - 衍生数据：考虑在 store 中预计算或使用 `useMemo`
-- 如果大部分使用场景都需要 shallow 比较，推荐使用 `createWithEqualityFn`
+- **新建 store 时统一使用 `createWithEqualityFn`**，避免每次使用时都要记住加 `useShallow`

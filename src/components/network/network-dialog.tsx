@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
-import { useNetwork, type NodeStatus } from "@/contexts/network-context";
+import { useNetworkStore, type NodeStatus } from "@/stores/network-store";
 import { Trans } from "@lingui/react/macro";
 import { useLingui } from "@lingui/react/macro";
 import { msg } from "@lingui/core/macro";
@@ -59,13 +59,21 @@ export function NetworkDialog({ open, onOpenChange }: NetworkDialogProps) {
   const { t } = useLingui();
   const {
     status,
-    listeningAddrs,
-    connectedPeers,
-    discoveredPeers,
+    listenAddrs,
     error,
-    startNode,
-    stopNode,
-  } = useNetwork();
+    startNetwork,
+    stopNetwork,
+    getConnectedCount,
+    getDiscoveredCount,
+  } = useNetworkStore((state) => ({
+    status: state.status,
+    listenAddrs: state.listenAddrs,
+    error: state.error,
+    startNetwork: state.startNetwork,
+    stopNetwork: state.stopNetwork,
+    getConnectedCount: state.getConnectedCount,
+    getDiscoveredCount: state.getDiscoveredCount,
+  }));
 
   const config = statusConfig[status];
   const isRunning = status === "running";
@@ -73,9 +81,9 @@ export function NetworkDialog({ open, onOpenChange }: NetworkDialogProps) {
 
   const handleAction = async () => {
     if (isRunning) {
-      await stopNode();
+      await stopNetwork();
     } else if (!isStarting) {
-      await startNode();
+      await startNetwork();
     }
   };
 
@@ -120,9 +128,9 @@ export function NetworkDialog({ open, onOpenChange }: NetworkDialogProps) {
             </span>
             <Card className="gap-0 bg-muted/50 py-0">
               <CardContent className="p-3">
-                {listeningAddrs.length > 0 ? (
+                {listenAddrs.length > 0 ? (
                   <div className="flex flex-col gap-1">
-                    {listeningAddrs.map((addr, i) => (
+                    {listenAddrs.map((addr, i) => (
                       <code
                         key={i}
                         className={cn(
@@ -153,7 +161,7 @@ export function NetworkDialog({ open, onOpenChange }: NetworkDialogProps) {
                   <Trans>已连接节点</Trans>
                 </span>
                 <span className="text-2xl font-semibold text-foreground">
-                  {connectedPeers.size}
+                  {getConnectedCount()}
                 </span>
               </CardContent>
             </Card>
@@ -163,7 +171,7 @@ export function NetworkDialog({ open, onOpenChange }: NetworkDialogProps) {
                   <Trans>已发现节点</Trans>
                 </span>
                 <span className="text-2xl font-semibold text-foreground">
-                  {discoveredPeers.size}
+                  {getDiscoveredCount()}
                 </span>
               </CardContent>
             </Card>

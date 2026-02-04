@@ -3,67 +3,63 @@
  * 设备页面 - 懒加载组件
  */
 
+import { useMemo } from "react";
 import { createLazyFileRoute } from "@tanstack/react-router";
 import { Link as LinkIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DeviceCard, type Device } from "@/components/devices/device-card";
 import { Trans } from "@lingui/react/macro";
+import {
+  useNetworkStore,
+  inferConnectionType,
+  inferDeviceType,
+  peerToDevice,
+} from "@/stores/network-store";
+import { useSecretStore } from "@/stores/secret-store";
 
 export const Route = createLazyFileRoute("/_app/devices")({
   component: DevicesPage,
 });
 
-// Mock data matching the design
-const pairedDevices: Device[] = [
-  {
-    id: "1",
-    name: "张三的 iPhone",
-    type: "smartphone",
-    status: "online",
-    connection: "lan",
-    latency: 2,
-    isPaired: true,
-  },
-  {
-    id: "2",
-    name: "王五的 MacBook",
-    type: "laptop",
-    status: "online",
-    connection: "dcutr",
-    latency: 45,
-    isPaired: true,
-  },
-  {
-    id: "3",
-    name: "赵六的 Desktop",
-    type: "desktop",
-    status: "online",
-    connection: "relay",
-    latency: 180,
-    isPaired: true,
-  },
-  {
-    id: "4",
-    name: "李四的 iPad",
-    type: "tablet",
-    status: "offline",
-    isPaired: true,
-  },
-];
-
-const nearbyDevices: Device[] = [
-  {
-    id: "5",
-    name: "Windows PC",
-    type: "desktop",
-    status: "online",
-    connection: "lan",
-    latency: 3,
-    isPaired: false,
-  },
-];
-
 function DevicesPage() {
+  // 从 network store 获取 peers 状态
+  const peers = useNetworkStore((state) => state.peers);
+
+  // 从 secret store 获取已配对设备
+  const storedPairedDevices = useSecretStore((state) => state.pairedDevices);
+
+  // 从 peers 派生附近设备列表
+  const nearbyDevices = useMemo(() => {
+    return Array.from(peers.values())
+      .filter((peer) => peer.isConnected)
+      .map(peerToDevice);
+  }, [peers]);
+
+  // 将已配对设备与在线状态结合
+  const pairedDevices = useMemo<Device[]>(() => {
+    return storedPairedDevices.map((stored) => {
+      const peerInfo = peers.get(stored.id);
+      const isOnline = peerInfo?.isConnected ?? false;
+      const connection = isOnline ? inferConnectionType(peerInfo?.rttMs) : undefined;
+
+      return {
+        id: stored.id,
+        name: stored.name,
+        type: inferDeviceType(stored.os),
+        status: isOnline ? "online" : "offline",
+        connection,
+        latency: isOnline ? peerInfo?.rttMs : undefined,
+        isPaired: true,
+      };
+    });
+  }, [storedPairedDevices, peers]);
+
+  // 过滤掉已配对的设备，只显示未配对的附近设备
+  const filteredNearbyDevices = useMemo(() => {
+    const pairedIds = new Set(storedPairedDevices.map((d) => d.id));
+    return nearbyDevices.filter((d) => !pairedIds.has(d.id));
+  }, [nearbyDevices, storedPairedDevices]);
+
   const handleSend = (device: Device) => {
     console.log("Send to device:", device);
   };
@@ -132,11 +128,11 @@ function DevicesPage() {
                 <Trans>附近设备</Trans>
               </h2>
               <span className="text-[13px] text-muted-foreground">
-                ({nearbyDevices.length})
+                ({filteredNearbyDevices.length})
               </span>
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {nearbyDevices.map((device) => (
+              {filteredNearbyDevices.map((device) => (
                 <DeviceCard
                   key={device.id}
                   device={device}

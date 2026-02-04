@@ -10,9 +10,9 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { msg } from "@lingui/core/macro";
 import type { MessageDescriptor } from "@lingui/core";
 import { useLingui } from "@lingui/react/macro";
-import { Trans } from "@lingui/react/macro";
-import { useState } from "react";
-import { useNetwork, type NodeStatus } from "@/contexts/network-context";
+import { useState, useEffect } from "react";
+import { hostname } from "@tauri-apps/plugin-os";
+import { useNetworkStore, type NodeStatus } from "@/stores/network-store";
 import { NetworkDialog } from "@/components/network/network-dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -76,8 +76,18 @@ export function AppSidebar() {
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
   const [networkDialogOpen, setNetworkDialogOpen] = useState(false);
-  const { status } = useNetwork();
+  const [deviceName, setDeviceName] = useState<string>("");
+  const status = useNetworkStore((state) => state.status);
   const config = statusConfig[status];
+
+  useEffect(() => {
+    hostname().then((name) => setDeviceName(name ?? ""));
+  }, []);
+
+  // 从主机名生成头像缩写
+  const avatarInitials = deviceName
+    ? deviceName.slice(0, 2).toUpperCase()
+    : "SD";
 
   return (
     <Sidebar collapsible="none" className="border-r border-sidebar-border">
@@ -138,10 +148,12 @@ export function AppSidebar() {
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-2">
             <Avatar className="size-7">
-              <AvatarFallback className="text-[11px]">YG</AvatarFallback>
+              <AvatarFallback className="text-[11px]">
+                {avatarInitials}
+              </AvatarFallback>
             </Avatar>
             <span className="text-[13px] text-sidebar-foreground">
-              <Trans>我的 MacBook</Trans>
+              {deviceName || "SwarmDrop"}
             </span>
           </div>
           <button

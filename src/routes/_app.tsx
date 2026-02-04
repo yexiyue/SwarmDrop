@@ -5,7 +5,6 @@
 
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { AppSidebar } from "@/components/layout/sidebar";
-import { NetworkProvider } from "@/contexts/network-context";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { useAuthStore } from "@/stores/auth-store";
 
@@ -28,20 +27,18 @@ export const Route = createFileRoute("/_app")({
 
 function AppLayout() {
   return (
-    <NetworkProvider>
-      <SidebarProvider
-        className="h-svh"
-        style={
-          {
-            "--sidebar-width": "220px",
-          } as React.CSSProperties
-        }
-      >
-        <AppSidebar />
-        <SidebarInset className="overflow-hidden">
-          <Outlet />
-        </SidebarInset>
-      </SidebarProvider>
-    </NetworkProvider>
+    <SidebarProvider
+      className="h-svh"
+      style={
+        {
+          "--sidebar-width": "220px",
+        } as React.CSSProperties
+      }
+    >
+      <AppSidebar />
+      <SidebarInset className="overflow-hidden">
+        <Outlet />
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

@@ -21,6 +21,7 @@ pub fn run() {
     init_tracing();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_biometry::init())
         .plugin(tauri_plugin_opener::init())
@@ -35,9 +36,6 @@ pub fn run() {
             commands::shutdown,
             commands::generate_keypair,
             commands::register_keypair,
-            commands::keychain_set,
-            commands::keychain_get,
-            commands::keychain_delete,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

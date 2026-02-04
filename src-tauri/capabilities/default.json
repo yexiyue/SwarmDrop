@@ -13,6 +13,8 @@
     "fs:allow-remove",
     "fs:allow-app-read",
     "fs:allow-app-write",
-    "biometry:default"
+    "biometry:default",
+    "os:default",
+    "os:allow-hostname"
   ]
 }

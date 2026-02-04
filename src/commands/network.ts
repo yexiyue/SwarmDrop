@@ -16,6 +16,11 @@ export type PeerId = string;
 export type Multiaddr = string;
 
 /**
+ * NAT 状态
+ */
+export type NatStatus = "public" | "private" | "unknown";
+
+/**
  * P2P 节点事件类型
  * 对应后端 swarm_p2p_core::NodeEvent
  */
@@ -29,7 +34,9 @@ export type NodeEvent =
       peerId: PeerId;
       agentVersion: string;
       protocolVersion: string;
-    };
+    }
+  | { type: "pingSuccess"; peerId: PeerId; rttMs: number }
+  | { type: "natStatusChanged"; status: NatStatus; publicAddr: Multiaddr | null };
 
 /**
  * 启动 P2P 网络节点

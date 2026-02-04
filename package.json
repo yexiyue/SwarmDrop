@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@choochmeque/tauri-plugin-biometry-api": "^0.2.6",
+    "@icons-pack/react-simple-icons": "^13.8.0",
     "@lingui/core": "^5.9.0",
     "@lingui/react": "^5.9.0",
     "@radix-ui/react-avatar": "^1.1.11",
@@ -26,6 +27,7 @@
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-fs": "~2",
     "@tauri-apps/plugin-opener": "^2",
+    "@tauri-apps/plugin-os": "~2.3.2",
     "@tauri-apps/plugin-stronghold": "~2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
