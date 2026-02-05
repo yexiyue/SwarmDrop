@@ -31,7 +31,7 @@ pub async fn start(
         .with_dcutr(true)
         .with_autonat(true);
 
-    let (client, mut receiver) = swarm_p2p_core::start(&keypair, config)?;
+    let (client, mut receiver) = swarm_p2p_core::start((*keypair).clone(), config)?;
 
     tokio::spawn(async move {
         while let Some(event) = receiver.recv().await {

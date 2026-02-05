@@ -22,6 +22,7 @@ tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"
+anyhow = "1.0"
 serde_json = "1"
 tokio = "1.49.0"
 futures = "0.3.31"
@@ -42,4 +43,3 @@ opt-level = 3
 # Stronghold 相关依赖特别需要优化
 [profile.dev.package.tauri-plugin-stronghold]
 opt-level = 3
-

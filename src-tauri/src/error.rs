@@ -28,6 +28,10 @@ pub enum AppError {
     #[error("P2P error: {0}")]
     P2p(#[from] swarm_p2p_core::Error),
 
+    /// Anyhow 错误（用于简化错误处理）
+    #[error(transparent)]
+    Anyhow(#[from] anyhow::Error),
+
     /// P2P 网络错误
     #[error("Network error: {0}")]
     Network(String),
@@ -72,6 +76,7 @@ impl Serialize for AppError {
             AppError::Serialization(e) => ("Serialization", e.to_string()),
             AppError::Tauri(e) => ("Tauri", e.to_string()),
             AppError::P2p(e) => ("P2p", e.to_string()),
+            AppError::Anyhow(e) => ("Anyhow", e.to_string()),
             AppError::Network(msg) => ("Network", msg.clone()),
             AppError::Crypto(msg) => ("Crypto", msg.clone()),
             AppError::Config(msg) => ("Config", msg.clone()),
