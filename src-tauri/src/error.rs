@@ -48,6 +48,14 @@ pub enum AppError {
     #[error("Transfer error: {0}")]
     Transfer(String),
 
+    /// 配对码已过期
+    #[error("配对码已过期")]
+    ExpiredCode,
+
+    /// 无效的配对码
+    #[error("无效的配对码")]
+    InvalidCode,
+
     /// 对等节点错误
     #[error("Peer error: {0}")]
     Peer(String),
@@ -81,6 +89,8 @@ impl Serialize for AppError {
             AppError::Crypto(msg) => ("Crypto", msg.clone()),
             AppError::Config(msg) => ("Config", msg.clone()),
             AppError::Transfer(msg) => ("Transfer", msg.clone()),
+            AppError::ExpiredCode => ("ExpiredCode", self.to_string()),
+            AppError::InvalidCode => ("InvalidCode", self.to_string()),
             AppError::Peer(msg) => ("Peer", msg.clone()),
             AppError::Identity(msg) => ("Identity", msg.clone()),
             AppError::Unknown(msg) => ("Unknown", msg.clone()),

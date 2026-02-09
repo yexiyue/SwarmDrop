@@ -110,17 +110,16 @@ NodeEvent::InboundRequest {
 ### 格式规范
 
 ```
-字符集: ABCDEFGHJKMNPQRSTUVWXYZ23456789 (32 字符)
-        去除易混淆字符: 0/O, 1/I/L
+字符集: 0123456789 (纯数字)
 长度:   6 位
-组合数: 32^6 = 1,073,741,824 (约 10 亿)
+组合数: 10^6 = 1,000,000 (100 万)
 有效期: 默认 5 分钟
-示例:   AB3 KCD (显示时 3+3 分组)
+示例:   382 519 (显示时 3+3 分组，手机弹数字键盘)
 ```
 
 ### DHT 使用策略
 
-6 位配对码只有约 30 bit 信息量，无法直接编码 PeerId + 加密密钥等完整信息。采用 **配对码 → DHT Record → PeerId** 的间接方案：
+6 位配对码信息量有限，无法直接编码 PeerId + 加密密钥等完整信息。采用 **配对码 → DHT Record → PeerId** 的间接方案：
 
 ```mermaid
 flowchart LR
@@ -158,8 +157,8 @@ flowchart LR
 ```rust
 // src-tauri/src/pairing/code.rs
 
-/// 配对码字符集 (32 字符)
-const CHARSET: &[u8] = b"ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+/// 配对码字符集 (纯数字)
+const CHARSET: &[u8] = b"0123456789";
 const CODE_LENGTH: usize = 6;
 
 /// 配对码信息（返回给前端显示）
@@ -232,7 +231,7 @@ pub fn validate_code(code: &str) -> bool {
         && code.bytes().all(|b| CHARSET.contains(&b))
 }
 
-/// 格式化显示 (AB3KCD -> AB3 KCD)
+/// 格式化显示 (382519 -> 382 519)
 pub fn format_code_display(code: &str) -> String {
     if code.len() == 6 {
         format!("{} {}", &code[0..3], &code[3..6])
@@ -315,14 +314,14 @@ sequenceDiagram
     A->>DHT: startProvide(SHA256(peer_id))
 
     Note over A: 用户点击"生成配对码"
-    A->>A: 生成随机 6 位码 (如 AB3KCD)
+    A->>A: 生成随机 6 位码 (如 382519)
     A->>A: 创建 ShareCodeRecord
-    A->>DHT: putRecord(SHA256("AB3KCD"), record)
+    A->>DHT: putRecord(SHA256("382519"), record)
     A->>A: 显示配对码，启动倒计时
 
     Note over B: 用户输入配对码
     B->>B: 验证格式
-    B->>DHT: getRecord(SHA256("AB3KCD"))
+    B->>DHT: getRecord(SHA256("382519"))
     DHT->>B: 返回 ShareCodeRecord (含 PeerId)
     B->>B: 检查是否过期
     B->>A: dial(peer_id) + send_request(PairingRequest)
@@ -333,7 +332,7 @@ sequenceDiagram
     A->>B: send_response(pending_id, PairingResponse{accepted: true})
 
     Note over A,B: 双方保存 PairedDevice (仅 PeerId)
-    A->>DHT: remove_record(SHA256("AB3KCD"))
+    A->>DHT: remove_record(SHA256("382519"))
 ```
 
 ### 局域网配对（mDNS 直连）
@@ -675,7 +674,7 @@ pub async fn connect_with_pairing_code(
     manager: State<'_, PairingManager>,
     code: String,
 ) -> AppResult<PairingResponse> {
-    manager.connect_with_code(code.to_uppercase()).await
+    manager.connect_with_code(code).await
 }
 
 /// 向附近设备发起配对
@@ -857,8 +856,8 @@ src/
 
 | 测试项 | 内容 |
 |--------|------|
-| 配对码生成 | 长度 6，字符集正确，不含混淆字符 |
-| 配对码验证 | 合法码通过，混淆字符拒绝，长度不对拒绝 |
+| 配对码生成 | 长度 6，纯数字 0-9 |
+| 配对码验证 | 合法码通过，非数字字符拒绝，长度不对拒绝 |
 | DHT Key | 相同配对码产生相同 Key |
 | 过期判断 | 未过期返回 false，已过期返回 true |
 | 消息序列化 | AppRequest/AppResponse 的 CBOR 往返一致 |

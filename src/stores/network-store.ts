@@ -176,9 +176,10 @@ export const useNetworkStore = createWithEqualityFn<NetworkState>()(
       await start(get().handleEvent);
       // status 会在收到 listening 事件后更新为 running
     } catch (err) {
+      console.error("Failed to start node:", JSON.stringify(err));
       set({
         status: "error",
-        error: err instanceof Error ? err.message : String(err),
+        error: err instanceof Error ? err.message : JSON.stringify(err),
       });
     }
   },
