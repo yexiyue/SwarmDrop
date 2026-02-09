@@ -75,7 +75,7 @@ function DevicesPage() {
   return (
     <main className="flex h-full flex-1 flex-col bg-background">
       {/* Toolbar */}
-      <header className="flex h-13 items-center justify-between border-b border-border px-5">
+      <header className="flex h-13 items-center justify-between border-b border-border px-3 md:px-4 lg:px-5">
         <div className="flex items-center gap-2">
           <h1 className="text-[15px] font-medium text-foreground">
             <Trans>设备</Trans>
@@ -94,7 +94,7 @@ function DevicesPage() {
       </header>
 
       {/* Page Content */}
-      <div className="flex-1 overflow-auto p-8">
+      <div className="flex-1 overflow-auto p-4 md:p-5 lg:p-6">
         <div className="flex flex-col gap-6">
           {/* Paired Devices Section */}
           <section className="flex flex-col gap-4">
@@ -106,7 +106,7 @@ function DevicesPage() {
                 ({pairedDevices.length})
               </span>
             </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {pairedDevices.map((device) => (
                 <DeviceCard
                   key={device.id}
@@ -131,7 +131,7 @@ function DevicesPage() {
                 ({filteredNearbyDevices.length})
               </span>
             </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {filteredNearbyDevices.map((device) => (
                 <DeviceCard
                   key={device.id}
