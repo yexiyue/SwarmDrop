@@ -1,6 +1,8 @@
 pub mod commands;
+pub mod device;
 pub mod error;
-
+pub(crate) mod pairing;
+pub mod protocol;
 pub use error::{AppError, AppResult};
 
 use tauri::Manager;
@@ -37,6 +39,10 @@ pub fn run() {
             commands::shutdown,
             commands::generate_keypair,
             commands::register_keypair,
+            commands::generate_pairing_code,
+            commands::get_device_info,
+            commands::request_pairing,
+            commands::respond_pairing_request,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

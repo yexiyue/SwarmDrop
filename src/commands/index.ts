@@ -4,3 +4,4 @@
  */
 
 export * from "./network";
+export * from "./pairing";

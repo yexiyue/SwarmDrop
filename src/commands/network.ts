@@ -21,8 +21,18 @@ export type Multiaddr = string;
 export type NatStatus = "public" | "private" | "unknown";
 
 /**
+ * 应用层请求类型（对应后端 AppRequest）
+ */
+export type AppRequest = {
+  type: "pairing";
+  osInfo: { hostname: string; os: string; platform: string; arch: string };
+  timestamp: number;
+  method: { type: "code"; code: string } | { type: "direct" };
+};
+
+/**
  * P2P 节点事件类型
- * 对应后端 swarm_p2p_core::NodeEvent
+ * 对应后端 swarm_p2p_core::NodeEvent<AppRequest>
  */
 export type NodeEvent =
   | { type: "listening"; addr: Multiaddr }
@@ -36,7 +46,10 @@ export type NodeEvent =
       protocolVersion: string;
     }
   | { type: "pingSuccess"; peerId: PeerId; rttMs: number }
-  | { type: "natStatusChanged"; status: NatStatus; publicAddr: Multiaddr | null };
+  | { type: "natStatusChanged"; status: NatStatus; publicAddr: Multiaddr | null }
+  | { type: "holePunchSucceeded"; peerId: PeerId }
+  | { type: "holePunchFailed"; peerId: PeerId; error: string }
+  | { type: "inboundRequest"; peerId: PeerId; pendingId: number; request: AppRequest };
 
 /**
  * 启动 P2P 网络节点

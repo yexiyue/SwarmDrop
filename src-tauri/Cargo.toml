@@ -35,6 +35,10 @@ tauri-plugin-biometry = "0.2"
 tauri-plugin-fs = "2"
 tauri-plugin-os = "2"
 tauri-plugin-store = "2"
+rand = "0.10.0"
+chrono = "0.4.43"
+sha2 = "0.10.9"
+dashmap = "6.1.0"
 
 # 桌面端启用 DNS 解析（Android 上 /etc/resolv.conf 不存在，不启用）
 [target.'cfg(not(target_os = "android"))'.dependencies]
