@@ -29,6 +29,10 @@ msgstr "Good"
 msgid "中继"
 msgstr "Relay"
 
+#: src/routes/_app/settings.lazy.tsx
+msgid "主题"
+msgstr "Theme"
+
 #: src/routes/_auth/unlock.lazy.tsx
 msgid "使用密码解锁"
 msgstr "Use password to unlock"
@@ -102,6 +106,10 @@ msgstr "Enable Biometric"
 msgid "在线"
 msgstr "Online"
 
+#: src/routes/_app/settings.lazy.tsx
+msgid "外观"
+msgstr "Appearance"
+
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "安全、快速的跨网络文件传输"
 msgstr "Secure and fast cross-network file transfer"
@@ -160,8 +168,8 @@ msgid "强"
 msgstr "Strong"
 
 #: src/components/layout/sidebar.tsx
-msgid "我的 MacBook"
-msgstr "My MacBook"
+#~ msgid "我的 MacBook"
+#~ msgstr "My MacBook"
 
 #: src/routes/_auth/unlock.lazy.tsx
 #~ msgid "或"
@@ -222,6 +230,14 @@ msgstr "Decrypting data..."
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "此密码用于保护您的设备身份，请妥善保管"
 msgstr "This password protects your device identity. Please keep it safe"
+
+#: src/routes/_app/settings.lazy.tsx
+msgid "浅色"
+msgstr "Light"
+
+#: src/routes/_app/settings.lazy.tsx
+msgid "深色"
+msgstr "Dark"
 
 #: src/routes/_auth/unlock.lazy.tsx
 #~ msgid "点击使用生物识别解锁"
@@ -295,9 +311,22 @@ msgstr "Unlocking..."
 msgid "设备"
 msgstr "Devices"
 
+#: src/routes/_app/settings.lazy.tsx
+msgid "设备信息"
+msgstr "Device Info"
+
 #: src/components/layout/sidebar.tsx
+#: src/routes/_app/settings.lazy.tsx
 msgid "设置"
 msgstr "Settings"
+
+#: src/routes/_app/settings.lazy.tsx
+msgid "语言"
+msgstr "Language"
+
+#: src/routes/_app/settings.lazy.tsx
+msgid "跟随系统"
+msgstr "System"
 
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "跨网络传输"
@@ -330,6 +359,14 @@ msgstr "Connecting"
 #: src/routes/_app/devices.lazy.tsx
 msgid "连接设备"
 msgstr "Connect Device"
+
+#: src/routes/_app/settings.lazy.tsx
+msgid "选择应用显示语言"
+msgstr "Choose display language"
+
+#: src/routes/_app/settings.lazy.tsx
+msgid "选择应用的外观主题"
+msgstr "Choose app theme"
 
 #: src/components/layout/sidebar.tsx
 #: src/components/network/network-dialog.tsx

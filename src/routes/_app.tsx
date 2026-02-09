@@ -1,12 +1,17 @@
 /**
  * App Layout
  * 需要认证的页面布局（带侧边栏）
+ * - desktop (≥1024px): 侧边栏展开
+ * - tablet (768-1023px): 侧边栏折叠为图标模式
+ * - mobile (<768px): 隐藏侧边栏，显示底部导航栏
  */
 
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { AppSidebar } from "@/components/layout/sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { BottomNav } from "@/components/layout/bottom-nav";
 import { useAuthStore } from "@/stores/auth-store";
+import { useBreakpoint } from "@/hooks/use-breakpoint";
 
 export const Route = createFileRoute("/_app")({
   beforeLoad: () => {
@@ -26,9 +31,26 @@ export const Route = createFileRoute("/_app")({
 });
 
 function AppLayout() {
+  const breakpoint = useBreakpoint();
+  const isMobile = breakpoint === "mobile";
+  const isDesktop = breakpoint === "desktop";
+
+  if (isMobile) {
+    return (
+      <div className="flex h-svh flex-col">
+        <main className="flex-1 overflow-hidden">
+          <Outlet />
+        </main>
+        <BottomNav />
+      </div>
+    );
+  }
+
   return (
     <SidebarProvider
       className="h-svh"
+      open={isDesktop}
+      onOpenChange={() => {}}
       style={
         {
           "--sidebar-width": "220px",
