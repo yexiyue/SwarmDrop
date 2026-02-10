@@ -8,6 +8,7 @@ import type { Device, DeviceType, ConnectionType } from "@/components/devices/de
 import type { NodeEvent, PeerId, Multiaddr, NatStatus } from "@/commands/network";
 import { start, shutdown } from "@/commands/network";
 import { useSecretStore } from "@/stores/secret-store";
+import { usePairingStore } from "@/stores/pairing-store";
 
 /** 节点状态 */
 export type NodeStatus = "stopped" | "starting" | "running" | "error";
@@ -324,6 +325,15 @@ export const useNetworkStore = create<NetworkState>()(
           natStatus: event.status,
           publicAddr: event.publicAddr,
         });
+        break;
+      }
+
+      case "inboundRequest": {
+        usePairingStore.getState().handleInboundRequest(
+          event.peerId,
+          event.pendingId,
+          event.request
+        );
         break;
       }
     }
