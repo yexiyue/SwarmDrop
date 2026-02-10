@@ -19,7 +19,7 @@ import {
   ResponsiveDialogFooter,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
-} from "@/components/ui/responsive-dialog";
+} from "@/components/responsive-dialog";
 import { Trans } from "@lingui/react/macro";
 import { usePairingStore } from "@/stores/pairing-store";
 import { getDeviceIcon } from "@/components/pairing/device-icon";
@@ -52,7 +52,6 @@ export function InputCodeDialog() {
   };
 
   const handleCodeComplete = (value: string) => {
-    setCode(value);
     if (value.length === 6) {
       void searchDevice(value);
     }
@@ -64,8 +63,8 @@ export function InputCodeDialog() {
     <ResponsiveDialog open={isOpen} onOpenChange={handleOpenChange}>
       <ResponsiveDialogContent className="sm:max-w-md">
         <ResponsiveDialogHeader className="flex flex-col items-center gap-2">
-          <div className="flex size-12 items-center justify-center rounded-full bg-blue-50">
-            <Link className="size-6 text-blue-600" />
+          <div className="flex size-12 items-center justify-center rounded-full bg-primary/10">
+            <Link className="size-6 text-primary" />
           </div>
           <ResponsiveDialogTitle className="text-center text-xl">
             <Trans>连接已有设备</Trans>
@@ -113,7 +112,7 @@ export function InputCodeDialog() {
             <div className="flex w-full flex-col items-center gap-4">
               <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-4">
                 <div className="flex size-10 items-center justify-center rounded-full bg-muted">
-                  <DeviceIcon className="size-5 text-blue-600" />
+                  <DeviceIcon className="size-5 text-primary" />
                 </div>
                 <div className="flex flex-col">
                   <span className="text-sm font-medium text-foreground">
@@ -141,10 +140,7 @@ export function InputCodeDialog() {
             <Trans>取消</Trans>
           </Button>
           {isFound && (
-            <Button
-              className="bg-blue-600 hover:bg-blue-700"
-              onClick={() => void sendPairingRequest()}
-            >
+            <Button onClick={() => void sendPairingRequest()}>
               <Trans>发起配对</Trans>
             </Button>
           )}

@@ -2,11 +2,12 @@ import { cn } from "@/lib/utils";
 import { Send } from "lucide-react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useLingui } from "@lingui/react/macro";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { hostname } from "@tauri-apps/plugin-os";
 import { useNetworkStore, type NodeStatus } from "@/stores/network-store";
 import { NetworkDialog } from "@/components/network/network-dialog";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useBreakpoint } from "@/hooks/use-breakpoint";
 import {
   Sidebar,
   SidebarContent,
@@ -67,12 +68,23 @@ export function AppSidebar() {
   const [deviceName, setDeviceName] = useState<string>("");
   const status = useNetworkStore((state) => state.status);
   const config = statusConfig[status];
-  const { state } = useSidebar();
+  const { state, toggleSidebar, setOpen } = useSidebar();
   const isCollapsed = state === "collapsed";
+  const breakpoint = useBreakpoint();
+  const isDesktop = breakpoint === "desktop";
 
   useEffect(() => {
     hostname().then((name) => setDeviceName(name ?? ""));
   }, []);
+
+  // 断点变化时同步侧边栏状态（用 ref 避免 setOpen 引用变化导致重复触发）
+  const prevIsDesktop = useRef(isDesktop);
+  useEffect(() => {
+    if (prevIsDesktop.current !== isDesktop) {
+      prevIsDesktop.current = isDesktop;
+      setOpen(isDesktop);
+    }
+  }, [isDesktop, setOpen]);
 
   const avatarInitials = deviceName
     ? deviceName.slice(0, 2).toUpperCase()
@@ -80,7 +92,10 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
-      <SidebarHeader className="h-13 justify-center px-4">
+      <SidebarHeader
+        className="h-13 cursor-pointer justify-center pl-2.5"
+        onClick={toggleSidebar}
+      >
         <div className="flex items-center gap-2">
           <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-linear-to-br from-blue-600 to-blue-500">
             <Send className="size-4 text-white" />
@@ -95,8 +110,8 @@ export function AppSidebar() {
 
       <SidebarSeparator />
 
-      <SidebarContent className="px-3 pt-3">
-        <SidebarGroup className="p-0">
+      <SidebarContent className="pt-3">
+        <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="gap-0.5">
               {navItems.map((item) => {
@@ -136,36 +151,58 @@ export function AppSidebar() {
       <SidebarSeparator />
 
       <SidebarFooter className="p-3">
-        <div className={cn(
-          "flex items-center px-1",
-          isCollapsed ? "justify-center" : "justify-between",
-        )}>
-          <div className="flex items-center gap-2">
-            <Avatar className="size-7 shrink-0">
-              <AvatarFallback className="text-[11px]">
-                {avatarInitials}
-              </AvatarFallback>
-            </Avatar>
-            {!isCollapsed && (
-              <span className="text-[13px] text-sidebar-foreground">
-                {deviceName || "SwarmDrop"}
-              </span>
-            )}
-          </div>
-          {!isCollapsed && (
+        <div
+          className={cn(
+            "flex items-center px-1",
+            isCollapsed ? "justify-center" : "justify-between",
+          )}
+        >
+          {isCollapsed ? (
             <button
               type="button"
               onClick={() => setNetworkDialogOpen(true)}
-              className={cn(
-                "flex cursor-pointer items-center gap-1 rounded px-1.5 py-1 transition-colors",
-                config.bgColor,
-              )}
+              className="relative cursor-pointer"
             >
-              <span className={cn("size-1.5 rounded-full", config.dotColor)} />
-              <span className={cn("text-[11px]", config.textColor)}>
-                {t(config.label)}
-              </span>
+              <Avatar className="size-7 shrink-0">
+                <AvatarFallback className="text-[11px]">
+                  {avatarInitials}
+                </AvatarFallback>
+              </Avatar>
+              <span
+                className={cn(
+                  "absolute -right-0.5 -top-0.5 size-2.5 rounded-full border-2 border-sidebar",
+                  config.dotColor,
+                )}
+              />
             </button>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <Avatar className="size-7 shrink-0">
+                  <AvatarFallback className="text-[11px]">
+                    {avatarInitials}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="truncate text-[13px] text-sidebar-foreground">
+                  {deviceName || "SwarmDrop"}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setNetworkDialogOpen(true)}
+                className={cn(
+                  "flex cursor-pointer items-center gap-1 rounded px-1.5 py-1 transition-colors",
+                  config.bgColor,
+                )}
+              >
+                <span
+                  className={cn("size-1.5 rounded-full", config.dotColor)}
+                />
+                <span className={cn("text-[11px]", config.textColor)}>
+                  {t(config.label)}
+                </span>
+              </button>
+            </>
           )}
         </div>
       </SidebarFooter>

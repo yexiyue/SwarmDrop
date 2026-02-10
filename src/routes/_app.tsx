@@ -51,8 +51,7 @@ function AppLayout() {
   return (
     <SidebarProvider
       className="h-svh"
-      open={isDesktop}
-      onOpenChange={() => {}}
+      defaultOpen={isDesktop}
       style={
         {
           "--sidebar-width": "220px",

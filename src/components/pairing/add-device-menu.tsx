@@ -21,10 +21,7 @@ export function AddDeviceMenu() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          size="sm"
-          className="h-auto gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-[13px] font-medium hover:bg-blue-700"
-        >
+        <Button size="sm" className="h-auto gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-medium">
           <Plus className="size-4" />
           <Trans>连接设备</Trans>
         </Button>
