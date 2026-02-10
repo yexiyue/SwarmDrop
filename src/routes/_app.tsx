@@ -12,6 +12,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { useAuthStore } from "@/stores/auth-store";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
+import { ConnectionRequestDialog } from "@/components/pairing/connection-request-dialog";
 
 export const Route = createFileRoute("/_app")({
   beforeLoad: () => {
@@ -42,6 +43,7 @@ function AppLayout() {
           <Outlet />
         </main>
         <BottomNav />
+        <ConnectionRequestDialog />
       </div>
     );
   }
@@ -61,6 +63,7 @@ function AppLayout() {
       <SidebarInset className="overflow-hidden">
         <Outlet />
       </SidebarInset>
+      <ConnectionRequestDialog />
     </SidebarProvider>
   );
 }

@@ -6,6 +6,16 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "X-Generator: @lingui/cli\n"
 "Language: ko\n"
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Plural-Forms: \n"
+
+#: src/components/pairing/connection-request-dialog.tsx
+msgid "一台设备正在请求与您配对"
+msgstr ""
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "一般"
@@ -63,13 +73,22 @@ msgstr "기본 비밀번호 생성"
 msgid "包含字母和数字"
 msgstr "영문자와 숫자 포함"
 
+#: src/components/pairing/input-code-dialog.tsx
+msgid "发起配对"
+msgstr ""
+
 #: src/components/devices/device-card.tsx
 msgid "发送"
 msgstr "전송"
 
-#: src/components/layout/sidebar.tsx
+#: src/components/layout/nav-items.ts
 msgid "发送文件"
 msgstr "파일 전송"
+
+#: src/components/pairing/generate-code-dialog.tsx
+#: src/components/pairing/input-code-dialog.tsx
+msgid "取消"
+msgstr ""
 
 #: src/components/network/network-dialog.tsx
 msgid "启动中"
@@ -95,10 +114,18 @@ msgstr "빠른 잠금 해제를 활성화하시겠습니까?"
 msgid "启用生物识别"
 msgstr "생체 인식 활성화"
 
+#: src/components/pairing/generate-code-dialog.tsx
+msgid "在另一台设备上输入以下配对码"
+msgstr ""
+
 #: src/components/devices/device-card.tsx
 #: src/components/layout/sidebar.tsx
 msgid "在线"
 msgstr "온라인"
+
+#: src/components/pairing/generate-code-dialog.tsx
+msgid "复制配对码"
+msgstr ""
 
 #: src/routes/_app/settings.lazy.tsx
 msgid "外观"
@@ -141,6 +168,10 @@ msgstr "로컬 네트워크와 광역 네트워크 간 원활한 전환"
 msgid "已发现节点"
 msgstr "발견된 노드"
 
+#: src/components/pairing/generate-code-dialog.tsx
+msgid "已复制"
+msgstr ""
+
 #: src/components/network/network-dialog.tsx
 msgid "已连接节点"
 msgstr "연결된 노드"
@@ -165,7 +196,15 @@ msgstr "강함"
 msgid "打洞"
 msgstr "홀 펀칭"
 
-#: src/components/layout/sidebar.tsx
+#: src/components/pairing/connection-request-dialog.tsx
+msgid "拒绝"
+msgstr ""
+
+#: src/components/pairing/connection-request-dialog.tsx
+msgid "接受配对"
+msgstr ""
+
+#: src/components/layout/nav-items.ts
 msgid "接收文件"
 msgstr "파일 수신"
 
@@ -205,6 +244,10 @@ msgstr "암호화 저장소 초기화 중..."
 msgid "正在加载设备密钥..."
 msgstr "장치 키 로딩 중..."
 
+#: src/components/pairing/input-code-dialog.tsx
+msgid "正在查找设备..."
+msgstr ""
+
 #: src/lib/auth-messages.ts
 msgid "正在生成设备密钥..."
 msgstr "장치 키 생성 중..."
@@ -225,9 +268,17 @@ msgstr "라이트"
 msgid "深色"
 msgstr "다크"
 
+#: src/components/pairing/generate-code-dialog.tsx
+msgid "添加新设备"
+msgstr ""
+
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "点对点直连，无需注册账号"
 msgstr "P2P 직접 연결, 계정 등록 불필요"
+
+#: src/components/pairing/add-device-menu.tsx
+msgid "生成配对码"
+msgstr ""
 
 #: src/lib/auth-messages.ts
 msgid "生物识别不可用"
@@ -257,6 +308,10 @@ msgstr "나중에 설정"
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "端到端加密"
 msgstr "엔드투엔드 암호화"
+
+#: src/components/pairing/input-code-dialog.tsx
+msgid "等待对方确认..."
+msgstr ""
 
 #: src/components/network/network-dialog.tsx
 msgid "管理 P2P 网络节点的启动和连接状态"
@@ -288,7 +343,7 @@ msgstr "잠금 해제"
 msgid "解锁中..."
 msgstr "잠금 해제 중..."
 
-#: src/components/layout/sidebar.tsx
+#: src/components/layout/nav-items.ts
 #: src/routes/_app/devices.lazy.tsx
 msgid "设备"
 msgstr "장치"
@@ -297,7 +352,7 @@ msgstr "장치"
 msgid "设备信息"
 msgstr "장치 정보"
 
-#: src/components/layout/sidebar.tsx
+#: src/components/layout/nav-items.ts
 #: src/routes/_app/settings.lazy.tsx
 msgid "设置"
 msgstr "설정"
@@ -314,6 +369,10 @@ msgstr "시스템 설정 따름"
 msgid "跨网络传输"
 msgstr "크로스 네트워크 전송"
 
+#: src/components/pairing/input-code-dialog.tsx
+msgid "输入另一台设备上显示的配对码"
+msgstr ""
+
 #: src/routes/_auth/unlock.lazy.tsx
 msgid "输入密码"
 msgstr "비밀번호 입력"
@@ -321,6 +380,10 @@ msgstr "비밀번호 입력"
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "输入至少 8 位密码"
 msgstr "최소 8자 이상의 비밀번호를 입력하세요"
+
+#: src/components/pairing/add-device-menu.tsx
+msgid "输入配对码"
+msgstr ""
 
 #: src/components/network/network-dialog.tsx
 msgid "运行中"
@@ -338,9 +401,17 @@ msgstr "연결"
 msgid "连接中"
 msgstr "연결 중"
 
-#: src/routes/_app/devices.lazy.tsx
+#: src/components/pairing/input-code-dialog.tsx
+msgid "连接已有设备"
+msgstr ""
+
+#: src/components/pairing/add-device-menu.tsx
 msgid "连接设备"
 msgstr "장치 연결"
+
+#: src/components/pairing/connection-request-dialog.tsx
+msgid "连接请求"
+msgstr ""
 
 #: src/routes/_app/settings.lazy.tsx
 msgid "选择应用显示语言"
@@ -349,6 +420,23 @@ msgstr "앱 표시 언어 선택"
 #: src/routes/_app/settings.lazy.tsx
 msgid "选择应用的外观主题"
 msgstr "앱 외관 테마 선택"
+
+#: src/components/pairing/connection-request-dialog.tsx
+msgid "配对后，该设备可以向您发送文件。请确认您认识此设备。"
+msgstr ""
+
+#. placeholder {0}: formatTime(remainingSeconds)
+#: src/components/pairing/generate-code-dialog.tsx
+msgid "配对码将在 {0} 后过期"
+msgstr ""
+
+#: src/components/pairing/generate-code-dialog.tsx
+msgid "配对码已过期"
+msgstr ""
+
+#: src/components/pairing/generate-code-dialog.tsx
+msgid "重新生成"
+msgstr ""
 
 #: src/components/layout/sidebar.tsx
 #: src/components/network/network-dialog.tsx
