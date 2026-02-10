@@ -1,9 +1,12 @@
 /**
- * DesktopInputCodePage
- * 桌面端输入配对码全屏页面：Toolbar（← 连接已有设备）+ 居中内容 + OTP 输入 + 取消/确认
+ * Desktop Input Code Page (Route)
+ * 桌面端输入配对码页面
+ * - 输入阶段：Toolbar（← 连接已有设备）+ 居中 OTP 输入 + 取消/确认
+ * - 设备详情：Toolbar（← 设备详情）+ 居中设备信息卡片 + 取消/发送配对请求
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createLazyFileRoute, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Link, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,18 +17,45 @@ import {
 } from "@/components/ui/input-otp";
 import { Trans } from "@lingui/react/macro";
 import { usePairingStore } from "@/stores/pairing-store";
+import {
+  DesktopDeviceFoundContent,
+  useDeviceFoundState,
+} from "@/routes/_app/pairing/-device-found-view";
 
-export function DesktopInputCodePage() {
+export const Route = createLazyFileRoute("/_app/pairing/input")({
+  component: PairingInputPage,
+});
+
+function PairingInputPage() {
+  const navigate = useNavigate();
+
   const current = usePairingStore((s) => s.current);
   const searchDevice = usePairingStore((s) => s.searchDevice);
   const sendPairingRequest = usePairingStore((s) => s.sendPairingRequest);
-  const closePairingView = usePairingStore((s) => s.closePairingView);
+  const openInput = usePairingStore((s) => s.openInput);
+  const reset = usePairingStore((s) => s.reset);
 
   const [code, setCode] = useState("");
 
+  const { showDeviceFound, deviceInfo, isRequesting } = useDeviceFoundState();
+
+  // 进入页面时初始化输入状态
+  useEffect(() => {
+    openInput();
+    return () => {
+      usePairingStore.getState().reset();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 配对成功后自动返回
+  useEffect(() => {
+    if (current.phase === "success") {
+      void navigate({ to: "/devices" });
+    }
+  }, [current.phase, navigate]);
+
   const isSearching = current.phase === "searching";
-  const isFound = current.phase === "found";
-  const isRequesting = current.phase === "requesting";
 
   const handleCodeComplete = (value: string) => {
     if (value.length === 6) {
@@ -34,20 +64,50 @@ export function DesktopInputCodePage() {
   };
 
   const handleConfirm = () => {
-    if (isFound) {
-      void sendPairingRequest();
-    } else if (code.length === 6) {
+    if (code.length === 6) {
       void searchDevice(code);
     }
   };
 
+  const handleBack = () => {
+    void navigate({ to: "/devices" });
+  };
+
+  // ─── 设备详情视图 ───
+  if (showDeviceFound && deviceInfo) {
+    return (
+      <main className="flex h-full flex-1 flex-col bg-background">
+        <header className="flex h-13 items-center border-b border-border px-4 lg:px-5">
+          <button
+            type="button"
+            onClick={reset}
+            className="flex items-center gap-1.5 text-[15px] font-medium text-foreground"
+          >
+            <ArrowLeft className="size-4" />
+            <Trans>设备详情</Trans>
+          </button>
+        </header>
+
+        <div className="flex flex-1 items-center justify-center">
+          <DesktopDeviceFoundContent
+            deviceInfo={deviceInfo}
+            isRequesting={isRequesting}
+            onSendRequest={() => void sendPairingRequest()}
+            onCancel={reset}
+          />
+        </div>
+      </main>
+    );
+  }
+
+  // ─── 输入配对码视图 ───
   return (
     <main className="flex h-full flex-1 flex-col bg-background">
       {/* Toolbar */}
       <header className="flex h-13 items-center border-b border-border px-4 lg:px-5">
         <button
           type="button"
-          onClick={closePairingView}
+          onClick={handleBack}
           className="flex items-center gap-1.5 text-[15px] font-medium text-foreground"
         >
           <ArrowLeft className="size-4" />
@@ -79,7 +139,7 @@ export function DesktopInputCodePage() {
             value={code}
             onChange={setCode}
             onComplete={handleCodeComplete}
-            disabled={isSearching || isRequesting}
+            disabled={isSearching}
             autoFocus
           >
             <InputOTPGroup>
@@ -96,25 +156,21 @@ export function DesktopInputCodePage() {
           </InputOTP>
 
           {/* 状态提示 */}
-          {(isSearching || isRequesting) && (
+          {isSearching && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" />
-              {isSearching ? (
-                <Trans>正在查找设备...</Trans>
-              ) : (
-                <Trans>等待对方确认...</Trans>
-              )}
+              <Trans>正在查找设备...</Trans>
             </div>
           )}
 
           {/* 底部按钮 */}
           <div className="flex items-center gap-3">
-            <Button variant="outline" onClick={closePairingView}>
+            <Button variant="outline" onClick={handleBack}>
               <Trans>取消</Trans>
             </Button>
             <Button
               onClick={handleConfirm}
-              disabled={code.length < 6 || isSearching || isRequesting}
+              disabled={code.length < 6 || isSearching}
               className="bg-blue-600 hover:bg-blue-700"
             >
               <Trans>确认</Trans>
