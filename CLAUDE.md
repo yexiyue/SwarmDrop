@@ -1,25 +1,11 @@
-<!-- OPENSPEC:START -->
-# OpenSpec Instructions
-
-These instructions are for AI assistants working in this project.
-
-Always open `@/openspec/AGENTS.md` when the request:
-- Mentions planning or proposals (words like proposal, spec, change, plan)
-- Introduces new capabilities, breaking changes, architecture shifts, or big performance/security work
-- Sounds ambiguous and you need the authoritative spec before coding
-
-Use `@/openspec/AGENTS.md` to learn:
-- How to create and apply change proposals
-- Spec format and conventions
-- Project structure and guidelines
-
-Keep this managed block so 'openspec update' can refresh the instructions.
-
-<!-- OPENSPEC:END -->
 
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Language
+
+Always respond in Chinese (简体中文). All output, including thinking, planning, commit messages, and comments, must be in Chinese.
 
 ## Project Overview
 
@@ -52,7 +38,14 @@ swarmdrop/
 │   ├── src/content/docs/  # Documentation markdown files
 │   └── package.json       # Docs dependencies
 └── dev-notes/             # Development notes and PRD
-    └── product-requirements.md  # Full product requirements (Chinese)
+    ├── product-requirements.md  # Full product requirements (Chinese)
+    ├── design/             # UI/UX design files
+    │   └── design.pen      # Pencil design file
+    ├── roadmap/            # Development roadmap
+    │   ├── implementation-roadmap.md
+    │   └── phase-*.md      # Phase-specific tasks
+    └── research/           # Technical research
+        └── mobile-*.md     # Mobile platform research
 ```
 
 ## Build and Development Commands
@@ -222,13 +215,16 @@ The P2P networking layer (libp2p integration) will eventually be extracted into 
 
 ## Development Phases
 
-**Current Status:** Phase 1 (Project Setup)
+**Current Status:** Phase 2 (Device Pairing) - Network layer complete
 
-1. **Phase 1 - Local Testing (2 weeks):** Tauri scaffolding, basic UI, file selection, loopback testing
-2. **Phase 2 - LAN Transfer (2 weeks):** libp2p setup, mDNS discovery, Request-Response protocol
-3. **Phase 3 - Cross-Network (2 weeks):** DHT, NAT traversal, bootstrap nodes, share codes
-4. **Phase 4 - Security & UX (1 week):** E2E encryption, history, error handling
-5. **Phase 5 - Release (1 week):** Packaging, documentation, GitHub release
+| Phase | Status | Description |
+|-------|--------|-------------|
+| Phase 1 - Networking | ✅ Done | libp2p Swarm, mDNS, DHT, Relay, DCUtR |
+| Phase 2 - Pairing | 🚧 In Progress | Share codes, device identity, DHT Provider |
+| Phase 3 - File Transfer | ⏳ Pending | Request-Response, E2E encryption, progress |
+| Phase 4 - Mobile | ⏳ Pending | HTTP bridge, QR code pairing |
+
+Detailed roadmap: `dev-notes/roadmap/implementation-roadmap.md`
 
 ## Documentation
 
@@ -245,3 +241,21 @@ The project includes an Astro + Starlight documentation site in `docs/`. When ed
 - **Library naming:** The Rust library is named `swarmdrop_lib` (note the `_lib` suffix) to avoid Windows-specific naming conflicts with the binary
 - **Tauri plugins:** Currently using `tauri-plugin-opener` for opening links
 - **Target platforms (MVP):** Windows 10/11, macOS 12+, Linux (Ubuntu 22.04+, Fedora 38+)
+
+## Documentation Conventions
+
+### Diagrams
+
+**Always use Mermaid** for diagrams in markdown files. Do not use ASCII art diagrams.
+
+```mermaid
+graph LR
+    A[Desktop] -->|libp2p| B[Desktop]
+    A -->|HTTP| C[Mobile]
+```
+
+Supported diagram types:
+- `flowchart` / `graph` - Architecture, data flow
+- `sequenceDiagram` - Protocol interactions
+- `stateDiagram-v2` - State machines
+- `classDiagram` - Data structures

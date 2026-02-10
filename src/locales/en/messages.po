@@ -1,0 +1,378 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-01-31 15:16+0800\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Plural-Forms: \n"
+
+#: src/routes/_auth/setup-password.lazy.tsx
+msgid "一般"
+msgstr "Fair"
+
+#: src/routes/_auth/setup-password.lazy.tsx
+msgid "下一步"
+msgstr "Next"
+
+#: src/routes/_auth/setup-password.lazy.tsx
+msgid "中等"
+msgstr "Good"
+
+#: src/components/devices/device-card.tsx
+msgid "中继"
+msgstr "Relay"
+
+#: src/routes/_app/settings.lazy.tsx
+msgid "主题"
+msgstr "Theme"
+
+#: src/routes/_auth/unlock.lazy.tsx
+msgid "使用密码解锁"
+msgstr "Use password to unlock"
+
+#: src/routes/_auth/enable-biometric.lazy.tsx
+msgid "使用指纹或面容快速解锁应用，无需每次输入密码"
+msgstr "Use fingerprint or Face ID to quickly unlock the app without entering your password every time"
+
+#: src/routes/_auth/unlock.lazy.tsx
+msgid "使用指纹解锁"
+msgstr "Use fingerprint to unlock"
+
+#: src/routes/_auth/unlock.lazy.tsx
+msgid "使用面容解锁"
+msgstr "Use Face ID to unlock"
+
+#: src/components/network/network-dialog.tsx
+msgid "停止节点"
+msgstr "Stop Node"
+
+#: src/routes/_auth/setup-password.lazy.tsx
+msgid "再次输入密码"
+msgstr "Enter password again"
+
+#: src/routes/_auth/setup-password.lazy.tsx
+msgid "创建中..."
+msgstr "Creating..."
+
+#: src/routes/_auth/setup-password.lazy.tsx
+msgid "创建主密码"
+msgstr "Create Master Password"
+
+#: src/routes/_auth/setup-password.lazy.tsx
+msgid "包含字母和数字"
+msgstr "Contains letters and numbers"
+
+#: src/components/devices/device-card.tsx
+msgid "发送"
+msgstr "Send"
+
+#: src/components/layout/sidebar.tsx
+msgid "发送文件"
+msgstr "Send Files"
+
+#: src/components/network/network-dialog.tsx
+msgid "启动中"
+msgstr "Starting"
+
+#: src/components/network/network-dialog.tsx
+msgid "启动中..."
+msgstr "Starting..."
+
+#: src/components/network/network-dialog.tsx
+msgid "启动节点"
+msgstr "Start Node"
+
+#: src/routes/_auth/enable-biometric.lazy.tsx
+msgid "启用中..."
+msgstr "Enabling..."
+
+#: src/routes/_auth/enable-biometric.lazy.tsx
+msgid "启用快捷解锁？"
+msgstr "Enable Quick Unlock?"
+
+#: src/routes/_auth/enable-biometric.lazy.tsx
+msgid "启用生物识别"
+msgstr "Enable Biometric"
+
+#: src/components/devices/device-card.tsx
+#: src/components/layout/sidebar.tsx
+msgid "在线"
+msgstr "Online"
+
+#: src/routes/_app/settings.lazy.tsx
+msgid "外观"
+msgstr "Appearance"
+
+#: src/routes/_auth/welcome.lazy.tsx
+msgid "安全、快速的跨网络文件传输"
+msgstr "Secure and fast cross-network file transfer"
+
+#: src/routes/_auth/setup-password.lazy.tsx
+msgid "密码"
+msgstr "Password"
+
+#: src/routes/_auth/setup-password.lazy.tsx
+msgid "密码不匹配"
+msgstr "Passwords do not match"
+
+#. placeholder {0}: t(strength.label)
+#: src/routes/_auth/setup-password.lazy.tsx
+msgid "密码强度：{0}"
+msgstr "Password strength: {0}"
+
+#: src/routes/_auth/setup-password.lazy.tsx
+msgid "密码要求"
+msgstr "Password Requirements"
+
+#: src/lib/auth-messages.ts
+msgid "密码错误"
+msgstr "Wrong password"
+
+#: src/components/devices/device-card.tsx
+msgid "局域网"
+msgstr "LAN"
+
+#: src/routes/_auth/welcome.lazy.tsx
+msgid "局域网和广域网无缝切换"
+msgstr "Seamlessly switch between LAN and WAN"
+
+#: src/components/network/network-dialog.tsx
+msgid "已发现节点"
+msgstr "Discovered Peers"
+
+#: src/components/network/network-dialog.tsx
+msgid "已连接节点"
+msgstr "Connected Peers"
+
+#: src/routes/_app/devices.lazy.tsx
+msgid "已配对设备"
+msgstr "Paired Devices"
+
+#: src/routes/_auth/welcome.lazy.tsx
+msgid "开始使用"
+msgstr "Get Started"
+
+#: src/routes/_auth/setup-password.lazy.tsx
+msgid "弱"
+msgstr "Weak"
+
+#: src/routes/_auth/setup-password.lazy.tsx
+msgid "强"
+msgstr "Strong"
+
+#: src/components/layout/sidebar.tsx
+#~ msgid "我的 MacBook"
+#~ msgstr "My MacBook"
+
+#: src/routes/_auth/unlock.lazy.tsx
+#~ msgid "或"
+#~ msgstr "OR"
+
+#: src/components/devices/device-card.tsx
+msgid "打洞"
+msgstr "Direct"
+
+#: src/components/layout/sidebar.tsx
+msgid "接收文件"
+msgstr "Receive Files"
+
+#: src/routes/_auth/setup-password.lazy.tsx
+msgid "推荐包含特殊字符"
+msgstr "Recommended to include special characters"
+
+#: src/routes/_auth/welcome.lazy.tsx
+msgid "文件传输全程加密保护"
+msgstr "End-to-end encryption for file transfers"
+
+#: src/lib/auth-messages.ts
+msgid "无法获取密码"
+msgstr "Cannot retrieve password"
+
+#: src/routes/_auth/welcome.lazy.tsx
+msgid "无需服务器"
+msgstr "No server required"
+
+#: src/components/network/network-dialog.tsx
+msgid "未启动"
+msgstr "Stopped"
+
+#: src/lib/auth-messages.ts
+msgid "未找到存储的密码"
+msgstr "Stored password not found"
+
+#: src/components/devices/device-card.tsx
+msgid "未配对"
+msgstr "Not Paired"
+
+#: src/lib/auth-messages.ts
+msgid "正在初始化加密存储..."
+msgstr "Initializing encrypted storage..."
+
+#: src/lib/auth-messages.ts
+msgid "正在加载设备密钥..."
+msgstr "Loading device key..."
+
+#: src/lib/auth-messages.ts
+msgid "正在生成设备密钥..."
+msgstr "Generating device key..."
+
+#: src/lib/auth-messages.ts
+msgid "正在解密数据..."
+msgstr "Decrypting data..."
+
+#: src/routes/_auth/setup-password.lazy.tsx
+msgid "此密码用于保护您的设备身份，请妥善保管"
+msgstr "This password protects your device identity. Please keep it safe"
+
+#: src/routes/_app/settings.lazy.tsx
+msgid "浅色"
+msgstr "Light"
+
+#: src/routes/_app/settings.lazy.tsx
+msgid "深色"
+msgstr "Dark"
+
+#: src/routes/_auth/unlock.lazy.tsx
+#~ msgid "点击使用生物识别解锁"
+#~ msgstr "Tap to unlock with biometric authentication"
+
+#: src/routes/_auth/welcome.lazy.tsx
+msgid "点对点直连，无需注册账号"
+msgstr "Peer-to-peer connection, no account required"
+
+#: src/lib/auth-messages.ts
+msgid "生物识别不可用"
+msgstr "Biometric authentication unavailable"
+
+#: src/lib/auth-messages.ts
+msgid "生物识别未启用"
+msgstr "Biometric authentication not enabled"
+
+#: src/components/network/network-dialog.tsx
+msgid "监听地址"
+msgstr "Listening Addresses"
+
+#: src/routes/_auth/setup-password.lazy.tsx
+msgid "确认密码"
+msgstr "Confirm Password"
+
+#: src/components/devices/device-card.tsx
+#: src/components/layout/sidebar.tsx
+msgid "离线"
+msgstr "Offline"
+
+#: src/routes/_auth/enable-biometric.lazy.tsx
+msgid "稍后设置"
+msgstr "Set Up Later"
+
+#: src/routes/_auth/welcome.lazy.tsx
+msgid "端到端加密"
+msgstr "End-to-End Encryption"
+
+#: src/components/network/network-dialog.tsx
+msgid "管理 P2P 网络节点的启动和连接状态"
+msgstr "Manage P2P network node startup and connection status"
+
+#: src/components/network/network-dialog.tsx
+msgid "网络节点"
+msgstr "Network Node"
+
+#: src/routes/_auth/setup-password.lazy.tsx
+msgid "至少 8 个字符"
+msgstr "At least 8 characters"
+
+#: src/components/network/network-dialog.tsx
+msgid "节点未启动"
+msgstr "Node not started"
+
+#: src/components/network/network-dialog.tsx
+msgid "节点状态"
+msgstr "Node Status"
+
+#: src/routes/_auth/unlock.lazy.tsx
+#: src/routes/_auth/unlock.lazy.tsx
+msgid "解锁"
+msgstr "Unlock"
+
+#: src/routes/_auth/unlock.lazy.tsx
+#: src/routes/_auth/unlock.lazy.tsx
+msgid "解锁中..."
+msgstr "Unlocking..."
+
+#: src/components/layout/sidebar.tsx
+#: src/routes/_app/devices.lazy.tsx
+msgid "设备"
+msgstr "Devices"
+
+#: src/routes/_app/settings.lazy.tsx
+msgid "设备信息"
+msgstr "Device Info"
+
+#: src/components/layout/sidebar.tsx
+#: src/routes/_app/settings.lazy.tsx
+msgid "设置"
+msgstr "Settings"
+
+#: src/routes/_app/settings.lazy.tsx
+msgid "语言"
+msgstr "Language"
+
+#: src/routes/_app/settings.lazy.tsx
+msgid "跟随系统"
+msgstr "System"
+
+#: src/routes/_auth/welcome.lazy.tsx
+msgid "跨网络传输"
+msgstr "Cross-Network Transfer"
+
+#: src/routes/_auth/unlock.lazy.tsx
+msgid "输入密码"
+msgstr "Enter password"
+
+#: src/routes/_auth/setup-password.lazy.tsx
+msgid "输入至少 8 位密码"
+msgstr "Enter at least 8 characters"
+
+#: src/components/network/network-dialog.tsx
+msgid "运行中"
+msgstr "Running"
+
+#: src/routes/_auth/setup-password.lazy.tsx
+msgid "返回"
+msgstr "Back"
+
+#: src/components/devices/device-card.tsx
+msgid "连接"
+msgstr "Connect"
+
+#: src/components/layout/sidebar.tsx
+msgid "连接中"
+msgstr "Connecting"
+
+#: src/routes/_app/devices.lazy.tsx
+msgid "连接设备"
+msgstr "Connect Device"
+
+#: src/routes/_app/settings.lazy.tsx
+msgid "选择应用显示语言"
+msgstr "Choose display language"
+
+#: src/routes/_app/settings.lazy.tsx
+msgid "选择应用的外观主题"
+msgstr "Choose app theme"
+
+#: src/components/layout/sidebar.tsx
+#: src/components/network/network-dialog.tsx
+msgid "错误"
+msgstr "Error"
+
+#: src/routes/_app/devices.lazy.tsx
+msgid "附近设备"
+msgstr "Nearby Devices"
