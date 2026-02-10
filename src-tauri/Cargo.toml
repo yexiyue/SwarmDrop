@@ -21,5 +21,34 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+anyhow = "1.0"
 serde_json = "1"
+tokio = "1.49.0"
+futures = "0.3.31"
+walkdir = "2.5.0"
+swarm-p2p-core = { path = "../libs/core" }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
+tauri-plugin-stronghold = "2"
+tauri-plugin-biometry = "0.2"
+tauri-plugin-fs = "2"
+tauri-plugin-os = "2"
+tauri-plugin-store = "2"
+rand = "0.10.0"
+chrono = "0.4.43"
+sha2 = "0.10.9"
+dashmap = "6.1.0"
 
+# 桌面端启用 DNS 解析（Android 上 /etc/resolv.conf 不存在，不启用）
+[target.'cfg(not(target_os = "android"))'.dependencies]
+swarm-p2p-core = { path = "../libs/core", features = ["dns"] }
+
+# 在 dev 模式下为依赖开启优化（加密运算必须）
+# 否则 Stronghold 等加密库会慢 10-100 倍
+[profile.dev.package."*"]
+opt-level = 3
+
+# Stronghold 相关依赖特别需要优化
+[profile.dev.package.tauri-plugin-stronghold]
+opt-level = 3

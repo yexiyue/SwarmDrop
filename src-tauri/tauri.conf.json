@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "com.gy.swarmdrop",
   "build": {
-    "beforeDevCommand": "pnpm dev",
+    "beforeDevCommand": "pnpm dev --host",
     "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "pnpm build",
     "frontendDist": "../dist"
@@ -14,7 +14,9 @@
       {
         "title": "swarmdrop",
         "width": 800,
-        "height": 600
+        "height": 600,
+        "minWidth": 360,
+        "minHeight": 480
       }
     ],
     "security": {

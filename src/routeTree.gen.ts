@@ -8,39 +8,156 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
+import { createFileRoute } from '@tanstack/react-router'
+
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AuthRouteImport } from './routes/_auth'
+import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 
+const AuthWelcomeLazyRouteImport = createFileRoute('/_auth/welcome')()
+const AuthUnlockLazyRouteImport = createFileRoute('/_auth/unlock')()
+const AuthSetupPasswordLazyRouteImport = createFileRoute(
+  '/_auth/setup-password',
+)()
+const AuthEnableBiometricLazyRouteImport = createFileRoute(
+  '/_auth/enable-biometric',
+)()
+const AppSettingsLazyRouteImport = createFileRoute('/_app/settings')()
+const AppDevicesLazyRouteImport = createFileRoute('/_app/devices')()
+
+const AuthRoute = AuthRouteImport.update({
+  id: '/_auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthWelcomeLazyRoute = AuthWelcomeLazyRouteImport.update({
+  id: '/welcome',
+  path: '/welcome',
+  getParentRoute: () => AuthRoute,
+} as any).lazy(() => import('./routes/_auth/welcome.lazy').then((d) => d.Route))
+const AuthUnlockLazyRoute = AuthUnlockLazyRouteImport.update({
+  id: '/unlock',
+  path: '/unlock',
+  getParentRoute: () => AuthRoute,
+} as any).lazy(() => import('./routes/_auth/unlock.lazy').then((d) => d.Route))
+const AuthSetupPasswordLazyRoute = AuthSetupPasswordLazyRouteImport.update({
+  id: '/setup-password',
+  path: '/setup-password',
+  getParentRoute: () => AuthRoute,
+} as any).lazy(() =>
+  import('./routes/_auth/setup-password.lazy').then((d) => d.Route),
+)
+const AuthEnableBiometricLazyRoute = AuthEnableBiometricLazyRouteImport.update({
+  id: '/enable-biometric',
+  path: '/enable-biometric',
+  getParentRoute: () => AuthRoute,
+} as any).lazy(() =>
+  import('./routes/_auth/enable-biometric.lazy').then((d) => d.Route),
+)
+const AppSettingsLazyRoute = AppSettingsLazyRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any).lazy(() => import('./routes/_app/settings.lazy').then((d) => d.Route))
+const AppDevicesLazyRoute = AppDevicesLazyRouteImport.update({
+  id: '/devices',
+  path: '/devices',
+  getParentRoute: () => AppRoute,
+} as any).lazy(() => import('./routes/_app/devices.lazy').then((d) => d.Route))
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/devices': typeof AppDevicesLazyRoute
+  '/settings': typeof AppSettingsLazyRoute
+  '/enable-biometric': typeof AuthEnableBiometricLazyRoute
+  '/setup-password': typeof AuthSetupPasswordLazyRoute
+  '/unlock': typeof AuthUnlockLazyRoute
+  '/welcome': typeof AuthWelcomeLazyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/devices': typeof AppDevicesLazyRoute
+  '/settings': typeof AppSettingsLazyRoute
+  '/enable-biometric': typeof AuthEnableBiometricLazyRoute
+  '/setup-password': typeof AuthSetupPasswordLazyRoute
+  '/unlock': typeof AuthUnlockLazyRoute
+  '/welcome': typeof AuthWelcomeLazyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_app': typeof AppRouteWithChildren
+  '/_auth': typeof AuthRouteWithChildren
+  '/_app/devices': typeof AppDevicesLazyRoute
+  '/_app/settings': typeof AppSettingsLazyRoute
+  '/_auth/enable-biometric': typeof AuthEnableBiometricLazyRoute
+  '/_auth/setup-password': typeof AuthSetupPasswordLazyRoute
+  '/_auth/unlock': typeof AuthUnlockLazyRoute
+  '/_auth/welcome': typeof AuthWelcomeLazyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/devices'
+    | '/settings'
+    | '/enable-biometric'
+    | '/setup-password'
+    | '/unlock'
+    | '/welcome'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/devices'
+    | '/settings'
+    | '/enable-biometric'
+    | '/setup-password'
+    | '/unlock'
+    | '/welcome'
+  id:
+    | '__root__'
+    | '/'
+    | '/_app'
+    | '/_auth'
+    | '/_app/devices'
+    | '/_app/settings'
+    | '/_auth/enable-biometric'
+    | '/_auth/setup-password'
+    | '/_auth/unlock'
+    | '/_auth/welcome'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AppRoute: typeof AppRouteWithChildren
+  AuthRoute: typeof AuthRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/_auth': {
+      id: '/_auth'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_app': {
+      id: '/_app'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +165,83 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_auth/welcome': {
+      id: '/_auth/welcome'
+      path: '/welcome'
+      fullPath: '/welcome'
+      preLoaderRoute: typeof AuthWelcomeLazyRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/unlock': {
+      id: '/_auth/unlock'
+      path: '/unlock'
+      fullPath: '/unlock'
+      preLoaderRoute: typeof AuthUnlockLazyRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/setup-password': {
+      id: '/_auth/setup-password'
+      path: '/setup-password'
+      fullPath: '/setup-password'
+      preLoaderRoute: typeof AuthSetupPasswordLazyRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_auth/enable-biometric': {
+      id: '/_auth/enable-biometric'
+      path: '/enable-biometric'
+      fullPath: '/enable-biometric'
+      preLoaderRoute: typeof AuthEnableBiometricLazyRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsLazyRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/devices': {
+      id: '/_app/devices'
+      path: '/devices'
+      fullPath: '/devices'
+      preLoaderRoute: typeof AppDevicesLazyRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
+interface AppRouteChildren {
+  AppDevicesLazyRoute: typeof AppDevicesLazyRoute
+  AppSettingsLazyRoute: typeof AppSettingsLazyRoute
+}
+
+const AppRouteChildren: AppRouteChildren = {
+  AppDevicesLazyRoute: AppDevicesLazyRoute,
+  AppSettingsLazyRoute: AppSettingsLazyRoute,
+}
+
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
+
+interface AuthRouteChildren {
+  AuthEnableBiometricLazyRoute: typeof AuthEnableBiometricLazyRoute
+  AuthSetupPasswordLazyRoute: typeof AuthSetupPasswordLazyRoute
+  AuthUnlockLazyRoute: typeof AuthUnlockLazyRoute
+  AuthWelcomeLazyRoute: typeof AuthWelcomeLazyRoute
+}
+
+const AuthRouteChildren: AuthRouteChildren = {
+  AuthEnableBiometricLazyRoute: AuthEnableBiometricLazyRoute,
+  AuthSetupPasswordLazyRoute: AuthSetupPasswordLazyRoute,
+  AuthUnlockLazyRoute: AuthUnlockLazyRoute,
+  AuthWelcomeLazyRoute: AuthWelcomeLazyRoute,
+}
+
+const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AppRoute: AppRouteWithChildren,
+  AuthRoute: AuthRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

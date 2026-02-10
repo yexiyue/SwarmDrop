@@ -22,7 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
-.claude
+.claude/*
+!.claude/skills
+.agents
 **/openspec
 **/.obsidian
 .tanstack
