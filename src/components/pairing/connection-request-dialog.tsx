@@ -12,7 +12,7 @@ import {
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
   ResponsiveDialogDescription,
-} from "@/components/ui/responsive-dialog";
+} from "@/components/responsive-dialog";
 import { Trans } from "@lingui/react/macro";
 import { usePairingStore } from "@/stores/pairing-store";
 import { getDeviceIcon } from "@/components/pairing/device-icon";
@@ -37,8 +37,8 @@ export function ConnectionRequestDialog() {
     <ResponsiveDialog open={isOpen} onOpenChange={handleOpenChange}>
       <ResponsiveDialogContent className="sm:max-w-md" showCloseButton={false}>
         <ResponsiveDialogHeader className="flex flex-col items-center gap-2">
-          <div className="flex size-12 items-center justify-center rounded-full bg-blue-50">
-            <ShieldCheck className="size-6 text-blue-600" />
+          <div className="flex size-12 items-center justify-center rounded-full bg-primary/10">
+            <ShieldCheck className="size-6 text-primary" />
           </div>
           <ResponsiveDialogTitle className="text-center text-xl">
             <Trans>连接请求</Trans>
@@ -53,7 +53,7 @@ export function ConnectionRequestDialog() {
             {/* 设备信息 */}
             <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-4">
               <div className="flex size-10 items-center justify-center rounded-full bg-muted">
-                <DeviceIcon className="size-5 text-blue-600" />
+                <DeviceIcon className="size-5 text-primary" />
               </div>
               <div className="flex flex-col">
                 <span className="text-sm font-medium text-foreground">
@@ -66,7 +66,7 @@ export function ConnectionRequestDialog() {
             </div>
 
             {/* 安全提示 */}
-            <div className="flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-amber-800">
+            <div className="flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-amber-800 dark:bg-amber-950 dark:text-amber-200">
               <AlertTriangle className="mt-0.5 size-4 shrink-0" />
               <p className="text-xs">
                 <Trans>
@@ -81,10 +81,7 @@ export function ConnectionRequestDialog() {
           <Button variant="outline" onClick={() => void rejectRequest()}>
             <Trans>拒绝</Trans>
           </Button>
-          <Button
-            className="bg-blue-600 hover:bg-blue-700"
-            onClick={() => void acceptRequest()}
-          >
+          <Button onClick={() => void acceptRequest()}>
             <Trans>接受配对</Trans>
           </Button>
         </ResponsiveDialogFooter>

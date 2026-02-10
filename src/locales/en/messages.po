@@ -15,7 +15,7 @@ msgstr ""
 
 #: src/components/pairing/connection-request-dialog.tsx
 msgid "一台设备正在请求与您配对"
-msgstr ""
+msgstr "A device is requesting to pair with you"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "一般"
@@ -75,7 +75,7 @@ msgstr "Contains letters and numbers"
 
 #: src/components/pairing/input-code-dialog.tsx
 msgid "发起配对"
-msgstr ""
+msgstr "Pair"
 
 #: src/components/devices/device-card.tsx
 msgid "发送"
@@ -88,7 +88,7 @@ msgstr "Send Files"
 #: src/components/pairing/generate-code-dialog.tsx
 #: src/components/pairing/input-code-dialog.tsx
 msgid "取消"
-msgstr ""
+msgstr "Cancel"
 
 #: src/components/network/network-dialog.tsx
 msgid "启动中"
@@ -116,7 +116,7 @@ msgstr "Enable Biometric"
 
 #: src/components/pairing/generate-code-dialog.tsx
 msgid "在另一台设备上输入以下配对码"
-msgstr ""
+msgstr "Enter the following pairing code on the other device"
 
 #: src/components/devices/device-card.tsx
 #: src/components/layout/sidebar.tsx
@@ -125,7 +125,7 @@ msgstr "Online"
 
 #: src/components/pairing/generate-code-dialog.tsx
 msgid "复制配对码"
-msgstr ""
+msgstr "Copy Code"
 
 #: src/routes/_app/settings.lazy.tsx
 msgid "外观"
@@ -170,7 +170,7 @@ msgstr "Discovered Peers"
 
 #: src/components/pairing/generate-code-dialog.tsx
 msgid "已复制"
-msgstr ""
+msgstr "Copied"
 
 #: src/components/network/network-dialog.tsx
 msgid "已连接节点"
@@ -206,11 +206,11 @@ msgstr "Direct"
 
 #: src/components/pairing/connection-request-dialog.tsx
 msgid "拒绝"
-msgstr ""
+msgstr "Decline"
 
 #: src/components/pairing/connection-request-dialog.tsx
 msgid "接受配对"
-msgstr ""
+msgstr "Accept"
 
 #: src/components/layout/nav-items.ts
 msgid "接收文件"
@@ -254,7 +254,7 @@ msgstr "Loading device key..."
 
 #: src/components/pairing/input-code-dialog.tsx
 msgid "正在查找设备..."
-msgstr ""
+msgstr "Searching for device..."
 
 #: src/lib/auth-messages.ts
 msgid "正在生成设备密钥..."
@@ -278,7 +278,7 @@ msgstr "Dark"
 
 #: src/components/pairing/generate-code-dialog.tsx
 msgid "添加新设备"
-msgstr ""
+msgstr "Add New Device"
 
 #: src/routes/_auth/unlock.lazy.tsx
 #~ msgid "点击使用生物识别解锁"
@@ -290,7 +290,7 @@ msgstr "Peer-to-peer connection, no account required"
 
 #: src/components/pairing/add-device-menu.tsx
 msgid "生成配对码"
-msgstr ""
+msgstr "Generate Code"
 
 #: src/lib/auth-messages.ts
 msgid "生物识别不可用"
@@ -323,7 +323,7 @@ msgstr "End-to-End Encryption"
 
 #: src/components/pairing/input-code-dialog.tsx
 msgid "等待对方确认..."
-msgstr ""
+msgstr "Waiting for confirmation..."
 
 #: src/components/network/network-dialog.tsx
 msgid "管理 P2P 网络节点的启动和连接状态"
@@ -383,7 +383,7 @@ msgstr "Cross-Network Transfer"
 
 #: src/components/pairing/input-code-dialog.tsx
 msgid "输入另一台设备上显示的配对码"
-msgstr ""
+msgstr "Enter the pairing code shown on the other device"
 
 #: src/routes/_auth/unlock.lazy.tsx
 msgid "输入密码"
@@ -395,7 +395,7 @@ msgstr "Enter at least 8 characters"
 
 #: src/components/pairing/add-device-menu.tsx
 msgid "输入配对码"
-msgstr ""
+msgstr "Enter Code"
 
 #: src/components/network/network-dialog.tsx
 msgid "运行中"
@@ -415,7 +415,7 @@ msgstr "Connecting"
 
 #: src/components/pairing/input-code-dialog.tsx
 msgid "连接已有设备"
-msgstr ""
+msgstr "Connect Existing Device"
 
 #: src/components/pairing/add-device-menu.tsx
 msgid "连接设备"
@@ -423,7 +423,7 @@ msgstr "Connect Device"
 
 #: src/components/pairing/connection-request-dialog.tsx
 msgid "连接请求"
-msgstr ""
+msgstr "Connection Request"
 
 #: src/routes/_app/settings.lazy.tsx
 msgid "选择应用显示语言"
@@ -435,20 +435,20 @@ msgstr "Choose app theme"
 
 #: src/components/pairing/connection-request-dialog.tsx
 msgid "配对后，该设备可以向您发送文件。请确认您认识此设备。"
-msgstr ""
+msgstr "Once paired, this device can send you files. Please make sure you recognize this device."
 
 #. placeholder {0}: formatTime(remainingSeconds)
 #: src/components/pairing/generate-code-dialog.tsx
 msgid "配对码将在 {0} 后过期"
-msgstr ""
+msgstr "Code expires in {0}"
 
 #: src/components/pairing/generate-code-dialog.tsx
 msgid "配对码已过期"
-msgstr ""
+msgstr "Code expired"
 
 #: src/components/pairing/generate-code-dialog.tsx
 msgid "重新生成"
-msgstr ""
+msgstr "Regenerate"
 
 #: src/components/layout/sidebar.tsx
 #: src/components/network/network-dialog.tsx

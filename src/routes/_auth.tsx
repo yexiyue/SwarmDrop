@@ -5,7 +5,7 @@
 
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { useAuthStore } from "@/stores/auth-store";
-import { AuroraBackground } from "@/components/ui/aurora-background";
+import { AuroraBackground } from "@/components/aurora-background";
 
 export const Route = createFileRoute("/_auth")({
   beforeLoad: ({ location }) => {
