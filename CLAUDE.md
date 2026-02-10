@@ -1,4 +1,3 @@
-
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
@@ -9,253 +8,177 @@ Always respond in Chinese (简体中文). All output, including thinking, planni
 
 ## Project Overview
 
-SwarmDrop is a **decentralized, cross-network, end-to-end encrypted file transfer tool** built with Tauri v2. It aims to be a "cross-network version of LocalSend" - no accounts, no servers, supporting both LAN and cross-network peer-to-peer file transfers.
+SwarmDrop is a decentralized, cross-network, end-to-end encrypted file transfer tool built with Tauri v2. It aims to be a "cross-network version of LocalSend" — no accounts, no servers, supporting both LAN and cross-network peer-to-peer file transfers.
 
-**Tech Stack:**
-- **Frontend:** React 19 + TypeScript + Vite
-- **Backend:** Rust + Tauri 2
-- **P2P Network:** libp2p (Request-Response + mDNS + Kademlia DHT + Relay + DCUtR)
-- **Encryption:** XChaCha20-Poly1305 (planned)
-- **Storage:** SQLite via rusqlite (planned for history)
-- **UI:** shadcn/ui + Tailwind CSS (planned)
-
-## Project Structure
-
-```
-swarmdrop/
-├── src/                    # React frontend source
-│   ├── App.tsx            # Main React component
-│   ├── main.tsx           # React entry point
-│   └── assets/            # Frontend assets
-├── src-tauri/             # Rust backend source
-│   ├── src/
-│   │   ├── lib.rs         # Main Tauri library with commands
-│   │   └── main.rs        # Application entry point
-│   ├── Cargo.toml         # Rust dependencies
-│   ├── tauri.conf.json    # Tauri configuration
-│   └── capabilities/      # Tauri security capabilities
-├── docs/                  # Astro + Starlight documentation site
-│   ├── src/content/docs/  # Documentation markdown files
-│   └── package.json       # Docs dependencies
-└── dev-notes/             # Development notes and PRD
-    ├── product-requirements.md  # Full product requirements (Chinese)
-    ├── design/             # UI/UX design files
-    │   └── design.pen      # Pencil design file
-    ├── roadmap/            # Development roadmap
-    │   ├── implementation-roadmap.md
-    │   └── phase-*.md      # Phase-specific tasks
-    └── research/           # Technical research
-        └── mobile-*.md     # Mobile platform research
-```
+**Current Status:** Phase 2 (Device Pairing) — networking layer complete, pairing system in progress.
 
 ## Build and Development Commands
 
-### Frontend + Backend Development
 ```bash
-# Development mode (starts both Vite and Tauri)
+# Full app development (Vite frontend + Tauri Rust backend)
+pnpm tauri dev
+
+# Frontend only (Vite dev server at http://localhost:1420)
 pnpm dev
 
-# Build for production
+# Production build
+pnpm build              # Frontend (tsc + vite build)
+pnpm tauri build        # Full app
+
+# Rust (run from src-tauri/)
+cargo build
+cargo test
+cargo clippy
+cargo fmt
+
+# i18n — extract translation strings to .po files
+pnpm i18n:extract
+
+# Android
+pnpm android:dev        # Dev mode (sets SODIUM_LIB_DIR via scripts/android.mjs)
+pnpm android:build
+
+# Documentation site (run from docs/)
+pnpm dev                # Astro + Starlight dev server
 pnpm build
-
-# Preview production build
-pnpm preview
 ```
 
-### Frontend Only
-```bash
-# Start Vite dev server on http://localhost:1420
-pnpm dev  # (without Tauri)
-```
+**Package manager:** pnpm only (not npm or yarn).
 
-### Backend (Tauri) Commands
-```bash
-# Run Tauri CLI commands directly
-pnpm tauri dev      # Development mode
-pnpm tauri build    # Production build
-pnpm tauri info     # Environment info
-```
+## Tech Stack
 
-### Rust Development
-```bash
-# Inside src-tauri/
-cargo build         # Build Rust code
-cargo test          # Run tests
-cargo clippy        # Lint with Clippy
-cargo fmt           # Format code
-```
+| Layer | Technology |
+|-------|-----------|
+| Frontend | React 19, TypeScript 5.8, Vite 7, Tailwind CSS 4 |
+| Routing | TanStack Router (file-system based, auto code-splitting) |
+| State | Zustand 5 (4 stores: auth, network, preferences, secret) |
+| UI | shadcn/ui (new-york style), Lucide icons, Radix primitives |
+| i18n | Lingui 5 (8 locales: zh, zh-TW, en, ja, ko, es, fr, de) |
+| Backend | Rust 2021, Tauri 2 |
+| P2P | libp2p 0.56 via `swarm-p2p-core` (git submodule in `libs/`) |
+| Security | Stronghold (encrypted vault), Biometry (FaceID/TouchID/Windows Hello) |
 
-### Documentation Site
-```bash
-# Inside docs/
-pnpm dev            # Start Astro dev server
-pnpm build          # Build static site
-pnpm preview        # Preview built site
-```
+## Architecture
 
-## Architecture Overview
+### Frontend → Backend Communication
 
-### Tauri Frontend ↔ Backend Communication
+Frontend calls Rust via Tauri IPC. TypeScript wrappers live in `src/commands/`:
 
-**Frontend calls Rust commands:**
 ```typescript
-// In React components
+// src/commands/network.ts wraps invoke("start", ...)
 import { invoke } from "@tauri-apps/api/core";
-const result = await invoke("greet", { name: "World" });
 ```
 
-**Rust command handlers:**
+Rust command handlers are in `src-tauri/src/commands/` and registered in `src-tauri/src/lib.rs`:
 ```rust
-// In src-tauri/src/lib.rs
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}!", name)
-}
-
-// Register in run() function
-.invoke_handler(tauri::generate_handler![greet])
+.invoke_handler(tauri::generate_handler![commands::start, commands::shutdown, ...])
 ```
 
-### Adding New Tauri Commands
+When adding a new Tauri command, use the `/edgemind-tauri-command` skill.
 
-When you need to add a new Tauri command, use the `edgemind-tauri-command` skill:
-```bash
-/edgemind-tauri-command
+### Frontend Architecture
+
+**Routing** — TanStack Router with file-system convention in `src/routes/`:
+- `__root.tsx` — root layout
+- `_auth.tsx` — unauthenticated layout (Aurora background). Guards redirect to `/devices` if already unlocked.
+- `_auth/welcome.lazy.tsx`, `setup-password.lazy.tsx`, `unlock.lazy.tsx`, `enable-biometric.lazy.tsx`
+- `_app.tsx` — authenticated layout (sidebar/bottom-nav). Guards redirect to `/welcome` or `/unlock` if not ready.
+- `_app/devices.lazy.tsx`, `settings.lazy.tsx`
+- `index.tsx` — redirects to `/devices`
+
+Route guards use `beforeLoad` + `useAuthStore.getState()` to check auth state synchronously.
+
+**State Management** — 4 Zustand stores with different persistence backends:
+- `auth-store` — auth flow state. Persisted to `localStorage` (only `isSetupComplete` + `biometricEnabled`).
+- `preferences-store` — theme, language, device name. Persisted to `tauri-plugin-store`. Uses `onRehydrateStorage` to apply theme/language immediately, preventing flash.
+- `secret-store` — Ed25519 keypair. Persisted to Stronghold encrypted vault via `src/lib/stronghold.ts`.
+- `network-store` — runtime-only. Manages P2P node status, peer map (`Map<PeerId, PeerInfo>`), listen addresses, NAT status. Handles `NodeEvent` from Rust via Tauri Channel.
+
+**Responsive Design** — 3 breakpoints via `use-breakpoint` hook:
+- mobile (<768px): bottom navigation
+- tablet (768–1023px): icon-only sidebar
+- desktop (≥1024px): expanded sidebar
+
+**i18n** — Lingui with Babel macro. Source locale is `zh`. Extract with `pnpm i18n:extract`. Catalogs in `src/locales/{locale}/messages.po`. Dynamic loading via `dynamicActivate(locale)`.
+
+### Backend Architecture
+
+```
+src-tauri/src/
+├── lib.rs              # Tauri setup, plugin registration, command handler
+├── commands/
+│   ├── mod.rs          # start/shutdown, NetManager, bootstrap nodes
+│   ├── identity.rs     # generate_keypair, register_keypair
+│   └── pairing.rs      # generate_pairing_code, get_device_info, request/respond_pairing
+├── pairing/
+│   ├── code.rs         # 6-digit share code generation, SHA256→DHT key
+│   └── manager.rs      # PairingManager — DHT publish/query, online/offline announce
+├── device.rs           # OsInfo — hostname, platform, agent_version string
+├── protocol.rs         # AppRequest/AppResponse — CBOR over libp2p Request-Response
+└── error.rs            # AppError (thiserror), AppResult
 ```
 
-This skill provides guidance on:
-1. Creating new Tauri commands in `src-tauri/src/lib.rs`
-2. Registering commands in the `invoke_handler`
-3. Calling commands from TypeScript with proper types
-4. Following project conventions
+**Network startup flow:**
+1. `commands::start()` creates `NodeConfig` with mDNS, relay, DCUtR, autonat, bootstrap peers
+2. Calls `swarm_p2p_core::start::<AppRequest, AppResponse>()` → returns `(NetClient, Receiver<NodeEvent>)`
+3. Spawns tokio tasks for DHT bootstrap and event forwarding to frontend via Channel
+4. Creates `NetManager` (wraps `NetClient` + `PairingManager`), stores in Tauri state
 
-### P2P Network Architecture (Planned)
+**Bootstrap node:** One self-hosted node at `47.115.172.218:4001` (TCP + QUIC).
 
-The application will use libp2p for peer-to-peer networking:
+**Share code system:** 6-digit numeric codes. DHT key = SHA256(code). Records contain OS info + timestamp. Default TTL 300s.
 
-- **Transport:** TCP + Noise encryption + Yamux multiplexing
-- **Discovery:**
-  - mDNS for LAN device discovery
-  - Kademlia DHT for cross-network peer discovery
-- **NAT Traversal:**
-  - DCUtR (Direct Connection Upgrade through Relay) for hole punching
-  - Relay protocol as fallback for failed hole punching
-- **File Transfer:** Custom Request-Response protocol
-- **Share Code System:** 6-character codes (A-Z0-9) that encode peer ID, session ID, and encryption key
+### P2P Library (libs/)
 
-### Security Model (Planned)
+Git submodule containing `swarm-p2p-core` crate. Workspace at `libs/Cargo.toml`, core code at `libs/core/`.
 
-- Each transfer generates temporary key pairs
-- File content encrypted with XChaCha20-Poly1305
-- Share codes contain encryption keys
-- Relay nodes cannot decrypt file content
-- No telemetry or data collection
+Key exports: `NetClient`, `NodeConfig`, `NodeEvent`, `start()`, re-exported `libp2p`.
 
-## Configuration Files
+Android-specific: DNS feature is disabled (`/etc/resolv.conf` doesn't exist on Android). Configured via conditional dependencies in `src-tauri/Cargo.toml`:
+```toml
+[target.'cfg(not(target_os = "android"))'.dependencies]
+swarm-p2p-core = { path = "../libs/core", features = ["dns"] }
+```
 
-### Tauri Configuration (`src-tauri/tauri.conf.json`)
-- **Development server:** http://localhost:1420
-- **Frontend build output:** `../dist`
+## Important Conventions
+
+- **Rust library naming:** The lib is named `swarmdrop_lib` (not `swarmdrop`) to avoid a Windows cargo naming conflict between lib and bin targets.
+- **Dev profile optimization:** Crypto dependencies (`tauri-plugin-stronghold`, etc.) are compiled with `opt-level = 3` even in dev mode, otherwise they're 10–100x slower.
+- **Vite port:** Fixed at 1420 (Tauri requirement). HMR on 1421.
+- **Path alias:** `@/` maps to `./src/` in both TypeScript (`tsconfig.json`) and Vite (`vite.config.ts`).
+- **shadcn/ui config:** `components.json` uses `new-york` style, `rsc: false`, `neutral` base color, Lucide icons. Also registers `@aceternity` registry.
+- **Diagrams:** Always use Mermaid in markdown. No ASCII art.
 - **App identifier:** `com.gy.swarmdrop`
-- **Window size:** 800x600
 
-### Vite Configuration (`vite.config.ts`)
-- **Dev server port:** 1420 (fixed, required by Tauri)
-- **HMR port:** 1421
-- Ignores `src-tauri` directory from watch
+## Key File Locations
 
-### TypeScript Configuration (`tsconfig.json`)
-- **Target:** ES2020
-- **JSX:** react-jsx
-- **Strict mode:** enabled
-- Linting: noUnusedLocals, noUnusedParameters, noFallthroughCasesInSwitch
-
-## Key Product Requirements
-
-Refer to `dev-notes/product-requirements.md` for comprehensive product vision. Key points:
-
-**MVP Features (P0):**
-1. Send/receive files with 6-digit share codes
-2. LAN device discovery via mDNS
-3. Cross-network transfer via DHT + NAT traversal
-4. End-to-end encryption
-5. Transfer progress tracking
-6. Device identity management
-
-**Important Features (P1):**
-- Transfer history
-- Favorite devices
-- Resume interrupted transfers
-- MCP server for AI integration (localhost:19527)
-
-**Future Iterations (P2):**
-- Mobile apps (Android/iOS via Tauri 2)
-- Clipboard sync
-- Transfer speed limiting
-
-## Monorepo Context
-
-This project is intended to be part of a larger `swarm-apps` monorepo:
-
-```
-swarm-apps/
-├── crates/
-│   └── swarm-p2p/          # Shared P2P library (to be extracted)
-│       ├── transport.rs
-│       ├── discovery.rs
-│       ├── relay.rs
-│       └── protocol.rs
-├── apps/
-│   ├── swarmdrop/          # This project
-│   └── swarmnote/          # Future note-taking app
-└── bootstrap/              # DHT bootstrap node program
-```
-
-The P2P networking layer (libp2p integration) will eventually be extracted into a shared crate for reuse across multiple applications.
+| Purpose | Path |
+|---------|------|
+| Tauri commands | `src-tauri/src/commands/` |
+| Frontend command wrappers | `src/commands/` |
+| Zustand stores | `src/stores/` |
+| Route pages | `src/routes/` |
+| shadcn/ui components | `src/components/ui/` |
+| Layout components | `src/components/layout/` |
+| Translation catalogs | `src/locales/{locale}/messages.po` |
+| Lingui config | `lingui.config.ts` |
+| Product requirements | `dev-notes/product-requirements.md` |
+| Implementation roadmap | `dev-notes/roadmap/implementation-roadmap.md` |
+| UI design file | `dev-notes/design/design.pen` |
+| P2P core library | `libs/core/` |
+| Tauri capabilities | `src-tauri/capabilities/default.json` |
 
 ## Development Phases
 
-**Current Status:** Phase 2 (Device Pairing) - Network layer complete
-
 | Phase | Status | Description |
 |-------|--------|-------------|
-| Phase 1 - Networking | ✅ Done | libp2p Swarm, mDNS, DHT, Relay, DCUtR |
-| Phase 2 - Pairing | 🚧 In Progress | Share codes, device identity, DHT Provider |
-| Phase 3 - File Transfer | ⏳ Pending | Request-Response, E2E encryption, progress |
-| Phase 4 - Mobile | ⏳ Pending | HTTP bridge, QR code pairing |
+| Phase 1 — Networking | Done | libp2p Swarm, mDNS, DHT, Relay, DCUtR |
+| Phase 2 — Pairing | In Progress | Share codes, device identity, DHT Provider |
+| Phase 3 — File Transfer | Pending | Request-Response, E2E encryption, progress |
+| Phase 4 — Mobile | Pending | HTTP bridge or libp2p full-platform, QR code pairing |
 
-Detailed roadmap: `dev-notes/roadmap/implementation-roadmap.md`
+Detailed per-phase specs: `dev-notes/roadmap/phase-*.md`
 
-## Documentation
+## Documentation Site
 
-The project includes an Astro + Starlight documentation site in `docs/`. When editing documentation:
-
-- Use the `swarmbook-tutorial` skill for tutorial-style content
-- Content lives in `docs/src/content/docs/`
-- Follow Starlight's markdown conventions
-- Documentation is in Chinese (target audience)
-
-## Additional Notes
-
-- **Package manager:** pnpm (not npm or yarn)
-- **Library naming:** The Rust library is named `swarmdrop_lib` (note the `_lib` suffix) to avoid Windows-specific naming conflicts with the binary
-- **Tauri plugins:** Currently using `tauri-plugin-opener` for opening links
-- **Target platforms (MVP):** Windows 10/11, macOS 12+, Linux (Ubuntu 22.04+, Fedora 38+)
-
-## Documentation Conventions
-
-### Diagrams
-
-**Always use Mermaid** for diagrams in markdown files. Do not use ASCII art diagrams.
-
-```mermaid
-graph LR
-    A[Desktop] -->|libp2p| B[Desktop]
-    A -->|HTTP| C[Mobile]
-```
-
-Supported diagram types:
-- `flowchart` / `graph` - Architecture, data flow
-- `sequenceDiagram` - Protocol interactions
-- `stateDiagram-v2` - State machines
-- `classDiagram` - Data structures
+Astro + Starlight in `docs/`. Content in `docs/src/content/docs/`. Use the `/swarmbook-tutorial` skill for tutorial-style content.
