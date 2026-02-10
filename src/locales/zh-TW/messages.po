@@ -22,6 +22,10 @@ msgstr ""
 msgid "{connectedCount} 台"
 msgstr ""
 
+#: src/routes/_app/pairing/-device-found-view.tsx
+msgid "CPU 架构"
+msgstr ""
+
 #: src/components/network/network-status-bar.tsx
 msgid "P2P 节点未启动"
 msgstr ""
@@ -110,9 +114,9 @@ msgstr "建立主密碼"
 msgid "包含字母和数字"
 msgstr "包含字母和數字"
 
-#: src/components/pairing/input-code-dialog.tsx
-#~ msgid "发起配对"
-#~ msgstr ""
+#: src/routes/_app/pairing/-device-found-view.tsx
+msgid "发起配对"
+msgstr ""
 
 #: src/components/devices/device-card.tsx
 msgid "发送"
@@ -122,11 +126,17 @@ msgstr "傳送"
 msgid "发送文件"
 msgstr "傳送檔案"
 
+#: src/routes/_app/pairing/-device-found-view.tsx
+msgid "发送配对请求"
+msgstr ""
+
 #: src/components/devices/device-card.tsx
 #: src/components/network/start-node-sheet.tsx
 #: src/components/network/stop-node-sheet.tsx
-#: src/components/pairing/desktop-input-code-page.tsx
-#: src/components/pairing/generate-code-dialog.tsx
+#: src/routes/_app/pairing/-device-found-view.tsx
+#: src/routes/_app/pairing/-device-found-view.tsx
+#: src/routes/_app/pairing/generate.lazy.tsx
+#: src/routes/_app/pairing/input.lazy.tsx
 msgid "取消"
 msgstr ""
 
@@ -177,7 +187,7 @@ msgstr "啟用快捷解鎖？"
 msgid "启用生物识别"
 msgstr "啟用生物辨識"
 
-#: src/components/pairing/generate-code-dialog.tsx
+#: src/routes/_app/pairing/generate.lazy.tsx
 msgid "在另一台设备上输入以下配对码"
 msgstr ""
 
@@ -191,7 +201,7 @@ msgstr ""
 msgid "在线"
 msgstr "在線"
 
-#: src/components/pairing/generate-code-dialog.tsx
+#: src/routes/_app/pairing/generate.lazy.tsx
 msgid "复制配对码"
 msgstr ""
 
@@ -244,7 +254,7 @@ msgstr "區域網路和廣域網路無縫切換"
 msgid "已发现节点"
 msgstr "已發現節點"
 
-#: src/components/pairing/generate-code-dialog.tsx
+#: src/routes/_app/pairing/generate.lazy.tsx
 msgid "已复制"
 msgstr ""
 
@@ -299,6 +309,10 @@ msgstr "接收檔案"
 msgid "推荐包含特殊字符"
 msgstr "建議包含特殊字元"
 
+#: src/routes/_app/pairing/-device-found-view.tsx
+msgid "操作系统"
+msgstr ""
+
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "文件传输全程加密保护"
 msgstr "檔案傳輸全程加密保護"
@@ -338,7 +352,7 @@ msgstr "正在初始化加密儲存..."
 msgid "正在加载设备密钥..."
 msgstr "正在載入裝置金鑰..."
 
-#: src/components/pairing/desktop-input-code-page.tsx
+#: src/routes/_app/pairing/input.lazy.tsx
 msgid "正在查找设备..."
 msgstr ""
 
@@ -362,11 +376,12 @@ msgstr "淺色"
 msgid "深色"
 msgstr "深色"
 
-#: src/components/pairing/generate-code-dialog.tsx
+#: src/routes/_app/pairing/generate.lazy.tsx
+#: src/routes/_app/pairing/generate.lazy.tsx
 msgid "添加新设备"
 msgstr ""
 
-#: src/components/pairing/mobile-pairing-page.tsx
+#: src/routes/_app/pairing/index.lazy.tsx
 msgid "添加设备"
 msgstr ""
 
@@ -375,7 +390,7 @@ msgid "点对点直连，无需注册账号"
 msgstr "點對點直連，無需註冊帳號"
 
 #: src/components/pairing/add-device-menu.tsx
-#: src/components/pairing/mobile-pairing-page.tsx
+#: src/routes/_app/pairing/index.lazy.tsx
 msgid "生成配对码"
 msgstr ""
 
@@ -397,7 +412,7 @@ msgstr "監聽位址"
 msgid "确定要取消与「{deviceName}」的配对吗？取消后需要重新配对才能传输文件。"
 msgstr ""
 
-#: src/components/pairing/desktop-input-code-page.tsx
+#: src/routes/_app/pairing/input.lazy.tsx
 msgid "确认"
 msgstr ""
 
@@ -423,7 +438,8 @@ msgstr "稍後設定"
 msgid "端到端加密"
 msgstr "端對端加密"
 
-#: src/components/pairing/desktop-input-code-page.tsx
+#: src/routes/_app/pairing/-device-found-view.tsx
+#: src/routes/_app/pairing/-device-found-view.tsx
 msgid "等待对方确认..."
 msgstr ""
 
@@ -484,6 +500,15 @@ msgstr "裝置"
 msgid "设备信息"
 msgstr "裝置資訊"
 
+#: src/routes/_app/pairing/-device-found-view.tsx
+msgid "设备在线，可以建立连接"
+msgstr ""
+
+#: src/routes/_app/pairing/-device-found-view.tsx
+#: src/routes/_app/pairing/input.lazy.tsx
+msgid "设备详情"
+msgstr ""
+
 #: src/components/layout/nav-items.ts
 #: src/components/layout/nav-items.ts
 #: src/routes/_app/settings.lazy.tsx
@@ -502,7 +527,7 @@ msgstr "跟隨系統"
 msgid "跨网络传输"
 msgstr "跨網路傳輸"
 
-#: src/components/pairing/desktop-input-code-page.tsx
+#: src/routes/_app/pairing/input.lazy.tsx
 msgid "输入另一台设备上显示的配对码"
 msgstr ""
 
@@ -519,7 +544,7 @@ msgid "输入至少 8 位密码"
 msgstr "輸入至少 8 位密碼"
 
 #: src/components/pairing/add-device-menu.tsx
-#: src/components/pairing/mobile-pairing-page.tsx
+#: src/routes/_app/pairing/index.lazy.tsx
 msgid "输入配对码"
 msgstr ""
 
@@ -545,8 +570,8 @@ msgstr "連線"
 msgid "连接中"
 msgstr "連線中"
 
-#: src/components/pairing/desktop-input-code-page.tsx
-#: src/components/pairing/desktop-input-code-page.tsx
+#: src/routes/_app/pairing/input.lazy.tsx
+#: src/routes/_app/pairing/input.lazy.tsx
 msgid "连接已有设备"
 msgstr ""
 
@@ -570,19 +595,27 @@ msgstr "選擇應用的外觀主題"
 msgid "配对后，该设备可以向您发送文件。请确认您认识此设备。"
 msgstr ""
 
+#: src/routes/_app/pairing/-device-found-view.tsx
+msgid "配对方式"
+msgstr ""
+
+#: src/routes/_app/pairing/-device-found-view.tsx
+msgid "配对码"
+msgstr ""
+
 #. placeholder {0}: formatTime(remainingSeconds)
-#: src/components/pairing/generate-code-dialog.tsx
 #: src/components/pairing/mobile-generate-code-view.tsx
+#: src/routes/_app/pairing/generate.lazy.tsx
 msgid "配对码将在 {0} 后过期"
 msgstr ""
 
-#: src/components/pairing/generate-code-dialog.tsx
 #: src/components/pairing/mobile-generate-code-view.tsx
+#: src/routes/_app/pairing/generate.lazy.tsx
 msgid "配对码已过期"
 msgstr ""
 
-#: src/components/pairing/generate-code-dialog.tsx
 #: src/components/pairing/mobile-generate-code-view.tsx
+#: src/routes/_app/pairing/generate.lazy.tsx
 msgid "重新生成"
 msgstr ""
 
