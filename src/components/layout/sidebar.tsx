@@ -1,14 +1,6 @@
 import { cn } from "@/lib/utils";
-import {
-  Download,
-  Send,
-  Settings,
-  Smartphone,
-  Upload,
-} from "lucide-react";
+import { Send } from "lucide-react";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { msg } from "@lingui/core/macro";
-import type { MessageDescriptor } from "@lingui/core";
 import { useLingui } from "@lingui/react/macro";
 import { useState, useEffect } from "react";
 import { hostname } from "@tauri-apps/plugin-os";
@@ -26,24 +18,20 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarSeparator,
+  useSidebar,
 } from "@/components/ui/sidebar";
-
-interface NavItem {
-  icon: React.ComponentType<{ className?: string }>;
-  label: MessageDescriptor;
-  href: string;
-}
-
-const navItems: NavItem[] = [
-  { icon: Smartphone, label: msg`设备`, href: "/devices" },
-  { icon: Upload, label: msg`发送文件`, href: "/send" },
-  { icon: Download, label: msg`接收文件`, href: "/receive" },
-  { icon: Settings, label: msg`设置`, href: "/settings" },
-];
+import { navItems } from "@/components/layout/nav-items";
+import { msg } from "@lingui/core/macro";
+import type { MessageDescriptor } from "@lingui/core";
 
 const statusConfig: Record<
   NodeStatus,
-  { label: MessageDescriptor; dotColor: string; bgColor: string; textColor: string }
+  {
+    label: MessageDescriptor;
+    dotColor: string;
+    bgColor: string;
+    textColor: string;
+  }
 > = {
   stopped: {
     label: msg`离线`,
@@ -79,33 +67,34 @@ export function AppSidebar() {
   const [deviceName, setDeviceName] = useState<string>("");
   const status = useNetworkStore((state) => state.status);
   const config = statusConfig[status];
+  const { state } = useSidebar();
+  const isCollapsed = state === "collapsed";
 
   useEffect(() => {
     hostname().then((name) => setDeviceName(name ?? ""));
   }, []);
 
-  // 从主机名生成头像缩写
   const avatarInitials = deviceName
     ? deviceName.slice(0, 2).toUpperCase()
     : "SD";
 
   return (
-    <Sidebar collapsible="none" className="border-r border-sidebar-border">
-      {/* Brand Header */}
+    <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader className="h-13 justify-center px-4">
         <div className="flex items-center gap-2">
-          <div className="flex size-7 items-center justify-center rounded-md bg-linear-to-br from-blue-600 to-blue-500">
+          <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-linear-to-br from-blue-600 to-blue-500">
             <Send className="size-4 text-white" />
           </div>
-          <span className="text-[15px] font-semibold text-sidebar-foreground">
-            SwarmDrop
-          </span>
+          {!isCollapsed && (
+            <span className="text-[15px] font-semibold text-sidebar-foreground">
+              SwarmDrop
+            </span>
+          )}
         </div>
       </SidebarHeader>
 
       <SidebarSeparator />
 
-      {/* Navigation */}
       <SidebarContent className="px-3 pt-3">
         <SidebarGroup className="p-0">
           <SidebarGroupContent>
@@ -121,13 +110,16 @@ export function AppSidebar() {
                     <SidebarMenuButton
                       asChild
                       isActive={isActive}
+                      tooltip={t(item.label)}
                       className="h-9 px-2.5 text-[13px]"
                     >
                       <Link to={item.href} preload="intent">
                         <Icon
                           className={cn(
                             "size-4.5",
-                            isActive ? "text-blue-600" : "text-muted-foreground"
+                            isActive
+                              ? "text-blue-600"
+                              : "text-muted-foreground",
                           )}
                         />
                         <span>{t(item.label)}</span>
@@ -143,32 +135,38 @@ export function AppSidebar() {
 
       <SidebarSeparator />
 
-      {/* Footer - User Info */}
       <SidebarFooter className="p-3">
-        <div className="flex items-center justify-between px-1">
+        <div className={cn(
+          "flex items-center px-1",
+          isCollapsed ? "justify-center" : "justify-between",
+        )}>
           <div className="flex items-center gap-2">
-            <Avatar className="size-7">
+            <Avatar className="size-7 shrink-0">
               <AvatarFallback className="text-[11px]">
                 {avatarInitials}
               </AvatarFallback>
             </Avatar>
-            <span className="text-[13px] text-sidebar-foreground">
-              {deviceName || "SwarmDrop"}
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setNetworkDialogOpen(true)}
-            className={cn(
-              "flex cursor-pointer items-center gap-1 rounded px-1.5 py-1 transition-colors",
-              config.bgColor
+            {!isCollapsed && (
+              <span className="text-[13px] text-sidebar-foreground">
+                {deviceName || "SwarmDrop"}
+              </span>
             )}
-          >
-            <span className={cn("size-1.5 rounded-full", config.dotColor)} />
-            <span className={cn("text-[11px]", config.textColor)}>
-              {t(config.label)}
-            </span>
-          </button>
+          </div>
+          {!isCollapsed && (
+            <button
+              type="button"
+              onClick={() => setNetworkDialogOpen(true)}
+              className={cn(
+                "flex cursor-pointer items-center gap-1 rounded px-1.5 py-1 transition-colors",
+                config.bgColor,
+              )}
+            >
+              <span className={cn("size-1.5 rounded-full", config.dotColor)} />
+              <span className={cn("text-[11px]", config.textColor)}>
+                {t(config.label)}
+              </span>
+            </button>
+          )}
         </div>
       </SidebarFooter>
 

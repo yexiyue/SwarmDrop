@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
 import { I18nProvider } from "@lingui/react";
 import { i18n } from "@lingui/core";
+import { ThemeProvider, useTheme } from "next-themes";
 import { routeTree } from "./routeTree.gen";
 import { useAuthStore } from "@/stores/auth-store";
 import {
@@ -21,6 +22,22 @@ declare module "@tanstack/react-router" {
   }
 }
 
+/**
+ * 桥接组件：将 Zustand preferences store 的主题同步到 next-themes
+ * next-themes 负责 DOM 操作和系统主题监听
+ * Zustand store 负责通过 tauri-plugin-store 持久化
+ */
+function ThemeSync() {
+  const { setTheme } = useTheme();
+  const storeTheme = usePreferencesStore((s) => s.theme);
+
+  useEffect(() => {
+    setTheme(storeTheme);
+  }, [storeTheme, setTheme]);
+
+  return null;
+}
+
 function App() {
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -30,16 +47,6 @@ function App() {
       waitForPreferencesHydration(),
       useAuthStore.getState().checkBiometricAvailability(),
     ]).then(() => setIsLoaded(true));
-
-    // 监听系统主题变化（仅 system 模式下生效）
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    const handleChange = () => {
-      if (usePreferencesStore.getState().theme === "system") {
-        usePreferencesStore.getState().applyTheme();
-      }
-    };
-    mediaQuery.addEventListener("change", handleChange);
-    return () => mediaQuery.removeEventListener("change", handleChange);
   }, []);
 
   if (!isLoaded) {
@@ -48,7 +55,16 @@ function App() {
 
   return (
     <I18nProvider i18n={i18n}>
-      <RouterProvider router={router} />
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="system"
+        enableSystem
+        disableTransitionOnChange
+        storageKey="next-theme"
+      >
+        <ThemeSync />
+        <RouterProvider router={router} />
+      </ThemeProvider>
     </I18nProvider>
   );
 }

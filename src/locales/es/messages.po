@@ -1,383 +1,360 @@
 msgid ""
 msgstr ""
-"POT-Creation-Date: 2026-01-31 15:16+0800\n"
+"POT-Creation-Date: 2026-02-09 17:28+0800\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "X-Generator: @lingui/cli\n"
-"Language: zh\n"
-"Project-Id-Version: \n"
-"Report-Msgid-Bugs-To: \n"
-"PO-Revision-Date: \n"
-"Last-Translator: \n"
-"Language-Team: \n"
-"Plural-Forms: \n"
-
-#. js-lingui-explicit-id
-#: src/components/devices/device-card.tsx
-#~ msgid "/+Z5u4"
-#~ msgstr "/+Z5u4"
+"Language: es\n"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "一般"
-msgstr "一般"
+msgstr "Aceptable"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "下一步"
-msgstr "下一步"
+msgstr "Siguiente"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "中等"
-msgstr "中等"
+msgstr "Buena"
 
 #: src/components/devices/device-card.tsx
 msgid "中继"
-msgstr "中继"
+msgstr "Retransmisión"
 
 #: src/routes/_app/settings.lazy.tsx
 msgid "主题"
-msgstr "主题"
+msgstr "Tema"
 
 #: src/routes/_auth/unlock.lazy.tsx
 msgid "使用密码解锁"
-msgstr "使用密码解锁"
+msgstr "Desbloquear con contraseña"
 
 #: src/routes/_auth/enable-biometric.lazy.tsx
 msgid "使用指纹或面容快速解锁应用，无需每次输入密码"
-msgstr "使用指纹或面容快速解锁应用，无需每次输入密码"
+msgstr "Usa tu huella dactilar o Face ID para desbloquear rápidamente la aplicación sin necesidad de introducir la contraseña cada vez"
 
 #: src/routes/_auth/unlock.lazy.tsx
 msgid "使用指纹解锁"
-msgstr "使用指纹解锁"
+msgstr "Desbloquear con huella dactilar"
 
 #: src/routes/_auth/unlock.lazy.tsx
 msgid "使用面容解锁"
-msgstr "使用面容解锁"
+msgstr "Desbloquear con Face ID"
 
 #: src/components/network/network-dialog.tsx
 msgid "停止节点"
-msgstr "停止节点"
+msgstr "Detener nodo"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "再次输入密码"
-msgstr "再次输入密码"
+msgstr "Introduce la contraseña de nuevo"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "创建中..."
-msgstr "创建中..."
+msgstr "Creando..."
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "创建主密码"
-msgstr "创建主密码"
+msgstr "Crear contraseña maestra"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "包含字母和数字"
-msgstr "包含字母和数字"
+msgstr "Contiene letras y números"
 
 #: src/components/devices/device-card.tsx
 msgid "发送"
-msgstr "发送"
+msgstr "Enviar"
 
 #: src/components/layout/sidebar.tsx
 msgid "发送文件"
-msgstr "发送文件"
+msgstr "Enviar archivos"
 
 #: src/components/network/network-dialog.tsx
 msgid "启动中"
-msgstr "启动中"
+msgstr "Iniciando"
 
 #: src/components/network/network-dialog.tsx
 msgid "启动中..."
-msgstr "启动中..."
+msgstr "Iniciando..."
 
 #: src/components/network/network-dialog.tsx
 msgid "启动节点"
-msgstr "启动节点"
+msgstr "Iniciar nodo"
 
 #: src/routes/_auth/enable-biometric.lazy.tsx
 msgid "启用中..."
-msgstr "启用中..."
+msgstr "Activando..."
 
 #: src/routes/_auth/enable-biometric.lazy.tsx
 msgid "启用快捷解锁？"
-msgstr "启用快捷解锁？"
+msgstr "¿Activar desbloqueo rápido?"
 
 #: src/routes/_auth/enable-biometric.lazy.tsx
 msgid "启用生物识别"
-msgstr "启用生物识别"
+msgstr "Activar biometría"
 
 #: src/components/devices/device-card.tsx
 #: src/components/layout/sidebar.tsx
 msgid "在线"
-msgstr "在线"
+msgstr "En línea"
 
 #: src/routes/_app/settings.lazy.tsx
 msgid "外观"
-msgstr "外观"
+msgstr "Apariencia"
 
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "安全、快速的跨网络文件传输"
-msgstr "安全、快速的跨网络文件传输"
+msgstr "Transferencia de archivos segura y rápida entre redes"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "密码"
-msgstr "密码"
+msgstr "Contraseña"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "密码不匹配"
-msgstr "密码不匹配"
+msgstr "Las contraseñas no coinciden"
 
 #. placeholder {0}: t(strength.label)
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "密码强度：{0}"
-msgstr "密码强度：{0}"
+msgstr "Seguridad de la contraseña: {0}"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "密码要求"
-msgstr "密码要求"
+msgstr "Requisitos de contraseña"
 
 #: src/lib/auth-messages.ts
 msgid "密码错误"
-msgstr "密码错误"
+msgstr "Contraseña incorrecta"
 
 #: src/components/devices/device-card.tsx
 msgid "局域网"
-msgstr "局域网"
+msgstr "LAN"
 
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "局域网和广域网无缝切换"
-msgstr "局域网和广域网无缝切换"
+msgstr "Cambio fluido entre LAN y WAN"
 
 #: src/components/network/network-dialog.tsx
 msgid "已发现节点"
-msgstr "已发现节点"
+msgstr "Nodos descubiertos"
 
 #: src/components/network/network-dialog.tsx
 msgid "已连接节点"
-msgstr "已连接节点"
+msgstr "Nodos conectados"
 
 #: src/routes/_app/devices.lazy.tsx
 msgid "已配对设备"
-msgstr "已配对设备"
+msgstr "Dispositivos emparejados"
 
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "开始使用"
-msgstr "开始使用"
+msgstr "Comenzar"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "弱"
-msgstr "弱"
+msgstr "Débil"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "强"
-msgstr "强"
-
-#: src/components/layout/sidebar.tsx
-#~ msgid "我的 MacBook"
-#~ msgstr "我的 MacBook"
-
-#: src/routes/_auth/unlock.lazy.tsx
-#~ msgid "或"
-#~ msgstr "或"
+msgstr "Fuerte"
 
 #: src/components/devices/device-card.tsx
 msgid "打洞"
-msgstr "打洞"
+msgstr "Directa"
 
 #: src/components/layout/sidebar.tsx
 msgid "接收文件"
-msgstr "接收文件"
+msgstr "Recibir archivos"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "推荐包含特殊字符"
-msgstr "推荐包含特殊字符"
+msgstr "Se recomienda incluir caracteres especiales"
 
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "文件传输全程加密保护"
-msgstr "文件传输全程加密保护"
+msgstr "Cifrado de extremo a extremo en la transferencia de archivos"
 
 #: src/lib/auth-messages.ts
 msgid "无法获取密码"
-msgstr "无法获取密码"
+msgstr "No se puede obtener la contraseña"
 
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "无需服务器"
-msgstr "无需服务器"
+msgstr "Sin servidor necesario"
 
 #: src/components/network/network-dialog.tsx
 msgid "未启动"
-msgstr "未启动"
+msgstr "Detenido"
 
 #: src/lib/auth-messages.ts
 msgid "未找到存储的密码"
-msgstr "未找到存储的密码"
+msgstr "Contraseña almacenada no encontrada"
 
 #: src/components/devices/device-card.tsx
 msgid "未配对"
-msgstr "未配对"
+msgstr "No emparejado"
 
 #: src/lib/auth-messages.ts
 msgid "正在初始化加密存储..."
-msgstr "正在初始化加密存储..."
+msgstr "Inicializando almacenamiento cifrado..."
 
 #: src/lib/auth-messages.ts
 msgid "正在加载设备密钥..."
-msgstr "正在加载设备密钥..."
+msgstr "Cargando clave del dispositivo..."
 
 #: src/lib/auth-messages.ts
 msgid "正在生成设备密钥..."
-msgstr "正在生成设备密钥..."
+msgstr "Generando clave del dispositivo..."
 
 #: src/lib/auth-messages.ts
 msgid "正在解密数据..."
-msgstr "正在解密数据..."
+msgstr "Descifrando datos..."
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "此密码用于保护您的设备身份，请妥善保管"
-msgstr "此密码用于保护您的设备身份，请妥善保管"
+msgstr "Esta contraseña protege la identidad de tu dispositivo. Guárdala en un lugar seguro"
 
 #: src/routes/_app/settings.lazy.tsx
 msgid "浅色"
-msgstr "浅色"
+msgstr "Claro"
 
 #: src/routes/_app/settings.lazy.tsx
 msgid "深色"
-msgstr "深色"
-
-#: src/routes/_auth/unlock.lazy.tsx
-#~ msgid "点击使用生物识别解锁"
-#~ msgstr "点击使用生物识别解锁"
+msgstr "Oscuro"
 
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "点对点直连，无需注册账号"
-msgstr "点对点直连，无需注册账号"
+msgstr "Conexión directa entre pares, sin necesidad de cuenta"
 
 #: src/lib/auth-messages.ts
 msgid "生物识别不可用"
-msgstr "生物识别不可用"
+msgstr "Autenticación biométrica no disponible"
 
 #: src/lib/auth-messages.ts
 msgid "生物识别未启用"
-msgstr "生物识别未启用"
+msgstr "Autenticación biométrica no activada"
 
 #: src/components/network/network-dialog.tsx
 msgid "监听地址"
-msgstr "监听地址"
+msgstr "Direcciones de escucha"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "确认密码"
-msgstr "确认密码"
+msgstr "Confirmar contraseña"
 
 #: src/components/devices/device-card.tsx
 #: src/components/layout/sidebar.tsx
 msgid "离线"
-msgstr "离线"
+msgstr "Desconectado"
 
 #: src/routes/_auth/enable-biometric.lazy.tsx
 msgid "稍后设置"
-msgstr "稍后设置"
+msgstr "Configurar más tarde"
 
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "端到端加密"
-msgstr "端到端加密"
+msgstr "Cifrado de extremo a extremo"
 
 #: src/components/network/network-dialog.tsx
 msgid "管理 P2P 网络节点的启动和连接状态"
-msgstr "管理 P2P 网络节点的启动和连接状态"
+msgstr "Gestionar el inicio y estado de conexión del nodo de red P2P"
 
 #: src/components/network/network-dialog.tsx
 msgid "网络节点"
-msgstr "网络节点"
+msgstr "Nodo de red"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "至少 8 个字符"
-msgstr "至少 8 个字符"
+msgstr "Al menos 8 caracteres"
 
 #: src/components/network/network-dialog.tsx
 msgid "节点未启动"
-msgstr "节点未启动"
+msgstr "Nodo no iniciado"
 
 #: src/components/network/network-dialog.tsx
 msgid "节点状态"
-msgstr "节点状态"
+msgstr "Estado del nodo"
 
 #: src/routes/_auth/unlock.lazy.tsx
 #: src/routes/_auth/unlock.lazy.tsx
 msgid "解锁"
-msgstr "解锁"
+msgstr "Desbloquear"
 
 #: src/routes/_auth/unlock.lazy.tsx
 #: src/routes/_auth/unlock.lazy.tsx
 msgid "解锁中..."
-msgstr "解锁中..."
+msgstr "Desbloqueando..."
 
 #: src/components/layout/sidebar.tsx
 #: src/routes/_app/devices.lazy.tsx
 msgid "设备"
-msgstr "设备"
+msgstr "Dispositivos"
 
 #: src/routes/_app/settings.lazy.tsx
 msgid "设备信息"
-msgstr "设备信息"
+msgstr "Información del dispositivo"
 
 #: src/components/layout/sidebar.tsx
 #: src/routes/_app/settings.lazy.tsx
 msgid "设置"
-msgstr "设置"
+msgstr "Ajustes"
 
 #: src/routes/_app/settings.lazy.tsx
 msgid "语言"
-msgstr "语言"
+msgstr "Idioma"
 
 #: src/routes/_app/settings.lazy.tsx
 msgid "跟随系统"
-msgstr "跟随系统"
+msgstr "Sistema"
 
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "跨网络传输"
-msgstr "跨网络传输"
+msgstr "Transferencia entre redes"
 
 #: src/routes/_auth/unlock.lazy.tsx
 msgid "输入密码"
-msgstr "输入密码"
+msgstr "Introduce la contraseña"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "输入至少 8 位密码"
-msgstr "输入至少 8 位密码"
+msgstr "Introduce al menos 8 caracteres"
 
 #: src/components/network/network-dialog.tsx
 msgid "运行中"
-msgstr "运行中"
+msgstr "En ejecución"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "返回"
-msgstr "返回"
+msgstr "Volver"
 
 #: src/components/devices/device-card.tsx
 msgid "连接"
-msgstr "连接"
+msgstr "Conectar"
 
 #: src/components/layout/sidebar.tsx
 msgid "连接中"
-msgstr "连接中"
+msgstr "Conectando"
 
 #: src/routes/_app/devices.lazy.tsx
 msgid "连接设备"
-msgstr "连接设备"
+msgstr "Conectar dispositivo"
 
 #: src/routes/_app/settings.lazy.tsx
 msgid "选择应用显示语言"
-msgstr "选择应用显示语言"
+msgstr "Elige el idioma de la aplicación"
 
 #: src/routes/_app/settings.lazy.tsx
 msgid "选择应用的外观主题"
-msgstr "选择应用的外观主题"
+msgstr "Elige el tema de la aplicación"
 
 #: src/components/layout/sidebar.tsx
 #: src/components/network/network-dialog.tsx
 msgid "错误"
-msgstr "错误"
+msgstr "Error"
 
 #: src/routes/_app/devices.lazy.tsx
 msgid "附近设备"
-msgstr "附近设备"
+msgstr "Dispositivos cercanos"

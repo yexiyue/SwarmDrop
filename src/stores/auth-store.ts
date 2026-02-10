@@ -3,9 +3,8 @@
  * 管理应用认证状态
  */
 
-import { createWithEqualityFn } from "zustand/traditional";
+import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { shallow } from "zustand/shallow";
 import { rehydrateSecretStore } from "@/stores/secret-store";
 import {
   checkStatus,
@@ -91,7 +90,7 @@ interface AuthState {
   clearError: () => void;
 }
 
-export const useAuthStore = createWithEqualityFn<AuthState>()(
+export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
       isSetupComplete: false,
@@ -300,6 +299,5 @@ export const useAuthStore = createWithEqualityFn<AuthState>()(
         biometricEnabled: state.biometricEnabled,
       }),
     }
-  ),
-  shallow
+  )
 );

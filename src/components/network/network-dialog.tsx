@@ -17,6 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 import { useNetworkStore, type NodeStatus } from "@/stores/network-store";
+import { useShallow } from "zustand/shallow";
 import { Trans } from "@lingui/react/macro";
 import { useLingui } from "@lingui/react/macro";
 import { msg } from "@lingui/core/macro";
@@ -65,15 +66,17 @@ export function NetworkDialog({ open, onOpenChange }: NetworkDialogProps) {
     stopNetwork,
     getConnectedCount,
     getDiscoveredCount,
-  } = useNetworkStore((state) => ({
-    status: state.status,
-    listenAddrs: state.listenAddrs,
-    error: state.error,
-    startNetwork: state.startNetwork,
-    stopNetwork: state.stopNetwork,
-    getConnectedCount: state.getConnectedCount,
-    getDiscoveredCount: state.getDiscoveredCount,
-  }));
+  } = useNetworkStore(
+    useShallow((state) => ({
+      status: state.status,
+      listenAddrs: state.listenAddrs,
+      error: state.error,
+      startNetwork: state.startNetwork,
+      stopNetwork: state.stopNetwork,
+      getConnectedCount: state.getConnectedCount,
+      getDiscoveredCount: state.getDiscoveredCount,
+    }))
+  );
 
   const config = statusConfig[status];
   const isRunning = status === "running";
