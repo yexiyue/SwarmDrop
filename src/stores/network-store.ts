@@ -4,8 +4,17 @@
  */
 
 import { create } from "zustand";
-import type { Device, DeviceType, ConnectionType } from "@/components/devices/device-card";
-import type { NodeEvent, PeerId, Multiaddr, NatStatus } from "@/commands/network";
+import type {
+  Device,
+  DeviceType,
+  ConnectionType,
+} from "@/components/devices/device-card";
+import type {
+  NodeEvent,
+  PeerId,
+  Multiaddr,
+  NatStatus,
+} from "@/commands/network";
 import { start, shutdown } from "@/commands/network";
 import { useSecretStore } from "@/stores/secret-store";
 import { usePairingStore } from "@/stores/pairing-store";
@@ -17,6 +26,7 @@ export type NodeStatus = "stopped" | "starting" | "running" | "error";
 interface AgentInfo {
   version: string;
   os: string;
+  platform?: string;
   arch: string;
   hostname: string;
 }
@@ -45,6 +55,8 @@ interface NetworkState {
   peers: Map<PeerId, PeerInfo>;
   /** 错误信息 */
   error: string | null;
+  /** 节点启动时间戳 */
+  startedAt: number | null;
 
   // === Actions ===
 
@@ -66,12 +78,13 @@ interface NetworkState {
 
 /**
  * 解析 agent_version 字符串
- * 格式: swarmdrop/{version}; os={os}; arch={arch}; host={hostname}
+ * 兼容两种格式：
+ *   新: swarmdrop/{ver}; os={os}; platform={platform}; arch={arch}; host={hostname}
+ *   旧: swarmdrop/{ver}; os={os}; arch={arch}; host={hostname}
  */
 function parseAgentVersion(agentVersion: string): AgentInfo | undefined {
-  // 匹配格式: swarmdrop/x.x.x; os=xxx; arch=xxx; host=xxx
   const match = agentVersion.match(
-    /^swarmdrop\/([^;]+);\s*os=([^;]+);\s*arch=([^;]+);\s*host=(.+)$/
+    /^swarmdrop\/([^;]+);\s*os=([^;]+);\s*(?:platform=([^;]+);\s*)?arch=([^;]+);\s*host=(.+)$/,
   );
 
   if (!match) return undefined;
@@ -79,8 +92,9 @@ function parseAgentVersion(agentVersion: string): AgentInfo | undefined {
   return {
     version: match[1],
     os: match[2],
-    arch: match[3],
-    hostname: match[4],
+    platform: match[3], // undefined if old format
+    arch: match[4],
+    hostname: match[5],
   };
 }
 
@@ -143,14 +157,14 @@ export const selectConnectedCount = (state: NetworkState): number =>
 export const selectDiscoveredCount = (state: NetworkState): number =>
   state.peers.size;
 
-export const useNetworkStore = create<NetworkState>()(
-  (set, get) => ({
+export const useNetworkStore = create<NetworkState>()((set, get) => ({
   status: "stopped",
   listenAddrs: [],
   natStatus: "unknown",
   publicAddr: null,
   peers: new Map(),
   error: null,
+  startedAt: null,
 
   async startNetwork() {
     const { status } = get();
@@ -196,6 +210,7 @@ export const useNetworkStore = create<NetworkState>()(
         peers: new Map(),
         natStatus: "unknown",
         publicAddr: null,
+        startedAt: null,
       });
     } catch (err) {
       console.error("Failed to shutdown node:", err);
@@ -212,6 +227,7 @@ export const useNetworkStore = create<NetworkState>()(
         set((state) => ({
           status: "running",
           listenAddrs: [...state.listenAddrs, event.addr],
+          startedAt: state.startedAt ?? Date.now(),
         }));
         break;
       }
@@ -294,9 +310,11 @@ export const useNetworkStore = create<NetworkState>()(
 
         if (existing) {
           // 创建新对象（不可变性）
+          let agentInfo = parseAgentVersion(event.agentVersion);
+          console.log("Agent info:", agentInfo);
           newPeers.set(event.peerId, {
             ...existing,
-            agentInfo: parseAgentVersion(event.agentVersion),
+            agentInfo,
           });
         }
 
@@ -329,11 +347,9 @@ export const useNetworkStore = create<NetworkState>()(
       }
 
       case "inboundRequest": {
-        usePairingStore.getState().handleInboundRequest(
-          event.peerId,
-          event.pendingId,
-          event.request
-        );
+        usePairingStore
+          .getState()
+          .handleInboundRequest(event.peerId, event.pendingId, event.request);
         break;
       }
     }
@@ -342,7 +358,7 @@ export const useNetworkStore = create<NetworkState>()(
   getNearbyDevices(): Device[] {
     const { peers } = get();
     return Array.from(peers.values())
-      .filter((peer) => peer.isConnected)
+      .filter((peer) => peer.isConnected && peer.agentInfo)
       .map(peerToDevice);
   },
 
@@ -358,5 +374,4 @@ export const useNetworkStore = create<NetworkState>()(
   clearError() {
     set({ error: null });
   },
-  })
-);
+}));

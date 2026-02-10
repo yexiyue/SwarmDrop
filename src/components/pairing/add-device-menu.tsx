@@ -16,7 +16,7 @@ import { usePairingStore } from "@/stores/pairing-store";
 
 export function AddDeviceMenu() {
   const generateCode = usePairingStore((s) => s.generateCode);
-  const openInput = usePairingStore((s) => s.openInput);
+  const openDesktopInput = usePairingStore((s) => s.openDesktopInput);
 
   return (
     <DropdownMenu>
@@ -31,7 +31,7 @@ export function AddDeviceMenu() {
           <Link className="size-4" />
           <Trans>生成配对码</Trans>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={openInput}>
+        <DropdownMenuItem onClick={openDesktopInput}>
           <Keyboard className="size-4" />
           <Trans>输入配对码</Trans>
         </DropdownMenuItem>

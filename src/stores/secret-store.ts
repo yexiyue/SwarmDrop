@@ -16,6 +16,10 @@ export interface PairedDevice {
   name: string;
   /** 操作系统类型（原始值，如 windows, macos, linux, ios, android） */
   os: string;
+  /** 平台（windows, macos, linux, ios, android） */
+  platform?: string;
+  /** 架构（x86_64, aarch64 等） */
+  arch?: string;
   /** 配对时间戳 */
   pairedAt: number;
 }

@@ -5,7 +5,8 @@ import { useLingui } from "@lingui/react/macro";
 import { useState, useEffect, useRef } from "react";
 import { hostname } from "@tauri-apps/plugin-os";
 import { useNetworkStore, type NodeStatus } from "@/stores/network-store";
-import { NetworkDialog } from "@/components/network/network-dialog";
+import { StartNodeSheet } from "@/components/network/start-node-sheet";
+import { StopNodeSheet } from "@/components/network/stop-node-sheet";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import {
@@ -21,7 +22,7 @@ import {
   SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { navItems } from "@/components/layout/nav-items";
+import { desktopNavItems } from "@/components/layout/nav-items";
 import { msg } from "@lingui/core/macro";
 import type { MessageDescriptor } from "@lingui/core";
 
@@ -64,7 +65,8 @@ export function AppSidebar() {
   const { t } = useLingui();
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
-  const [networkDialogOpen, setNetworkDialogOpen] = useState(false);
+  const [startSheetOpen, setStartSheetOpen] = useState(false);
+  const [stopSheetOpen, setStopSheetOpen] = useState(false);
   const [deviceName, setDeviceName] = useState<string>("");
   const status = useNetworkStore((state) => state.status);
   const config = statusConfig[status];
@@ -114,7 +116,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="gap-0.5">
-              {navItems.map((item) => {
+              {desktopNavItems.map((item) => {
                 const isActive =
                   currentPath === item.href ||
                   (item.href !== "/" && currentPath.startsWith(item.href));
@@ -160,7 +162,7 @@ export function AppSidebar() {
           {isCollapsed ? (
             <button
               type="button"
-              onClick={() => setNetworkDialogOpen(true)}
+              onClick={() => status === "running" ? setStopSheetOpen(true) : setStartSheetOpen(true)}
               className="relative cursor-pointer"
             >
               <Avatar className="size-7 shrink-0">
@@ -189,7 +191,7 @@ export function AppSidebar() {
               </div>
               <button
                 type="button"
-                onClick={() => setNetworkDialogOpen(true)}
+                onClick={() => status === "running" ? setStopSheetOpen(true) : setStartSheetOpen(true)}
                 className={cn(
                   "flex cursor-pointer items-center gap-1 rounded px-1.5 py-1 transition-colors",
                   config.bgColor,
@@ -207,10 +209,8 @@ export function AppSidebar() {
         </div>
       </SidebarFooter>
 
-      <NetworkDialog
-        open={networkDialogOpen}
-        onOpenChange={setNetworkDialogOpen}
-      />
+      <StartNodeSheet open={startSheetOpen} onOpenChange={setStartSheetOpen} />
+      <StopNodeSheet open={stopSheetOpen} onOpenChange={setStopSheetOpen} />
     </Sidebar>
   );
 }
