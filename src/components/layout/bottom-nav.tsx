@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useLingui } from "@lingui/react/macro";
-import { navItems } from "@/components/layout/nav-items";
+import { mobileNavItems } from "@/components/layout/nav-items";
 
 export function BottomNav() {
   const { t } = useLingui();
@@ -10,7 +10,7 @@ export function BottomNav() {
 
   return (
     <nav className="flex h-14 shrink-0 items-center justify-around border-t border-border bg-background">
-      {navItems.map((item) => {
+      {mobileNavItems.map((item) => {
         const isActive =
           currentPath === item.href ||
           (item.href !== "/" && currentPath.startsWith(item.href));

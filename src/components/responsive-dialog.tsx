@@ -135,4 +135,5 @@ export {
   ResponsiveDialogFooter,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
+  useResponsiveDialog,
 };

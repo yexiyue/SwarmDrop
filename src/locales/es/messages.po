@@ -13,6 +13,23 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
+#. placeholder {0}: feature.text
+#: src/components/network/start-node-sheet.tsx
+msgid "{0}"
+msgstr ""
+
+#: src/components/network/stop-node-sheet.tsx
+msgid "{connectedCount} 台"
+msgstr ""
+
+#: src/components/network/network-status-bar.tsx
+msgid "P2P 节点未启动"
+msgstr ""
+
+#: src/components/network/network-status-bar.tsx
+msgid "P2P 节点运行中 · {connectedCount} 台设备在线"
+msgstr ""
+
 #: src/components/pairing/connection-request-dialog.tsx
 msgid "一台设备正在请求与您配对"
 msgstr ""
@@ -37,6 +54,10 @@ msgstr "Retransmisión"
 msgid "主题"
 msgstr "Tema"
 
+#: src/components/layout/nav-items.ts
+msgid "传输"
+msgstr ""
+
 #: src/routes/_auth/unlock.lazy.tsx
 msgid "使用密码解锁"
 msgstr "Desbloquear con contraseña"
@@ -53,7 +74,23 @@ msgstr "Desbloquear con huella dactilar"
 msgid "使用面容解锁"
 msgstr "Desbloquear con Face ID"
 
+#: src/components/network/network-status-bar.tsx
+msgid "停止"
+msgstr ""
+
+#: src/components/network/stop-node-sheet.tsx
+msgid "停止 P2P 节点"
+msgstr ""
+
+#: src/components/network/stop-node-sheet.tsx
+msgid ""
+"停止后将断开所有连接，\n"
+"其他设备将无法发现你。"
+msgstr ""
+
 #: src/components/network/network-dialog.tsx
+#: src/components/network/stop-node-sheet.tsx
+#: src/components/network/stop-node-sheet.tsx
 msgid "停止节点"
 msgstr "Detener nodo"
 
@@ -74,8 +111,8 @@ msgid "包含字母和数字"
 msgstr "Contiene letras y números"
 
 #: src/components/pairing/input-code-dialog.tsx
-msgid "发起配对"
-msgstr ""
+#~ msgid "发起配对"
+#~ msgstr ""
 
 #: src/components/devices/device-card.tsx
 msgid "发送"
@@ -85,20 +122,46 @@ msgstr "Enviar"
 msgid "发送文件"
 msgstr "Enviar archivos"
 
+#: src/components/devices/device-card.tsx
+#: src/components/network/start-node-sheet.tsx
+#: src/components/network/stop-node-sheet.tsx
+#: src/components/pairing/desktop-input-code-page.tsx
 #: src/components/pairing/generate-code-dialog.tsx
-#: src/components/pairing/input-code-dialog.tsx
 msgid "取消"
 msgstr ""
 
+#: src/components/devices/device-card.tsx
+#: src/components/devices/device-card.tsx
+#: src/components/devices/device-card.tsx
+msgid "取消配对"
+msgstr ""
+
+#: src/components/network/start-node-sheet.tsx
+msgid "启动"
+msgstr ""
+
+#: src/components/network/start-node-sheet.tsx
+msgid "启动 P2P 节点"
+msgstr ""
+
+#: src/components/network/offline-empty-state.tsx
+msgid "启动 P2P 节点后才能发现设备和传输文件"
+msgstr ""
+
 #: src/components/network/network-dialog.tsx
+#: src/components/network/stop-node-sheet.tsx
 msgid "启动中"
 msgstr "Iniciando"
 
 #: src/components/network/network-dialog.tsx
+#: src/components/network/start-node-sheet.tsx
+#: src/components/network/start-node-sheet.tsx
 msgid "启动中..."
 msgstr "Iniciando..."
 
 #: src/components/network/network-dialog.tsx
+#: src/components/network/offline-empty-state.tsx
+#: src/components/network/start-node-sheet.tsx
 msgid "启动节点"
 msgstr "Iniciar nodo"
 
@@ -118,6 +181,11 @@ msgstr "Activar biometría"
 msgid "在另一台设备上输入以下配对码"
 msgstr ""
 
+#: src/components/pairing/mobile-generate-code-view.tsx
+msgid "在另一台设备上输入此配对码"
+msgstr ""
+
+#: src/components/devices/device-card.tsx
 #: src/components/devices/device-card.tsx
 #: src/components/layout/sidebar.tsx
 msgid "在线"
@@ -156,6 +224,12 @@ msgstr "Requisitos de contraseña"
 msgid "密码错误"
 msgstr "Contraseña incorrecta"
 
+#: src/components/network/start-node-sheet.tsx
+msgid ""
+"将连接到 SwarmDrop 网络，\n"
+"其他设备将能够发现你并发送文件。"
+msgstr ""
+
 #: src/components/devices/device-card.tsx
 msgid "局域网"
 msgstr "LAN"
@@ -165,6 +239,8 @@ msgid "局域网和广域网无缝切换"
 msgstr "Cambio fluido entre LAN y WAN"
 
 #: src/components/network/network-dialog.tsx
+#: src/components/network/start-node-sheet.tsx
+#: src/components/network/stop-node-sheet.tsx
 msgid "已发现节点"
 msgstr "Nodos descubiertos"
 
@@ -173,9 +249,16 @@ msgid "已复制"
 msgstr ""
 
 #: src/components/network/network-dialog.tsx
+#: src/components/network/start-node-sheet.tsx
+#: src/components/network/stop-node-sheet.tsx
 msgid "已连接节点"
 msgstr "Nodos conectados"
 
+#: src/components/network/stop-node-sheet.tsx
+msgid "已连接设备"
+msgstr ""
+
+#: src/routes/_app/devices.lazy.tsx
 #: src/routes/_app/devices.lazy.tsx
 msgid "已配对设备"
 msgstr "Dispositivos emparejados"
@@ -191,6 +274,10 @@ msgstr "Débil"
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "强"
 msgstr "Fuerte"
+
+#: src/components/network/stop-node-sheet.tsx
+msgid "所有活跃连接将被断开"
+msgstr ""
 
 #: src/components/devices/device-card.tsx
 msgid "打洞"
@@ -225,6 +312,8 @@ msgid "无需服务器"
 msgstr "Sin servidor necesario"
 
 #: src/components/network/network-dialog.tsx
+#: src/components/network/start-node-sheet.tsx
+#: src/components/network/stop-node-sheet.tsx
 msgid "未启动"
 msgstr "Detenido"
 
@@ -233,8 +322,13 @@ msgid "未找到存储的密码"
 msgstr "Contraseña almacenada no encontrada"
 
 #: src/components/devices/device-card.tsx
+#: src/components/devices/device-card.tsx
 msgid "未配对"
 msgstr "No emparejado"
+
+#: src/components/pairing/mobile-input-code-view.tsx
+msgid "查找设备"
+msgstr ""
 
 #: src/lib/auth-messages.ts
 msgid "正在初始化加密存储..."
@@ -244,7 +338,7 @@ msgstr "Inicializando almacenamiento cifrado..."
 msgid "正在加载设备密钥..."
 msgstr "Cargando clave del dispositivo..."
 
-#: src/components/pairing/input-code-dialog.tsx
+#: src/components/pairing/desktop-input-code-page.tsx
 msgid "正在查找设备..."
 msgstr ""
 
@@ -272,11 +366,16 @@ msgstr "Oscuro"
 msgid "添加新设备"
 msgstr ""
 
+#: src/components/pairing/mobile-pairing-page.tsx
+msgid "添加设备"
+msgstr ""
+
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "点对点直连，无需注册账号"
 msgstr "Conexión directa entre pares, sin necesidad de cuenta"
 
 #: src/components/pairing/add-device-menu.tsx
+#: src/components/pairing/mobile-pairing-page.tsx
 msgid "生成配对码"
 msgstr ""
 
@@ -289,13 +388,28 @@ msgid "生物识别未启用"
 msgstr "Autenticación biométrica no activada"
 
 #: src/components/network/network-dialog.tsx
+#: src/components/network/start-node-sheet.tsx
+#: src/components/network/stop-node-sheet.tsx
 msgid "监听地址"
 msgstr "Direcciones de escucha"
+
+#: src/components/devices/device-card.tsx
+msgid "确定要取消与「{deviceName}」的配对吗？取消后需要重新配对才能传输文件。"
+msgstr ""
+
+#: src/components/pairing/desktop-input-code-page.tsx
+msgid "确认"
+msgstr ""
+
+#: src/components/devices/device-card.tsx
+msgid "确认取消配对"
+msgstr ""
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "确认密码"
 msgstr "Confirmar contraseña"
 
+#: src/components/devices/device-card.tsx
 #: src/components/devices/device-card.tsx
 #: src/components/layout/sidebar.tsx
 msgid "离线"
@@ -309,15 +423,19 @@ msgstr "Configurar más tarde"
 msgid "端到端加密"
 msgstr "Cifrado de extremo a extremo"
 
-#: src/components/pairing/input-code-dialog.tsx
+#: src/components/pairing/desktop-input-code-page.tsx
 msgid "等待对方确认..."
 msgstr ""
 
 #: src/components/network/network-dialog.tsx
+#: src/components/network/start-node-sheet.tsx
+#: src/components/network/stop-node-sheet.tsx
 msgid "管理 P2P 网络节点的启动和连接状态"
 msgstr "Gestionar el inicio y estado de conexión del nodo de red P2P"
 
 #: src/components/network/network-dialog.tsx
+#: src/components/network/start-node-sheet.tsx
+#: src/components/network/stop-node-sheet.tsx
 msgid "网络节点"
 msgstr "Nodo de red"
 
@@ -325,13 +443,26 @@ msgstr "Nodo de red"
 msgid "至少 8 个字符"
 msgstr "Al menos 8 caracteres"
 
+#: src/components/network/network-status-bar.tsx
+msgid "节点启动中..."
+msgstr ""
+
 #: src/components/network/network-dialog.tsx
+#: src/components/network/offline-empty-state.tsx
+#: src/components/network/start-node-sheet.tsx
+#: src/components/network/stop-node-sheet.tsx
 msgid "节点未启动"
 msgstr "Nodo no iniciado"
 
 #: src/components/network/network-dialog.tsx
+#: src/components/network/start-node-sheet.tsx
+#: src/components/network/stop-node-sheet.tsx
 msgid "节点状态"
 msgstr "Estado del nodo"
+
+#: src/components/network/network-status-bar.tsx
+msgid "节点错误"
+msgstr ""
 
 #: src/routes/_auth/unlock.lazy.tsx
 #: src/routes/_auth/unlock.lazy.tsx
@@ -344,6 +475,7 @@ msgid "解锁中..."
 msgstr "Desbloqueando..."
 
 #: src/components/layout/nav-items.ts
+#: src/components/layout/nav-items.ts
 #: src/routes/_app/devices.lazy.tsx
 msgid "设备"
 msgstr "Dispositivos"
@@ -352,6 +484,7 @@ msgstr "Dispositivos"
 msgid "设备信息"
 msgstr "Información del dispositivo"
 
+#: src/components/layout/nav-items.ts
 #: src/components/layout/nav-items.ts
 #: src/routes/_app/settings.lazy.tsx
 msgid "设置"
@@ -369,8 +502,12 @@ msgstr "Sistema"
 msgid "跨网络传输"
 msgstr "Transferencia entre redes"
 
-#: src/components/pairing/input-code-dialog.tsx
+#: src/components/pairing/desktop-input-code-page.tsx
 msgid "输入另一台设备上显示的配对码"
+msgstr ""
+
+#: src/components/pairing/mobile-input-code-view.tsx
+msgid "输入另一台设备上的配对码"
 msgstr ""
 
 #: src/routes/_auth/unlock.lazy.tsx
@@ -382,17 +519,24 @@ msgid "输入至少 8 位密码"
 msgstr "Introduce al menos 8 caracteres"
 
 #: src/components/pairing/add-device-menu.tsx
+#: src/components/pairing/mobile-pairing-page.tsx
 msgid "输入配对码"
 msgstr ""
 
 #: src/components/network/network-dialog.tsx
+#: src/components/network/stop-node-sheet.tsx
 msgid "运行中"
 msgstr "En ejecución"
+
+#: src/components/network/stop-node-sheet.tsx
+msgid "运行时长"
+msgstr ""
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "返回"
 msgstr "Volver"
 
+#: src/components/devices/device-card.tsx
 #: src/components/devices/device-card.tsx
 msgid "连接"
 msgstr "Conectar"
@@ -401,7 +545,8 @@ msgstr "Conectar"
 msgid "连接中"
 msgstr "Conectando"
 
-#: src/components/pairing/input-code-dialog.tsx
+#: src/components/pairing/desktop-input-code-page.tsx
+#: src/components/pairing/desktop-input-code-page.tsx
 msgid "连接已有设备"
 msgstr ""
 
@@ -427,22 +572,27 @@ msgstr ""
 
 #. placeholder {0}: formatTime(remainingSeconds)
 #: src/components/pairing/generate-code-dialog.tsx
+#: src/components/pairing/mobile-generate-code-view.tsx
 msgid "配对码将在 {0} 后过期"
 msgstr ""
 
 #: src/components/pairing/generate-code-dialog.tsx
+#: src/components/pairing/mobile-generate-code-view.tsx
 msgid "配对码已过期"
 msgstr ""
 
 #: src/components/pairing/generate-code-dialog.tsx
+#: src/components/pairing/mobile-generate-code-view.tsx
 msgid "重新生成"
 msgstr ""
 
 #: src/components/layout/sidebar.tsx
 #: src/components/network/network-dialog.tsx
+#: src/components/network/stop-node-sheet.tsx
 msgid "错误"
 msgstr "Error"
 
+#: src/routes/_app/devices.lazy.tsx
 #: src/routes/_app/devices.lazy.tsx
 msgid "附近设备"
 msgstr "Dispositivos cercanos"

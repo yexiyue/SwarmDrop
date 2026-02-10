@@ -54,9 +54,14 @@ interface QueuedInboundRequest {
   request: AppRequest;
 }
 
+/** 页面级视图状态 */
+export type PairingView = "none" | "mobile-pairing" | "desktop-input";
+
 interface PairingState {
   /** 当前配对阶段 */
   current: PairingPhase;
+  /** 页面级视图（控制全屏页面展示） */
+  view: PairingView;
   /** 入站请求队列（当前有操作进行中时排队） */
   inboundQueue: QueuedInboundRequest[];
 
@@ -84,11 +89,21 @@ interface PairingState {
   processNextInbound: () => void;
   /** 重置为 idle 状态 */
   reset: () => void;
+
+  // === 页面级视图 Actions ===
+
+  /** 打开移动端配对全屏页面（默认生成配对码） */
+  openMobilePairing: () => Promise<void>;
+  /** 打开桌面端输入码全屏页面 */
+  openDesktopInput: () => void;
+  /** 关闭配对视图页面 */
+  closePairingView: () => void;
 }
 
 export const usePairingStore = create<PairingState>()(
   (set, get) => ({
     current: { phase: "idle" },
+    view: "none",
     inboundQueue: [],
 
     async generateCode() {
@@ -149,6 +164,8 @@ export const usePairingStore = create<PairingState>()(
             id: deviceInfo.peerId,
             name: deviceInfo.codeRecord.hostname,
             os: deviceInfo.codeRecord.os,
+            platform: deviceInfo.codeRecord.platform,
+            arch: deviceInfo.codeRecord.arch,
           });
           set({
             current: {
@@ -201,6 +218,8 @@ export const usePairingStore = create<PairingState>()(
           id: peerId,
           name: request.osInfo.hostname,
           os: request.osInfo.os,
+          platform: request.osInfo.platform,
+          arch: request.osInfo.arch,
         });
 
         set({
@@ -251,13 +270,15 @@ export const usePairingStore = create<PairingState>()(
 
         if (response.status === "success") {
           const peerInfo = useNetworkStore.getState().peers.get(peerId);
-          const deviceName = peerInfo?.agentInfo?.hostname ?? peerId.slice(0, 8);
-          const os = peerInfo?.agentInfo?.os ?? "unknown";
+          const agentInfo = peerInfo?.agentInfo;
+          const deviceName = agentInfo?.hostname ?? peerId.slice(0, 8);
 
           useSecretStore.getState().addPairedDevice({
             id: peerId,
             name: deviceName,
-            os,
+            os: agentInfo?.os ?? "unknown",
+            platform: agentInfo?.platform,
+            arch: agentInfo?.arch,
           });
 
           set({
@@ -300,6 +321,21 @@ export const usePairingStore = create<PairingState>()(
       searchVersion++;
       set({ current: { phase: "idle" } });
       // 处理队列中的下一个请求
+      get().processNextInbound();
+    },
+
+    async openMobilePairing() {
+      set({ view: "mobile-pairing" });
+      await get().generateCode();
+    },
+
+    openDesktopInput() {
+      set({ view: "desktop-input", current: { phase: "inputting" } });
+    },
+
+    closePairingView() {
+      searchVersion++;
+      set({ view: "none", current: { phase: "idle" } });
       get().processNextInbound();
     },
   }),

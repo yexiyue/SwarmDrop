@@ -7,12 +7,16 @@
  */
 
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { Plus } from "lucide-react";
 import { AppSidebar } from "@/components/layout/sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { useAuthStore } from "@/stores/auth-store";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { ConnectionRequestDialog } from "@/components/pairing/connection-request-dialog";
+import { MobilePairingPage } from "@/components/pairing/mobile-pairing-page";
+import { DesktopInputCodePage } from "@/components/pairing/desktop-input-code-page";
+import { usePairingStore } from "@/stores/pairing-store";
 
 export const Route = createFileRoute("/_app")({
   beforeLoad: () => {
@@ -35,14 +39,17 @@ function AppLayout() {
   const breakpoint = useBreakpoint();
   const isMobile = breakpoint === "mobile";
   const isDesktop = breakpoint === "desktop";
+  const pairingView = usePairingStore((s) => s.view);
 
   if (isMobile) {
     return (
       <div className="flex h-svh flex-col">
+        <MobileHeader />
         <main className="flex-1 overflow-hidden">
           <Outlet />
         </main>
         <BottomNav />
+        {pairingView === "mobile-pairing" && <MobilePairingPage />}
         <ConnectionRequestDialog />
       </div>
     );
@@ -60,9 +67,26 @@ function AppLayout() {
     >
       <AppSidebar />
       <SidebarInset className="overflow-hidden">
-        <Outlet />
+        {pairingView === "desktop-input" ? <DesktopInputCodePage /> : <Outlet />}
       </SidebarInset>
       <ConnectionRequestDialog />
     </SidebarProvider>
+  );
+}
+
+function MobileHeader() {
+  const openMobilePairing = usePairingStore((s) => s.openMobilePairing);
+
+  return (
+    <header className="flex items-center justify-between px-5 py-2">
+      <span className="text-2xl font-bold text-foreground">SwarmDrop</span>
+      <button
+        type="button"
+        onClick={() => void openMobilePairing()}
+        className="flex size-9 items-center justify-center rounded-full bg-blue-600 text-white transition-colors hover:bg-blue-700"
+      >
+        <Plus className="size-5" />
+      </button>
+    </header>
   );
 }
