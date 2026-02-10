@@ -5,8 +5,6 @@
 
 import { useMemo } from "react";
 import { createLazyFileRoute } from "@tanstack/react-router";
-import { Link as LinkIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { DeviceCard, type Device } from "@/components/devices/device-card";
 import { Trans } from "@lingui/react/macro";
 import {
@@ -16,6 +14,10 @@ import {
   peerToDevice,
 } from "@/stores/network-store";
 import { useSecretStore } from "@/stores/secret-store";
+import { usePairingStore } from "@/stores/pairing-store";
+import { AddDeviceMenu } from "@/components/pairing/add-device-menu";
+import { GenerateCodeDialog } from "@/components/pairing/generate-code-dialog";
+import { InputCodeDialog } from "@/components/pairing/input-code-dialog";
 
 export const Route = createLazyFileRoute("/_app/devices")({
   component: DevicesPage,
@@ -27,6 +29,9 @@ function DevicesPage() {
 
   // 从 secret store 获取已配对设备
   const storedPairedDevices = useSecretStore((state) => state.pairedDevices);
+
+  // pairing store
+  const directPairing = usePairingStore((s) => s.directPairing);
 
   // 从 peers 派生附近设备列表
   const nearbyDevices = useMemo(() => {
@@ -61,15 +66,12 @@ function DevicesPage() {
   }, [nearbyDevices, storedPairedDevices]);
 
   const handleSend = (device: Device) => {
+    // TODO: Phase 3 文件传输
     console.log("Send to device:", device);
   };
 
   const handleConnect = (device: Device) => {
-    console.log("Connect to device:", device);
-  };
-
-  const handleAddDevice = () => {
-    console.log("Add device");
+    void directPairing(device.id);
   };
 
   return (
@@ -82,14 +84,7 @@ function DevicesPage() {
           </h1>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            onClick={handleAddDevice}
-            className="h-auto gap-1.5 rounded-md bg-blue-600 px-3 py-1.5 text-[13px] font-medium hover:bg-blue-700"
-          >
-            <LinkIcon className="size-4" />
-            <Trans>连接设备</Trans>
-          </Button>
+          <AddDeviceMenu />
         </div>
       </header>
 
@@ -144,6 +139,10 @@ function DevicesPage() {
           </section>
         </div>
       </div>
+
+      {/* 配对弹窗 */}
+      <GenerateCodeDialog />
+      <InputCodeDialog />
     </main>
   );
 }
