@@ -5,6 +5,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Link, Copy, RefreshCw, Check } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   ResponsiveDialog,
@@ -13,7 +14,7 @@ import {
   ResponsiveDialogFooter,
   ResponsiveDialogHeader,
   ResponsiveDialogTitle,
-} from "@/components/ui/responsive-dialog";
+} from "@/components/responsive-dialog";
 import { Trans } from "@lingui/react/macro";
 import { usePairingStore } from "@/stores/pairing-store";
 
@@ -43,6 +44,13 @@ export function GenerateCodeDialog() {
     return () => clearInterval(interval);
   }, [codeInfo]);
 
+  // 复制状态自动重置
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(timer);
+  }, [copied]);
+
   const isExpired = remainingSeconds <= 0 && codeInfo !== null;
 
   const formatTime = (seconds: number) => {
@@ -53,9 +61,12 @@ export function GenerateCodeDialog() {
 
   const handleCopy = useCallback(async () => {
     if (!codeInfo) return;
-    await navigator.clipboard.writeText(codeInfo.code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(codeInfo.code);
+      setCopied(true);
+    } catch {
+      toast.error("复制失败，请手动复制配对码");
+    }
   }, [codeInfo]);
 
   const handleOpenChange = (open: boolean) => {
@@ -69,8 +80,8 @@ export function GenerateCodeDialog() {
     <ResponsiveDialog open={isOpen} onOpenChange={handleOpenChange}>
       <ResponsiveDialogContent className="sm:max-w-md">
         <ResponsiveDialogHeader className="flex flex-col items-center gap-2">
-          <div className="flex size-12 items-center justify-center rounded-full bg-blue-50">
-            <Link className="size-6 text-blue-600" />
+          <div className="flex size-12 items-center justify-center rounded-full bg-primary/10">
+            <Link className="size-6 text-primary" />
           </div>
           <ResponsiveDialogTitle className="text-center text-xl">
             <Trans>添加新设备</Trans>
@@ -81,7 +92,7 @@ export function GenerateCodeDialog() {
         </ResponsiveDialogHeader>
 
         {/* 配对码展示 */}
-        <div className="flex flex-col items-center gap-4 py-4">
+        <div className="flex flex-col items-center gap-4 py-4" aria-label="配对码">
           <div className="flex items-center gap-2">
             {codeDigits.slice(0, 3).map((digit, i) => (
               <div
@@ -122,10 +133,7 @@ export function GenerateCodeDialog() {
               <Trans>重新生成</Trans>
             </Button>
           ) : (
-            <Button
-              className="bg-blue-600 hover:bg-blue-700"
-              onClick={() => void handleCopy()}
-            >
+            <Button onClick={() => void handleCopy()}>
               {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
               {copied ? <Trans>已复制</Trans> : <Trans>复制配对码</Trans>}
             </Button>
