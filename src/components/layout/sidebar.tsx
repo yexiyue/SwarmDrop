@@ -119,6 +119,7 @@ export function AppSidebar() {
               {desktopNavItems.map((item) => {
                 const isActive =
                   currentPath === item.href ||
+                  (item.href === "/devices" && currentPath.startsWith("/pairing")) ||
                   (item.href !== "/" && currentPath.startsWith(item.href));
                 const Icon = item.icon;
 

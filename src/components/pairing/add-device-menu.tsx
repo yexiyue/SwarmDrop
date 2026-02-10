@@ -4,6 +4,7 @@
  */
 
 import { Link, Keyboard, Plus } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,11 +13,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Trans } from "@lingui/react/macro";
-import { usePairingStore } from "@/stores/pairing-store";
 
 export function AddDeviceMenu() {
-  const generateCode = usePairingStore((s) => s.generateCode);
-  const openDesktopInput = usePairingStore((s) => s.openDesktopInput);
+  const navigate = useNavigate();
 
   return (
     <DropdownMenu>
@@ -27,11 +26,11 @@ export function AddDeviceMenu() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-44">
-        <DropdownMenuItem onClick={() => void generateCode()}>
+        <DropdownMenuItem onClick={() => navigate({ to: "/pairing/generate" })}>
           <Link className="size-4" />
           <Trans>生成配对码</Trans>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={openDesktopInput}>
+        <DropdownMenuItem onClick={() => navigate({ to: "/pairing/input" })}>
           <Keyboard className="size-4" />
           <Trans>输入配对码</Trans>
         </DropdownMenuItem>

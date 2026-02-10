@@ -18,7 +18,6 @@ import { useSecretStore } from "@/stores/secret-store";
 import { usePairingStore } from "@/stores/pairing-store";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { AddDeviceMenu } from "@/components/pairing/add-device-menu";
-import { GenerateCodeDialog } from "@/components/pairing/generate-code-dialog";
 import { NetworkStatusBar } from "@/components/network/network-status-bar";
 import { OfflineEmptyState } from "@/components/network/offline-empty-state";
 import { StartNodeSheet } from "@/components/network/start-node-sheet";
@@ -116,8 +115,6 @@ function DevicesPage() {
       <StartNodeSheet open={startSheetOpen} onOpenChange={setStartSheetOpen} />
       <StopNodeSheet open={stopSheetOpen} onOpenChange={setStopSheetOpen} />
 
-      {/* 配对弹窗 */}
-      <GenerateCodeDialog />
     </>
   );
 }
