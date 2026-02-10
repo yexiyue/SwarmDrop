@@ -35,7 +35,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   ]);
 }
 
-/** 配对流程阶段 */
+/** 配对流程阶段（仅管理出站配对流程） */
 export type PairingPhase =
   | { phase: "idle" }
   | { phase: "generating"; codeInfo: PairingCodeInfo }
@@ -43,7 +43,6 @@ export type PairingPhase =
   | { phase: "searching"; code: string }
   | { phase: "found"; code: string; deviceInfo: DeviceInfo }
   | { phase: "requesting"; peerId: string }
-  | { phase: "incoming"; peerId: string; pendingId: number; request: AppRequest }
   | { phase: "success"; peerId: string; deviceName: string }
   | { phase: "error"; message: string };
 
@@ -54,15 +53,12 @@ interface QueuedInboundRequest {
   request: AppRequest;
 }
 
-/** 页面级视图状态 */
-export type PairingView = "none" | "mobile-pairing" | "desktop-input";
-
 interface PairingState {
-  /** 当前配对阶段 */
+  /** 当前出站配对阶段 */
   current: PairingPhase;
-  /** 页面级视图（控制全屏页面展示） */
-  view: PairingView;
-  /** 入站请求队列（当前有操作进行中时排队） */
+  /** 当前展示的入站配对请求（独立于出站流程） */
+  incomingRequest: QueuedInboundRequest | null;
+  /** 入站请求队列（当前已有入站请求展示时排队） */
   inboundQueue: QueuedInboundRequest[];
 
   // === Actions ===
@@ -71,7 +67,7 @@ interface PairingState {
   generateCode: () => Promise<void>;
   /** 重新生成配对码 */
   regenerateCode: () => Promise<void>;
-  /** 打开输入配对码弹窗 */
+  /** 切换到输入配对码状态 */
   openInput: () => void;
   /** 提交配对码查找设备 */
   searchDevice: (code: string) => Promise<void>;
@@ -89,21 +85,12 @@ interface PairingState {
   processNextInbound: () => void;
   /** 重置为 idle 状态 */
   reset: () => void;
-
-  // === 页面级视图 Actions ===
-
-  /** 打开移动端配对全屏页面（默认生成配对码） */
-  openMobilePairing: () => Promise<void>;
-  /** 打开桌面端输入码全屏页面 */
-  openDesktopInput: () => void;
-  /** 关闭配对视图页面 */
-  closePairingView: () => void;
 }
 
 export const usePairingStore = create<PairingState>()(
   (set, get) => ({
     current: { phase: "idle" },
-    view: "none",
+    incomingRequest: null,
     inboundQueue: [],
 
     async generateCode() {
@@ -187,15 +174,13 @@ export const usePairingStore = create<PairingState>()(
     },
 
     handleInboundRequest(peerId: PeerId, pendingId: number, request: AppRequest) {
-      const { current } = get();
+      const { incomingRequest } = get();
 
-      // 如果当前空闲，直接展示
-      if (current.phase === "idle" || current.phase === "success" || current.phase === "error") {
-        set({
-          current: { phase: "incoming", peerId, pendingId, request },
-        });
+      if (incomingRequest === null) {
+        // 当前无入站请求，直接展示
+        set({ incomingRequest: { peerId, pendingId, request } });
       } else {
-        // 当前有操作进行中，排入队列
+        // 已有入站请求展示中，排入队列
         set((state) => ({
           inboundQueue: [...state.inboundQueue, { peerId, pendingId, request }],
         }));
@@ -203,10 +188,10 @@ export const usePairingStore = create<PairingState>()(
     },
 
     async acceptRequest() {
-      const { current } = get();
-      if (current.phase !== "incoming") return;
+      const { incomingRequest } = get();
+      if (!incomingRequest) return;
 
-      const { peerId, pendingId, request } = current;
+      const { peerId, pendingId, request } = incomingRequest;
       try {
         await respondPairingRequest(
           pendingId,
@@ -222,39 +207,37 @@ export const usePairingStore = create<PairingState>()(
           arch: request.osInfo.arch,
         });
 
-        set({
-          current: {
-            phase: "success",
-            peerId,
-            deviceName: request.osInfo.hostname,
-          },
-        });
+        set({ incomingRequest: null });
         toast.success(`已与 ${request.osInfo.hostname} 配对成功`);
+        // 处理队列中的下一个请求
+        get().processNextInbound();
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        set({ current: { phase: "error", message } });
+        set({ incomingRequest: null });
         toast.error(message);
+        get().processNextInbound();
       }
     },
 
     async rejectRequest() {
-      const { current } = get();
-      if (current.phase !== "incoming") return;
+      const { incomingRequest } = get();
+      if (!incomingRequest) return;
 
-      const { pendingId, request } = current;
+      const { pendingId, request } = incomingRequest;
       try {
         await respondPairingRequest(
           pendingId,
           request.method,
           { status: "refused", reason: "user_rejected" },
         );
-        set({ current: { phase: "idle" } });
+        set({ incomingRequest: null });
         // 处理队列中的下一个请求
         get().processNextInbound();
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        set({ current: { phase: "error", message } });
+        set({ incomingRequest: null });
         toast.error(message);
+        get().processNextInbound();
       }
     },
 
@@ -306,12 +289,7 @@ export const usePairingStore = create<PairingState>()(
 
       const [next, ...rest] = inboundQueue;
       set({
-        current: {
-          phase: "incoming",
-          peerId: next.peerId,
-          pendingId: next.pendingId,
-          request: next.request,
-        },
+        incomingRequest: next,
         inboundQueue: rest,
       });
     },
@@ -320,23 +298,7 @@ export const usePairingStore = create<PairingState>()(
       // 递增搜索版本以取消进行中的搜索
       searchVersion++;
       set({ current: { phase: "idle" } });
-      // 处理队列中的下一个请求
-      get().processNextInbound();
     },
 
-    async openMobilePairing() {
-      set({ view: "mobile-pairing" });
-      await get().generateCode();
-    },
-
-    openDesktopInput() {
-      set({ view: "desktop-input", current: { phase: "inputting" } });
-    },
-
-    closePairingView() {
-      searchVersion++;
-      set({ view: "none", current: { phase: "idle" } });
-      get().processNextInbound();
-    },
   }),
 );

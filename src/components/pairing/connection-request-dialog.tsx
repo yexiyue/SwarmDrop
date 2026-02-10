@@ -18,12 +18,12 @@ import { usePairingStore } from "@/stores/pairing-store";
 import { getDeviceIcon } from "@/components/pairing/device-icon";
 
 export function ConnectionRequestDialog() {
-  const current = usePairingStore((s) => s.current);
+  const incomingRequest = usePairingStore((s) => s.incomingRequest);
   const acceptRequest = usePairingStore((s) => s.acceptRequest);
   const rejectRequest = usePairingStore((s) => s.rejectRequest);
 
-  const isOpen = current.phase === "incoming";
-  const request = current.phase === "incoming" ? current.request : null;
+  const isOpen = incomingRequest !== null;
+  const request = incomingRequest?.request ?? null;
 
   const DeviceIcon = request ? getDeviceIcon(request.osInfo.os) : Monitor;
 

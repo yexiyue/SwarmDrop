@@ -14,6 +14,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/_auth'
 import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppPairingRouteImport } from './routes/_app/pairing'
 
 const AuthWelcomeLazyRouteImport = createFileRoute('/_auth/welcome')()
 const AuthUnlockLazyRouteImport = createFileRoute('/_auth/unlock')()
@@ -25,6 +26,11 @@ const AuthEnableBiometricLazyRouteImport = createFileRoute(
 )()
 const AppSettingsLazyRouteImport = createFileRoute('/_app/settings')()
 const AppDevicesLazyRouteImport = createFileRoute('/_app/devices')()
+const AppPairingIndexLazyRouteImport = createFileRoute('/_app/pairing/')()
+const AppPairingInputLazyRouteImport = createFileRoute('/_app/pairing/input')()
+const AppPairingGenerateLazyRouteImport = createFileRoute(
+  '/_app/pairing/generate',
+)()
 
 const AuthRoute = AuthRouteImport.update({
   id: '/_auth',
@@ -73,15 +79,45 @@ const AppDevicesLazyRoute = AppDevicesLazyRouteImport.update({
   path: '/devices',
   getParentRoute: () => AppRoute,
 } as any).lazy(() => import('./routes/_app/devices.lazy').then((d) => d.Route))
+const AppPairingRoute = AppPairingRouteImport.update({
+  id: '/pairing',
+  path: '/pairing',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppPairingIndexLazyRoute = AppPairingIndexLazyRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppPairingRoute,
+} as any).lazy(() =>
+  import('./routes/_app/pairing/index.lazy').then((d) => d.Route),
+)
+const AppPairingInputLazyRoute = AppPairingInputLazyRouteImport.update({
+  id: '/input',
+  path: '/input',
+  getParentRoute: () => AppPairingRoute,
+} as any).lazy(() =>
+  import('./routes/_app/pairing/input.lazy').then((d) => d.Route),
+)
+const AppPairingGenerateLazyRoute = AppPairingGenerateLazyRouteImport.update({
+  id: '/generate',
+  path: '/generate',
+  getParentRoute: () => AppPairingRoute,
+} as any).lazy(() =>
+  import('./routes/_app/pairing/generate.lazy').then((d) => d.Route),
+)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/pairing': typeof AppPairingRouteWithChildren
   '/devices': typeof AppDevicesLazyRoute
   '/settings': typeof AppSettingsLazyRoute
   '/enable-biometric': typeof AuthEnableBiometricLazyRoute
   '/setup-password': typeof AuthSetupPasswordLazyRoute
   '/unlock': typeof AuthUnlockLazyRoute
   '/welcome': typeof AuthWelcomeLazyRoute
+  '/pairing/generate': typeof AppPairingGenerateLazyRoute
+  '/pairing/input': typeof AppPairingInputLazyRoute
+  '/pairing/': typeof AppPairingIndexLazyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -91,29 +127,40 @@ export interface FileRoutesByTo {
   '/setup-password': typeof AuthSetupPasswordLazyRoute
   '/unlock': typeof AuthUnlockLazyRoute
   '/welcome': typeof AuthWelcomeLazyRoute
+  '/pairing/generate': typeof AppPairingGenerateLazyRoute
+  '/pairing/input': typeof AppPairingInputLazyRoute
+  '/pairing': typeof AppPairingIndexLazyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
   '/_auth': typeof AuthRouteWithChildren
+  '/_app/pairing': typeof AppPairingRouteWithChildren
   '/_app/devices': typeof AppDevicesLazyRoute
   '/_app/settings': typeof AppSettingsLazyRoute
   '/_auth/enable-biometric': typeof AuthEnableBiometricLazyRoute
   '/_auth/setup-password': typeof AuthSetupPasswordLazyRoute
   '/_auth/unlock': typeof AuthUnlockLazyRoute
   '/_auth/welcome': typeof AuthWelcomeLazyRoute
+  '/_app/pairing/generate': typeof AppPairingGenerateLazyRoute
+  '/_app/pairing/input': typeof AppPairingInputLazyRoute
+  '/_app/pairing/': typeof AppPairingIndexLazyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/pairing'
     | '/devices'
     | '/settings'
     | '/enable-biometric'
     | '/setup-password'
     | '/unlock'
     | '/welcome'
+    | '/pairing/generate'
+    | '/pairing/input'
+    | '/pairing/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -123,17 +170,24 @@ export interface FileRouteTypes {
     | '/setup-password'
     | '/unlock'
     | '/welcome'
+    | '/pairing/generate'
+    | '/pairing/input'
+    | '/pairing'
   id:
     | '__root__'
     | '/'
     | '/_app'
     | '/_auth'
+    | '/_app/pairing'
     | '/_app/devices'
     | '/_app/settings'
     | '/_auth/enable-biometric'
     | '/_auth/setup-password'
     | '/_auth/unlock'
     | '/_auth/welcome'
+    | '/_app/pairing/generate'
+    | '/_app/pairing/input'
+    | '/_app/pairing/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -207,15 +261,61 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppDevicesLazyRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/pairing': {
+      id: '/_app/pairing'
+      path: '/pairing'
+      fullPath: '/pairing'
+      preLoaderRoute: typeof AppPairingRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/pairing/': {
+      id: '/_app/pairing/'
+      path: '/'
+      fullPath: '/pairing/'
+      preLoaderRoute: typeof AppPairingIndexLazyRouteImport
+      parentRoute: typeof AppPairingRoute
+    }
+    '/_app/pairing/input': {
+      id: '/_app/pairing/input'
+      path: '/input'
+      fullPath: '/pairing/input'
+      preLoaderRoute: typeof AppPairingInputLazyRouteImport
+      parentRoute: typeof AppPairingRoute
+    }
+    '/_app/pairing/generate': {
+      id: '/_app/pairing/generate'
+      path: '/generate'
+      fullPath: '/pairing/generate'
+      preLoaderRoute: typeof AppPairingGenerateLazyRouteImport
+      parentRoute: typeof AppPairingRoute
+    }
   }
 }
 
+interface AppPairingRouteChildren {
+  AppPairingGenerateLazyRoute: typeof AppPairingGenerateLazyRoute
+  AppPairingInputLazyRoute: typeof AppPairingInputLazyRoute
+  AppPairingIndexLazyRoute: typeof AppPairingIndexLazyRoute
+}
+
+const AppPairingRouteChildren: AppPairingRouteChildren = {
+  AppPairingGenerateLazyRoute: AppPairingGenerateLazyRoute,
+  AppPairingInputLazyRoute: AppPairingInputLazyRoute,
+  AppPairingIndexLazyRoute: AppPairingIndexLazyRoute,
+}
+
+const AppPairingRouteWithChildren = AppPairingRoute._addFileChildren(
+  AppPairingRouteChildren,
+)
+
 interface AppRouteChildren {
+  AppPairingRoute: typeof AppPairingRouteWithChildren
   AppDevicesLazyRoute: typeof AppDevicesLazyRoute
   AppSettingsLazyRoute: typeof AppSettingsLazyRoute
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppPairingRoute: AppPairingRouteWithChildren,
   AppDevicesLazyRoute: AppDevicesLazyRoute,
   AppSettingsLazyRoute: AppSettingsLazyRoute,
 }
