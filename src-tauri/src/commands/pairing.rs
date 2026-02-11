@@ -3,7 +3,7 @@ use crate::pairing::code::{PairingCodeInfo, ShareCodeRecord};
 use crate::protocol::{PairingMethod, PairingResponse};
 use crate::{AppError, AppResult};
 use serde::{Deserialize, Serialize};
-use swarm_p2p_core::libp2p::PeerId;
+use swarm_p2p_core::libp2p::{Multiaddr, PeerId};
 use tauri::State;
 
 /// 查询设备信息的返回类型
@@ -55,10 +55,14 @@ pub async fn request_pairing(
     net: State<'_, NetManagerState>,
     peer_id: PeerId,
     method: PairingMethod,
+    addrs: Option<Vec<Multiaddr>>,
 ) -> AppResult<PairingResponse> {
     let guard = net.lock().await;
     let manager = guard.as_ref().ok_or_else(not_started)?;
-    manager.pairing().request_pairing(peer_id, method).await
+    manager
+        .pairing()
+        .request_pairing(peer_id, method, addrs)
+        .await
 }
 
 /// 处理收到的配对请求（接受/拒绝）
