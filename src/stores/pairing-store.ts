@@ -141,7 +141,7 @@ export const usePairingStore = create<PairingState>()(
 
       try {
         const response: PairingResponse = await withTimeout(
-          requestPairing(deviceInfo.peerId, { type: "code", code }),
+          requestPairing(deviceInfo.peerId, { type: "code", code }, deviceInfo.codeRecord.listenAddrs),
           REQUEST_TIMEOUT_MS,
           "配对请求",
         );
