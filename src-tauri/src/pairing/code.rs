@@ -1,7 +1,7 @@
 use crate::device::OsInfo;
 use rand::seq::IndexedRandom;
 use serde::{Deserialize, Serialize};
-use sha2::Digest;
+use swarm_p2p_core::libp2p::Multiaddr;
 
 const CHARSET: &[u8] = b"0123456789";
 const CODE_LENGTH: usize = 6;
@@ -28,10 +28,6 @@ impl PairingCodeInfo {
         }
     }
 
-    pub fn dht_key(&self) -> Vec<u8> {
-        sha2::Sha256::digest(self.code.as_bytes()).to_vec()
-    }
-
     pub fn is_expired(&self) -> bool {
         chrono::Utc::now().timestamp() > self.expires_at
     }
@@ -44,6 +40,9 @@ pub struct ShareCodeRecord {
     pub os_info: OsInfo,
     pub created_at: i64,
     pub expires_at: i64,
+    /// 发布者的可达地址，用于跨网络场景下让对方直接 dial
+    #[serde(default)]
+    pub listen_addrs: Vec<Multiaddr>,
 }
 
 impl From<&PairingCodeInfo> for ShareCodeRecord {
@@ -52,6 +51,19 @@ impl From<&PairingCodeInfo> for ShareCodeRecord {
             created_at: info.created_at,
             expires_at: info.expires_at,
             os_info: OsInfo::default(),
+            listen_addrs: Vec::new(),
         }
     }
+}
+
+/// 在线宣告记录，发布到 DHT 供已配对设备发现地址
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OnlineRecord {
+    #[serde(flatten)]
+    pub os_info: OsInfo,
+    /// 节点的可达地址（监听地址 + 外部地址 + relay circuit 地址）
+    #[serde(default)]
+    pub listen_addrs: Vec<Multiaddr>,
+    pub timestamp: i64,
 }
