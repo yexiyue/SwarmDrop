@@ -139,28 +139,43 @@ impl PairingCodeInfo {
 }
 ```
 
-**关键设计：配对码不直接作为 DHT Key。** 原始配对码经过 SHA-256 哈希后才作为 DHT 的 key 存储，这样即使有人扫描 DHT，也无法反推出配对码：
+**关键设计：配对码不直接作为 DHT Key。** 原始配对码经过 SHA-256 哈希（带命名空间前缀）后才作为 DHT 的 key 存储，这样即使有人扫描 DHT，也无法反推出配对码：
 
 ```mermaid
 flowchart LR
-    A["配对码<br/>&quot;482916&quot;"] -->|SHA-256| B["DHT Key<br/>a3f2b8c1..."]
-    B -->|存储| C["DHT Record<br/>设备信息 + PeerId"]
+    A["配对码<br/>&quot;482916&quot;"] -->|SHA-256| B["DHT Key<br/>SHA256('/swarmdrop/share-code/' + '482916')"]
+    B -->|存储| C["DHT Record<br/>设备信息 + 地址 + PeerId"]
 ```
 
 ```rust
-pub fn dht_key(&self) -> Vec<u8> {
-    sha2::Sha256::digest(self.code.as_bytes()).to_vec()
+// src-tauri/src/pairing/dht_key.rs
+const NS_SHARE_CODE: &[u8] = b"/swarmdrop/share-code/";
+const NS_ONLINE: &[u8] = b"/swarmdrop/online/";
+
+fn dht_key(namespace: &[u8], id: &[u8]) -> RecordKey {
+    sha2::Sha256::digest([namespace, id].concat()).to_vec().into()
+}
+
+pub fn share_code_key(code: &str) -> RecordKey {
+    dht_key(NS_SHARE_CODE, code.as_bytes())
+}
+
+pub fn online_key(peer_id_bytes: &[u8]) -> RecordKey {
+    dht_key(NS_ONLINE, peer_id_bytes)
 }
 ```
 
-发布到 DHT 的值是 `ShareCodeRecord`，包含分享方的设备信息：
+命名空间前缀确保不同用途的 DHT Key 不会冲突——即使配对码和某个 PeerId 的字节恰好相同，它们的哈希结果也不同。
+
+发布到 DHT 的值是 `ShareCodeRecord`，包含分享方的设备信息和可达地址：
 
 ```rust
 // pairing/code.rs
 pub struct ShareCodeRecord {
-    pub os_info: OsInfo,   // hostname, os, platform, arch
+    pub os_info: OsInfo,         // hostname, os, platform, arch (flatten)
     pub created_at: i64,
     pub expires_at: i64,
+    pub listen_addrs: Vec<Multiaddr>,  // 发布者的可达地址
 }
 ```
 
@@ -171,12 +186,17 @@ pub struct ShareCodeRecord {
 pub async fn generate_code(&self, expires_in_secs: u64) -> AppResult<PairingCodeInfo> {
     let code_info = PairingCodeInfo::generate(expires_in_secs);
 
-    // 发布到 DHT
+    // 获取本节点可达地址（listeners + external + relay circuit）
+    let addrs = self.client.get_addrs().await?;
+    let mut share_record = ShareCodeRecord::from(&code_info);
+    share_record.listen_addrs = addrs;
+
+    // 发布到 DHT（使用命名空间 Key）
     self.client.put_record(Record {
-        key: code_info.dht_key().into(),
-        value: serde_json::to_vec(&ShareCodeRecord::from(&code_info))?,
+        key: dht_key::share_code_key(&code_info.code),
+        value: serde_json::to_vec(&share_record)?,
         publisher: Some(self.peer_id),
-        expires: Some(Instant::now() + Duration::from_secs(expires_in_secs)),
+        expires: None,
     }).await?;
 
     // 保存到本地，用于后续验证
@@ -192,29 +212,26 @@ pub async fn generate_code(&self, expires_in_secs: u64) -> AppResult<PairingCode
 
 ```rust
 pub async fn get_device_info(&self, code: &str) -> AppResult<(PeerId, ShareCodeRecord)> {
-    let record = self.client
-        .get_record(sha2::Sha256::digest(code.as_bytes()).to_vec().into())
-        .await?
-        .record;
-
-    // 检查是否过期
-    if let Some(expires) = record.expires {
-        if expires < Instant::now() {
-            return Err(AppError::ExpiredCode);
-        }
-    }
+    let key = dht_key::share_code_key(code);
+    let record = self.client.get_record(key).await?.record;
 
     // 从 record.publisher 获取分享方的 PeerId
-    let peer_id = record.publisher.ok_or(AppError::InvalidCode)?;
-    let record = serde_json::from_slice::<ShareCodeRecord>(&record.value)?;
+    let peer_id = record.publisher.ok_or(AppError::Peer("无效的配对码".into()))?;
+    let share_record: ShareCodeRecord = serde_json::from_slice(&record.value)?;
 
-    Ok((peer_id, record))
+    // 检查是否过期
+    if share_record.expires_at < chrono::Utc::now().timestamp() {
+        return Err(AppError::Peer("配对码已过期".into()));
+    }
+
+    Ok((peer_id, share_record))
 }
 ```
 
-这一步得到两个关键信息：
+这一步得到三个关键信息：
 - **PeerId** — 分享方在 P2P 网络中的唯一标识，用于建立直接连接
 - **ShareCodeRecord** — 分享方的设备信息（设备名、操作系统等），用于在 UI 上展示
+- **listen_addrs** — 分享方的可达地址（含 relay circuit 地址），用于跨网络场景下注册到 Swarm 地址簿后直接 dial
 
 #### 阶段 3：发起配对请求
 
@@ -225,7 +242,20 @@ pub async fn request_pairing(
     &self,
     peer_id: PeerId,
     method: PairingMethod,
+    addrs: Option<Vec<Multiaddr>>,
 ) -> AppResult<PairingResponse> {
+    // 注册对端地址（跨网络场景下从 ShareCodeRecord.listen_addrs 获取）
+    if let Some(addrs) = addrs {
+        if !addrs.is_empty() {
+            self.client.add_peer_addrs(peer_id, addrs).await?;
+        }
+    }
+
+    // 如果未连接则先 dial
+    if !self.client.is_connected(peer_id).await? {
+        self.client.dial(peer_id).await?;
+    }
+
     let res = self.client.send_request(
         peer_id,
         AppRequest::Pairing(PairingRequest {
@@ -240,6 +270,8 @@ pub async fn request_pairing(
     }
 }
 ```
+
+关键改进：`request_pairing` 接受可选的 `addrs` 参数。在跨网络场景下，前端从 `get_device_info` 返回的 `ShareCodeRecord.listen_addrs` 中拿到对端地址，传给 `request_pairing`，后端通过 `add_peer_addrs` 将地址注册到 Swarm 地址簿后再 dial，确保 NAT 后的节点也能通过 relay circuit 地址建立连接。
 
 分享方收到请求后，前端会触发 `inboundRequest` 事件，弹出确认对话框：
 
@@ -413,19 +445,21 @@ pub struct NetManager {
 }
 ```
 
-生命周期管理很清晰——启动时宣布上线，关闭前宣布离线：
+生命周期管理很清晰——启动时宣布上线（含可达地址），关闭前宣布离线：
 
 ```rust
 // 启动
 let net_manager = NetManager::new(client, peer_id);
-net_manager.pairing().announce_online().await?;  // DHT start_provide
+net_manager.pairing().announce_online().await?;  // DHT put_record(online_key, OnlineRecord)
 app.manage(Mutex::new(Some(net_manager)));
 
 // 关闭
 let manager = guard.as_ref().unwrap();
-manager.pairing().announce_offline().await?;  // DHT stop_provide
+manager.pairing().announce_offline().await?;  // DHT remove_record(online_key)
 guard.take();  // drop 释放所有资源
 ```
+
+`announce_online` 使用 `put_record` 而非 `start_provide`，因为 Provider Record 只存 PeerId 不携带地址，NAT 后的节点无法被发现。`OnlineRecord` 包含完整的可达地址（listeners + external + relay circuit），对端可直接注册地址并 dial。
 
 ## Tauri 命令层：前后端桥梁
 
@@ -549,7 +583,7 @@ flowchart TB
 
 ### 配对码哈希
 
-配对码经 SHA-256 哈希后存入 DHT，即使攻击者能遍历 DHT 中的所有 key，也无法从 hash 反推出配对码。
+配对码经 SHA-256 哈希（带命名空间前缀 `/swarmdrop/share-code/`）后存入 DHT，即使攻击者能遍历 DHT 中的所有 key，也无法从 hash 反推出配对码。命名空间前缀还确保配对码 Key 与在线宣告 Key 不会冲突。
 
 ### 配对码一次性消耗
 
@@ -582,7 +616,8 @@ src-tauri/src/
 ├── error.rs               # 错误类型 (含 ExpiredCode, InvalidCode)
 ├── pairing/
 │   ├── mod.rs
-│   ├── code.rs            # 配对码生成、DHT Key 计算、ShareCodeRecord
+│   ├── code.rs            # PairingCodeInfo, ShareCodeRecord, OnlineRecord
+│   ├── dht_key.rs         # DHT Key 命名空间 (share_code_key, online_key)
 │   └── manager.rs         # PairingManager 核心业务逻辑
 ├── commands/
 │   ├── mod.rs             # NetManager、start/shutdown 命令
@@ -618,9 +653,11 @@ SwarmDrop 的配对系统通过"配对码 + DHT"实现了去中心化的设备�
 
 | 组件 | 职责 |
 |------|------|
-| `PairingCodeInfo` | 生成 6 位随机码，计算 DHT Key |
-| `ShareCodeRecord` | 存入 DHT 的设备信息 |
-| `PairingManager` | 核心业务逻辑：生成、查询、请求、响应 |
+| `PairingCodeInfo` | 生成 6 位随机码 |
+| `dht_key` | DHT Key 命名空间管理（share_code_key, online_key） |
+| `ShareCodeRecord` | 存入 DHT 的设备信息 + 可达地址 |
+| `OnlineRecord` | 在线宣告记录，含可达地址供已配对设备发现 |
+| `PairingManager` | 核心业务逻辑：生成、查询、请求、响应、在线宣告 |
 | `NetManager` | 统一管理网络客户端和子模块 |
 | `protocol.rs` | 定义 P2P 通信协议，支持未来扩展 |
 

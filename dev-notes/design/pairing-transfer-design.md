@@ -108,14 +108,15 @@ sequenceDiagram
     participant DHT as DHT 网络
     participant B as 设备 B
 
-    A->>A: 生成配对码 (如 AB12CD)
-    A->>DHT: 发布 Provider(hash(配对码))
+    A->>A: 生成配对码 (如 482916)
+    A->>DHT: putRecord(share_code_key(配对码), ShareCodeRecord)
     A->>A: 显示配对码，等待对方
 
-    B->>B: 输入配对码 AB12CD
-    B->>DHT: 查询 Provider(hash(配对码))
-    DHT->>B: 返回设备 A 的 PeerId
-    B->>A: 连接并发送配对请求
+    B->>B: 输入配对码 482916
+    B->>DHT: getRecord(share_code_key(配对码))
+    DHT->>B: 返回 ShareCodeRecord (含 PeerId + listen_addrs)
+    B->>B: add_peer_addrs(peer_id, listen_addrs)
+    B->>A: dial + 发送配对请求
 
     A->>A: 显示配对请求弹窗
     A->>B: 接受配对
@@ -132,17 +133,19 @@ sequenceDiagram
 ### 配对码设计
 
 ```
-格式：[A-Z0-9]{6}（去除易混淆字符 0/O, 1/I/L）
+格式：6 位纯数字 (0-9)
 有效期：5 分钟
 用途：仅用于首次配对，配对后不再需要
+DHT Key：SHA256("/swarmdrop/share-code/" + code)
 ```
 
-配对码编码内容：
+配对码发布到 DHT 的内容：
 ```rust
-struct PairingCode {
-    peer_id: PeerId,      // 发起方的 PeerId
-    timestamp: u64,       // 创建时间戳
-    nonce: [u8; 4],       // 随机数（防碰撞）
+struct ShareCodeRecord {
+    pub os_info: OsInfo,             // hostname, os, platform, arch
+    pub created_at: i64,
+    pub expires_at: i64,
+    pub listen_addrs: Vec<Multiaddr>, // 发布者的可达地址
 }
 ```
 

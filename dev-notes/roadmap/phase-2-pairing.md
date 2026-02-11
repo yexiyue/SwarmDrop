@@ -35,21 +35,22 @@
 
 | 状态 | 任务 | 说明 |
 |------|------|------|
-| ⬜ | 配对码生成 | 6 位 Base32 码（32 字符集），`pairing/code.rs` |
+| ⬜ | 配对码生成 | 6 位纯数字码，`pairing/code.rs` |
 | ⬜ | 配对码验证 | 格式校验、过期判断 |
-| ⬜ | DHT Key 计算 | `SHA256(code)` 作为 Record Key |
+| ⬜ | DHT Key 命名空间 | `pairing/dht_key.rs`，`SHA256(namespace + id)` 防冲突 |
 | ⬜ | 单元测试 | 生成格式、字符集、过期、Key 一致性 |
 
 ### Step 3：配对管理器
 
 | 状态 | 任务 | 说明 |
 |------|------|------|
-| ⬜ | `generate_code` | 生成码 + `putRecord` 到 DHT |
-| ⬜ | `connect_with_code` | `getRecord` + `dial` + `send_request` |
+| ⬜ | `generate_code` | 生成码 + `get_addrs` + `putRecord`（含可达地址） |
+| ⬜ | `get_device_info` | `getRecord` + 解析 `ShareCodeRecord` |
+| ⬜ | `request_pairing` | `add_peer_addrs` + `dial` + `send_request`（含可选 addrs） |
 | ⬜ | `on_inbound_pairing` | 暂存请求，通知前端弹窗 |
-| ⬜ | `accept_pairing` / `reject_pairing` | 通过 `send_response(pending_id)` 回复 |
-| ⬜ | `request_direct_pairing` | 局域网 mDNS 设备直连配对 |
-| ⬜ | `announce_online` | 节点启动时 `startProvide(SHA256(peer_id))` |
+| ⬜ | `handle_pairing_request` | 通过 `send_response(pending_id)` 回复 |
+| ⬜ | `announce_online` | 节点启动时 `putRecord(online_key, OnlineRecord)` |
+| ⬜ | `announce_offline` | 节点关闭时 `removeRecord(online_key)` |
 | ⬜ | 过期清理 | 定时器清理过期配对码和入站请求 |
 
 ### Step 4：Tauri 命令注册
