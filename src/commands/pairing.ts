@@ -26,6 +26,8 @@ export interface ShareCodeRecord {
   arch: string;
   createdAt: number;
   expiresAt: number;
+  /** 发布者的可达地址（Multiaddr 字符串），用于跨网络场景下直接 dial */
+  listenAddrs: string[];
 }
 
 /**
@@ -75,12 +77,14 @@ export async function getDeviceInfo(code: string): Promise<DeviceInfo> {
  *
  * @param peerId - 对端 Peer ID
  * @param method - 配对方式
+ * @param addrs - 对端可达地址（可选），用于跨网络场景下注册地址后直接 dial
  */
 export async function requestPairing(
   peerId: PeerId,
   method: PairingMethod,
+  addrs?: string[],
 ): Promise<PairingResponse> {
-  return invoke<PairingResponse>("request_pairing", { peerId, method });
+  return invoke<PairingResponse>("request_pairing", { peerId, method, addrs });
 }
 
 /**
