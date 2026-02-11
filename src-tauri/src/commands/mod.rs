@@ -6,6 +6,7 @@ pub use pairing::*;
 
 use crate::pairing::manager::PairingManager;
 use crate::protocol::{AppNetClient, AppRequest, AppResponse};
+use std::time::Duration;
 use swarm_p2p_core::{
     libp2p::{identity::Keypair, multiaddr::Protocol, Multiaddr, PeerId},
     NodeConfig, NodeEvent,
@@ -80,6 +81,7 @@ pub async fn start(
         .with_relay_client(true)
         .with_dcutr(true)
         .with_autonat(true)
+        .with_req_resp_timeout(Duration::from_secs(180))
         .with_bootstrap_peers(bootstrap_peers);
 
     let (client, mut receiver) =
