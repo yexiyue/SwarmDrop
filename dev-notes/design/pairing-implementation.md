@@ -25,6 +25,9 @@
 | 分类 | 方法 | 说明 |
 |------|------|------|
 | 连接 | `dial(peer_id)` | 连接到指定 Peer |
+| 连接 | `is_connected(peer_id)` | 查询是否已连接 |
+| 地址 | `get_addrs()` | 获取本节点所有可达地址（listeners + external） |
+| 地址 | `add_peer_addrs(peer_id, addrs)` | 批量注册 peer 地址到 Swarm 地址簿 |
 | DHT 引导 | `bootstrap()` | 加入 DHT 网络 |
 | DHT Record | `put_record(record)` | 存储键值对 |
 | DHT Record | `get_record(key)` | 查询键值对 |
@@ -124,33 +127,57 @@ NodeEvent::InboundRequest {
 ```mermaid
 flowchart LR
     subgraph 发起方
-        A1[生成 6 位随机码] --> A2["putRecord(SHA256(code), NodeInfo)"]
-        A2 --> A3["startProvide(SHA256(peer_id))"]
+        A1[生成 6 位随机码] --> A2["putRecord(share_code_key(code), ShareCodeRecord)"]
+        A2 --> A3["putRecord(online_key(peer_id), OnlineRecord)"]
     end
 
     subgraph 加入方
-        B1[输入配对码] --> B2["getRecord(SHA256(code))"]
-        B2 --> B3["获取 PeerId"]
-        B3 --> B4["dial(peer_id)"]
+        B1[输入配对码] --> B2["getRecord(share_code_key(code))"]
+        B2 --> B3["获取 PeerId + listen_addrs"]
+        B3 --> B4["add_peer_addrs + dial(peer_id)"]
     end
 
     subgraph 后续重连
-        C1[已配对设备] --> C2["getProviders(SHA256(peer_id))"]
-        C2 --> C3["dial(peer_id)"]
+        C1[已配对设备] --> C2["getRecord(online_key(peer_id))"]
+        C2 --> C3["获取最新 listen_addrs"]
+        C3 --> C4["add_peer_addrs + dial(peer_id)"]
     end
 ```
 
-**双重机制**：
+**DHT Key 命名空间**：
 
-| 机制 | Key | 用途 | 生命周期 |
-|------|-----|------|----------|
-| `putRecord` | `SHA256(code)` | 配对码 → PeerId 映射 | 配对完成或过期后删除 |
-| `startProvide` | `SHA256(peer_id)` | 宣布节点在线状态 | 节点运行期间持续 |
+为防止不同用途的 DHT Key 冲突，所有 Key 都带有命名空间前缀后再进行 SHA256 哈希：
 
-**为什么不缓存地址？**
-- 移动网络地址频繁变化
-- `startProvide` 会持续向 DHT 更新路由信息
-- 每次通过 `getProviders` 获取当前地址，保证可达性
+```rust
+// src-tauri/src/pairing/dht_key.rs
+const NS_SHARE_CODE: &[u8] = b"/swarmdrop/share-code/";
+const NS_ONLINE: &[u8] = b"/swarmdrop/online/";
+
+fn dht_key(namespace: &[u8], id: &[u8]) -> RecordKey {
+    sha2::Sha256::digest([namespace, id].concat()).to_vec().into()
+}
+
+pub fn share_code_key(code: &str) -> RecordKey {
+    dht_key(NS_SHARE_CODE, code.as_bytes())
+}
+
+pub fn online_key(peer_id_bytes: &[u8]) -> RecordKey {
+    dht_key(NS_ONLINE, peer_id_bytes)
+}
+```
+
+**双重 Record 机制**：
+
+| 机制 | Key | Value | 用途 | 生命周期 |
+|------|-----|-------|------|----------|
+| 配对码 Record | `SHA256(NS_SHARE_CODE + code)` | `ShareCodeRecord` | 配对码 → PeerId + 地址映射 | 配对完成或过期后删除 |
+| 在线宣告 Record | `SHA256(NS_ONLINE + peer_id)` | `OnlineRecord` | 宣布节点在线状态 + 可达地址 | 节点运行期间持续，关闭时删除 |
+
+**为什么在线宣告使用 `put_record` 而非 `start_provide`？**
+- `start_provide` 的 Provider Record 仅存储 PeerId，不携带地址
+- NAT 后的节点通过 `get_providers` 无法获取其 relay circuit 地址
+- `put_record` 可以携带完整的 `OnlineRecord`，包含所有可达地址（listeners + external + relay）
+- 对端拿到地址后可通过 `add_peer_addrs` 注册到 Swarm 地址簿，实现跨网络直连
 
 ### 数据结构
 
@@ -167,25 +194,38 @@ const CODE_LENGTH: usize = 6;
 pub struct PairingCodeInfo {
     /// 6 位配对码
     pub code: String,
-    /// 创建时间戳 (毫秒)
+    /// 创建时间戳 (秒)
     pub created_at: i64,
-    /// 过期时间戳 (毫秒)
+    /// 过期时间戳 (秒)
     pub expires_at: i64,
 }
 
 /// DHT Record 中存储的内容（配对码 → 节点信息）
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ShareCodeRecord {
-    /// 发起方 PeerId
-    pub peer_id: String,
-    /// 发起方设备名称
-    pub device_name: String,
-    /// 发起方 OS 类型
-    pub os: String,
+    /// 设备信息（hostname, os, platform, arch）
+    #[serde(flatten)]
+    pub os_info: OsInfo,
     /// 创建时间戳 (秒)
-    pub created_at: u64,
+    pub created_at: i64,
     /// 过期时间戳 (秒)
-    pub expires_at: u64,
+    pub expires_at: i64,
+    /// 发布者的可达地址（Multiaddr），用于跨网络场景下让对方直接 dial
+    #[serde(default)]
+    pub listen_addrs: Vec<Multiaddr>,
+}
+
+/// 在线宣告记录，发布到 DHT 供已配对设备发现地址
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OnlineRecord {
+    #[serde(flatten)]
+    pub os_info: OsInfo,
+    /// 节点的可达地址（监听地址 + 外部地址 + relay circuit 地址）
+    #[serde(default)]
+    pub listen_addrs: Vec<Multiaddr>,
+    pub timestamp: i64,
 }
 ```
 
@@ -194,60 +234,29 @@ pub struct ShareCodeRecord {
 ```rust
 // src-tauri/src/pairing/code.rs
 
-use rand::Rng;
-use sha2::{Sha256, Digest};
+use rand::seq::IndexedRandom;
 
 impl PairingCodeInfo {
     /// 生成新的配对码
     pub fn generate(expires_in_secs: u64) -> Self {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let code: String = (0..CODE_LENGTH)
-            .map(|_| CHARSET[rng.gen_range(0..CHARSET.len())] as char)
+            .map(|_| *CHARSET.choose(&mut rng).unwrap() as char)
             .collect();
 
-        let now = chrono::Utc::now().timestamp_millis();
+        let now = chrono::Utc::now().timestamp();
 
         Self {
             code,
             created_at: now,
-            expires_at: now + (expires_in_secs * 1000) as i64,
+            expires_at: now + expires_in_secs as i64,
         }
     }
 
     /// 检查是否过期
     pub fn is_expired(&self) -> bool {
-        chrono::Utc::now().timestamp_millis() > self.expires_at
+        chrono::Utc::now().timestamp() > self.expires_at
     }
-
-    /// 计算 DHT Record Key
-    pub fn dht_key(&self) -> Vec<u8> {
-        sha256(self.code.as_bytes())
-    }
-}
-
-/// 验证配对码格式
-pub fn validate_code(code: &str) -> bool {
-    code.len() == CODE_LENGTH
-        && code.bytes().all(|b| CHARSET.contains(&b))
-}
-
-/// 格式化显示 (382519 -> 382 519)
-pub fn format_code_display(code: &str) -> String {
-    if code.len() == 6 {
-        format!("{} {}", &code[0..3], &code[3..6])
-    } else {
-        code.to_string()
-    }
-}
-
-/// SHA256 哈希
-fn sha256(data: &[u8]) -> Vec<u8> {
-    Sha256::digest(data).to_vec()
-}
-
-/// 计算 PeerId 的 DHT Provider Key
-pub fn peer_provide_key(peer_id: &str) -> Vec<u8> {
-    sha256(peer_id.as_bytes())
 }
 ```
 
@@ -311,19 +320,20 @@ sequenceDiagram
     participant B as 设备 B (加入方)
 
     Note over A: 节点启动时
-    A->>DHT: startProvide(SHA256(peer_id))
+    A->>DHT: putRecord(online_key(peer_id), OnlineRecord)
 
     Note over A: 用户点击"生成配对码"
     A->>A: 生成随机 6 位码 (如 382519)
-    A->>A: 创建 ShareCodeRecord
-    A->>DHT: putRecord(SHA256("382519"), record)
+    A->>A: 创建 ShareCodeRecord (含 listen_addrs)
+    A->>DHT: putRecord(share_code_key("382519"), record)
     A->>A: 显示配对码，启动倒计时
 
     Note over B: 用户输入配对码
     B->>B: 验证格式
-    B->>DHT: getRecord(SHA256("382519"))
-    DHT->>B: 返回 ShareCodeRecord (含 PeerId)
+    B->>DHT: getRecord(share_code_key("382519"))
+    DHT->>B: 返回 ShareCodeRecord (含 PeerId + listen_addrs)
     B->>B: 检查是否过期
+    B->>B: add_peer_addrs(peer_id, listen_addrs)
     B->>A: dial(peer_id) + send_request(PairingRequest)
 
     Note over A: 收到 InboundRequest 事件
@@ -332,7 +342,7 @@ sequenceDiagram
     A->>B: send_response(pending_id, PairingResponse{accepted: true})
 
     Note over A,B: 双方保存 PairedDevice (仅 PeerId)
-    A->>DHT: remove_record(SHA256("382519"))
+    A->>DHT: remove_record(share_code_key("382519"))
 ```
 
 ### 局域网配对（mDNS 直连）
@@ -364,12 +374,14 @@ sequenceDiagram
     participant B as 设备 B (已配对)
 
     Note over A: 节点启动
-    A->>DHT: startProvide(SHA256(peer_id))
+    A->>DHT: putRecord(online_key(peer_id), OnlineRecord)
 
     Note over B: 用户选择已配对设备 A
     B->>B: 读取本地 PairedDevice.peer_id
+    B->>DHT: getRecord(online_key(peer_id))
+    DHT->>B: 返回 OnlineRecord (含 listen_addrs)
+    B->>B: add_peer_addrs(peer_id, listen_addrs)
     B->>A: dial(peer_id)
-    Note over B: libp2p 自动通过 DHT/mDNS 解析地址
 
     Note over A,B: 连接建立，可传输文件
 ```
@@ -453,10 +465,28 @@ struct LocalDeviceInfo {
 
 ```rust
 impl PairingManager {
-    /// 节点启动时调用 - 在 DHT 宣布在线
-    pub async fn announce_online(&self, peer_id: &PeerId) -> Result<()> {
-        let key = RecordKey::new(&peer_provide_key(&peer_id.to_string()));
-        self.net_client.start_provide(key).await?;
+    /// 节点启动时调用 - 在 DHT 宣布在线（含可达地址）
+    pub async fn announce_online(&self) -> AppResult<()> {
+        let addrs = self.client.get_addrs().await?;
+        let record_value = OnlineRecord {
+            os_info: OsInfo::default(),
+            listen_addrs: addrs,
+            timestamp: chrono::Utc::now().timestamp(),
+        };
+        let key = dht_key::online_key(&self.peer_id.to_bytes());
+        self.client.put_record(Record {
+            key,
+            value: serde_json::to_vec(&record_value)?,
+            publisher: Some(self.peer_id),
+            expires: None,
+        }).await?;
+        Ok(())
+    }
+
+    /// 节点关闭时调用 - 从 DHT 移除在线记录
+    pub async fn announce_offline(&self) -> AppResult<()> {
+        let key = dht_key::online_key(&self.peer_id.to_bytes());
+        self.client.remove_record(key).await?;
         Ok(())
     }
 
@@ -467,91 +497,87 @@ impl PairingManager {
 
         // 2. 生成配对码
         let info = PairingCodeInfo::generate(expires_in_secs);
-        let dht_key = info.dht_key();
 
-        // 3. 构造 DHT Record
-        let record = ShareCodeRecord {
-            peer_id: self.local_peer_id().to_string(),
-            device_name: self.local_device.device_name.clone(),
-            os: self.local_device.os.clone(),
-            created_at: current_secs(),
-            expires_at: current_secs() + expires_in_secs,
-        };
+        // 3. 构造 ShareCodeRecord（含可达地址）
+        let addrs = self.client.get_addrs().await?;
+        let mut share_record = ShareCodeRecord::from(&info);
+        share_record.listen_addrs = addrs;
 
-        // 4. 发布到 DHT
-        let value = ciborium_to_vec(&record)?;  // CBOR 编码
+        // 4. 发布到 DHT（使用命名空间 Key）
+        let key = dht_key::share_code_key(&info.code);
+        let value = serde_json::to_vec(&share_record)?;
         let record = Record {
-            key: RecordKey::new(&dht_key),
+            key: key.clone(),
             value,
-            publisher: None,
+            publisher: Some(self.peer_id),
             expires: None,
         };
-        self.net_client.put_record(record).await?;
+        self.client.put_record(record).await?;
 
         // 5. 保存并启动过期定时器
-        *self.active_code.write().await = Some(ActiveCode {
-            info: info.clone(),
-            dht_key,
-        });
-        self.start_expiry_timer(expires_in_secs);
+        self.active_codes.insert(info.code.clone(), info.clone());
 
         Ok(info)
     }
 
     /// 取消配对码
     pub async fn cancel_code(&self) -> Result<()> {
-        if let Some(active) = self.active_code.write().await.take() {
-            self.net_client
-                .remove_record(RecordKey::new(&active.dht_key))
-                .await?;
+        // 遍历 active_codes 并从 DHT 删除
+        for entry in self.active_codes.iter() {
+            let key = dht_key::share_code_key(entry.key());
+            self.client.remove_record(key).await?;
         }
+        self.active_codes.clear();
         Ok(())
     }
 
-    /// 通过配对码连接 (加入方)
-    pub async fn connect_with_code(&self, code: String) -> Result<PairingResponse> {
-        // 1. 验证格式
-        if !validate_code(&code) {
-            return Err(AppError::Peer("无效的配对码格式".into()));
-        }
+    /// 通过配对码查询设备信息 (加入方第一步)
+    pub async fn get_device_info(&self, code: &str) -> AppResult<(PeerId, ShareCodeRecord)> {
+        let key = dht_key::share_code_key(code);
+        let result = self.client.get_record(key).await?;
+        let record = result.record;
 
-        // 2. 从 DHT 查询
-        let dht_key = sha256(code.as_bytes());
-        let result = self.net_client
-            .get_record(RecordKey::new(&dht_key))
-            .await?;
+        let peer_id = record.publisher.ok_or(AppError::Peer("无效的配对码".into()))?;
+        let share_record: ShareCodeRecord = serde_json::from_slice(&record.value)?;
 
-        // 3. 解码 Record
-        let share_record: ShareCodeRecord = ciborium_from_reader(&result.record.value[..])?;
-
-        // 4. 检查过期
-        if share_record.expires_at < current_secs() {
+        if share_record.expires_at < chrono::Utc::now().timestamp() {
             return Err(AppError::Peer("配对码已过期".into()));
         }
 
-        // 5. 解析 PeerId 并连接
-        let peer_id: PeerId = share_record.peer_id.parse()
-            .map_err(|_| AppError::Peer("无效的 PeerId".into()))?;
+        Ok((peer_id, share_record))
+    }
 
-        self.net_client.dial(peer_id).await?;
+    /// 向对端发起配对请求 (加入方第二步)
+    pub async fn request_pairing(
+        &self,
+        peer_id: PeerId,
+        method: PairingMethod,
+        addrs: Option<Vec<Multiaddr>>,
+    ) -> AppResult<PairingResponse> {
+        // 1. 注册对端地址（跨网络场景下从 ShareCodeRecord.listen_addrs 获取）
+        if let Some(addrs) = addrs {
+            if !addrs.is_empty() {
+                self.client.add_peer_addrs(peer_id, addrs).await?;
+            }
+        }
 
-        // 6. 发送配对请求
-        let request = PairingRequest {
-            request_id: uuid::Uuid::new_v4().to_string(),
-            device_name: self.local_device.device_name.clone(),
-            os: self.local_device.os.clone(),
-            method: PairingMethod::Code { code },
-            timestamp: current_millis(),
-        };
+        // 2. 如果未连接则先 dial
+        if !self.client.is_connected(peer_id).await? {
+            self.client.dial(peer_id).await?;
+        }
 
-        let resp = self.net_client
-            .send_request(peer_id, AppRequest::Pairing(request))
-            .await?;
+        // 3. 发送配对请求
+        let res = self.client.send_request(
+            peer_id,
+            AppRequest::Pairing(PairingRequest {
+                os_info: OsInfo::default(),
+                method,
+                timestamp: chrono::Utc::now().timestamp(),
+            }),
+        ).await?;
 
-        // 7. 解包响应
-        match resp {
-            AppResponse::Pairing(pairing_resp) => Ok(pairing_resp),
-            _ => Err(AppError::Peer("意外的响应类型".into())),
+        match res {
+            AppResponse::Pairing(pairing_res) => Ok(pairing_res),
         }
     }
 
@@ -564,79 +590,41 @@ impl PairingManager {
         pending_id: u64,
         request: PairingRequest,
     ) {
-        self.pending_inbound.write().await.insert(
-            request.request_id.clone(),
-            PendingInbound {
-                request,
-                peer_id,
-                pending_id,
-                received_at: current_millis(),
-            },
-        );
-        // 通知前端弹窗 (通过 Tauri 事件)
-    }
-
-    /// 接受配对请求 (用户点击"接受"后调用)
-    pub async fn accept_pairing(&self, request_id: &str) -> Result<PeerId> {
-        let pending = self.pending_inbound.write().await
-            .remove(request_id)
-            .ok_or(AppError::Peer("请求不存在或已过期".into()))?;
-
-        let response = AppResponse::Pairing(PairingResponse {
-            request_id: request_id.to_string(),
-            accepted: true,
-            reject_reason: None,
-            device_name: self.local_device.device_name.clone(),
-            os: self.local_device.os.clone(),
+        self.pending_inbound.insert(pending_id, PendingInbound {
+            request,
+            peer_id,
+            pending_id,
+            received_at: chrono::Utc::now().timestamp(),
         });
-
-        // 通过 pending_id 回复原始请求
-        self.net_client
-            .send_response(pending.pending_id, response)
-            .await?;
-
-        Ok(pending.peer_id)
+        // 通知前端弹窗 (通过 Tauri Channel 事件)
     }
 
-    /// 拒绝配对请求
-    pub async fn reject_pairing(&self, request_id: &str, reason: Option<String>) -> Result<()> {
-        let pending = self.pending_inbound.write().await
-            .remove(request_id)
-            .ok_or(AppError::Peer("请求不存在或已过期".into()))?;
-
-        let response = AppResponse::Pairing(PairingResponse {
-            request_id: request_id.to_string(),
-            accepted: false,
-            reject_reason: reason,
-            device_name: self.local_device.device_name.clone(),
-            os: self.local_device.os.clone(),
-        });
-
-        self.net_client
-            .send_response(pending.pending_id, response)
-            .await?;
-
-        Ok(())
-    }
-
-    /// 向局域网附近设备发起配对 (mDNS 发现的)
-    pub async fn request_direct_pairing(&self, peer_id: PeerId) -> Result<PairingResponse> {
-        let request = PairingRequest {
-            request_id: uuid::Uuid::new_v4().to_string(),
-            device_name: self.local_device.device_name.clone(),
-            os: self.local_device.os.clone(),
-            method: PairingMethod::Direct,
-            timestamp: current_millis(),
-        };
-
-        let resp = self.net_client
-            .send_request(peer_id, AppRequest::Pairing(request))
-            .await?;
-
-        match resp {
-            AppResponse::Pairing(pairing_resp) => Ok(pairing_resp),
-            _ => Err(AppError::Peer("意外的响应类型".into())),
+    /// 处理配对请求（接受/拒绝，由 UI 调用）
+    pub async fn handle_pairing_request(
+        &self,
+        pending_id: u64,
+        method: &PairingMethod,
+        response: PairingResponse,
+    ) -> AppResult<()> {
+        // Code 模式：验证并消耗配对码
+        if let PairingMethod::Code { code } = method {
+            let (_, info) = self.active_codes
+                .remove(code.as_str())
+                .ok_or(AppError::Peer("无效的配对码".into()))?;
+            if info.is_expired() {
+                return Err(AppError::Peer("配对码已过期".into()));
+            }
+            // 清理 DHT Record
+            let key = dht_key::share_code_key(code);
+            self.client.remove_record(key).await?;
         }
+        // Direct 模式（局域网）：无需配对码，用户确认即可
+
+        self.client
+            .send_response(pending_id, AppResponse::Pairing(response))
+            .await?;
+        self.pending_inbound.remove(&pending_id);
+        Ok(())
     }
 }
 ```
@@ -649,63 +637,70 @@ impl PairingManager {
 // src-tauri/src/commands/pairing.rs
 
 use tauri::State;
-use crate::pairing::PairingManager;
+use super::NetManagerState;
+use swarm_p2p_core::libp2p::{Multiaddr, PeerId};
+
+/// 查询设备信息的返回类型
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DeviceInfo {
+    pub peer_id: PeerId,
+    pub code_record: ShareCodeRecord,
+}
 
 /// 生成配对码
 #[tauri::command]
 pub async fn generate_pairing_code(
-    manager: State<'_, PairingManager>,
+    net: State<'_, NetManagerState>,
     expires_in_secs: Option<u64>,
 ) -> AppResult<PairingCodeInfo> {
-    manager.generate_code(expires_in_secs.unwrap_or(300)).await
+    let guard = net.lock().await;
+    let manager = guard.as_ref().ok_or_else(not_started)?;
+    manager.pairing()
+        .generate_code(expires_in_secs.unwrap_or(300))
+        .await
 }
 
-/// 取消配对码
+/// 通过配对码查询对端设备信息
 #[tauri::command]
-pub async fn cancel_pairing_code(
-    manager: State<'_, PairingManager>,
-) -> AppResult<()> {
-    manager.cancel_code().await
-}
-
-/// 通过配对码连接
-#[tauri::command]
-pub async fn connect_with_pairing_code(
-    manager: State<'_, PairingManager>,
+pub async fn get_device_info(
+    net: State<'_, NetManagerState>,
     code: String,
+) -> AppResult<DeviceInfo> {
+    let guard = net.lock().await;
+    let manager = guard.as_ref().ok_or_else(not_started)?;
+    let (peer_id, record) = manager.pairing().get_device_info(&code).await?;
+    Ok(DeviceInfo { peer_id, code_record: record })
+}
+
+/// 向对端发起配对请求
+#[tauri::command]
+pub async fn request_pairing(
+    net: State<'_, NetManagerState>,
+    peer_id: PeerId,
+    method: PairingMethod,
+    addrs: Option<Vec<Multiaddr>>,
 ) -> AppResult<PairingResponse> {
-    manager.connect_with_code(code).await
+    let guard = net.lock().await;
+    let manager = guard.as_ref().ok_or_else(not_started)?;
+    manager.pairing()
+        .request_pairing(peer_id, method, addrs)
+        .await
 }
 
-/// 向附近设备发起配对
+/// 处理收到的配对请求（接受/拒绝）
 #[tauri::command]
-pub async fn request_direct_pairing(
-    manager: State<'_, PairingManager>,
-    peer_id: String,
-) -> AppResult<PairingResponse> {
-    let peer_id: PeerId = peer_id.parse()
-        .map_err(|_| AppError::Peer("无效的 PeerId".into()))?;
-    manager.request_direct_pairing(peer_id).await
-}
-
-/// 接受配对请求
-#[tauri::command]
-pub async fn accept_pairing(
-    manager: State<'_, PairingManager>,
-    request_id: String,
-) -> AppResult<String> {
-    let peer_id = manager.accept_pairing(&request_id).await?;
-    Ok(peer_id.to_string())
-}
-
-/// 拒绝配对请求
-#[tauri::command]
-pub async fn reject_pairing(
-    manager: State<'_, PairingManager>,
-    request_id: String,
-    reason: Option<String>,
+pub async fn respond_pairing_request(
+    net: State<'_, NetManagerState>,
+    pending_id: u64,
+    method: PairingMethod,
+    response: PairingResponse,
 ) -> AppResult<()> {
-    manager.reject_pairing(&request_id, reason).await
+    let guard = net.lock().await;
+    let manager = guard.as_ref().ok_or_else(not_started)?;
+    manager.pairing()
+        .handle_pairing_request(pending_id, &method, response)
+        .await
 }
 ```
 
@@ -785,29 +780,28 @@ interface InboundPairingRequest {
 src-tauri/src/
 ├── lib.rs
 ├── error.rs                    # 已有
-├── protocol.rs                 # [新增] AppRequest/AppResponse + 配对消息
+├── device.rs                   # OsInfo — 设备信息
+├── protocol.rs                 # AppRequest/AppResponse + 配对消息
 ├── commands/
-│   ├── mod.rs                  # [修改] NetClient 泛型 + 注册新命令
+│   ├── mod.rs                  # NetManager + start/shutdown + 注册命令
 │   ├── identity.rs             # 已有
-│   └── pairing.rs              # [新增] 配对 Tauri 命令
+│   └── pairing.rs              # 配对 Tauri 命令
 └── pairing/
-    ├── mod.rs                  # [新增] 模块导出
-    ├── code.rs                 # [新增] 配对码生成/验证/DHT Key
-    └── manager.rs              # [新增] PairingManager
+    ├── mod.rs                  # 模块导出
+    ├── code.rs                 # PairingCodeInfo, ShareCodeRecord, OnlineRecord
+    ├── dht_key.rs              # DHT Key 命名空间 (share_code_key, online_key)
+    └── manager.rs              # PairingManager 核心业务逻辑
 
 src/
 ├── commands/
-│   ├── network.ts              # [修改] 扩展 NodeEvent 类型
-│   └── pairing.ts              # [新增] 配对 invoke 封装
+│   ├── network.ts              # 网络命令 + NodeEvent 类型
+│   └── pairing.ts              # 配对 invoke 封装 + 类型定义
 ├── stores/
-│   ├── network-store.ts        # [修改] 处理 inboundRequest 事件
-│   ├── secret-store.ts         # [修改] 配对成功后保存 PairedDevice
-│   └── pairing-store.ts        # [新增] 配对流程状态管理
+│   ├── network-store.ts        # 处理 inboundRequest 事件
+│   ├── secret-store.ts         # 配对成功后保存 PairedDevice
+│   └── pairing-store.ts        # 配对流程状态管理
 └── components/
-    └── pairing/                # [新增] 配对 UI 组件
-        ├── pairing-code-display.tsx
-        ├── pairing-code-input.tsx
-        └── pairing-request-dialog.tsx
+    └── pairing/                # 配对 UI 组件
 ```
 
 ---
@@ -823,17 +817,19 @@ src/
 
 ### Step 2：配对码生成
 
-- [ ] 创建 `src-tauri/src/pairing/code.rs` — 配对码生成、验证、DHT Key 计算
-- [ ] 单元测试：生成格式、字符集、过期判断、SHA256 Key 一致性
+- [ ] 创建 `src-tauri/src/pairing/code.rs` — 配对码生成、过期判断
+- [ ] 创建 `src-tauri/src/pairing/dht_key.rs` — DHT Key 命名空间（share_code_key, online_key）
+- [ ] 单元测试：生成格式、字符集、过期判断、命名空间 Key 一致性
 
 ### Step 3：配对管理器
 
 - [ ] 创建 `src-tauri/src/pairing/manager.rs` — PairingManager 核心逻辑
-- [ ] 实现 `generate_code` — 生成码 + putRecord
-- [ ] 实现 `connect_with_code` — getRecord + dial + send_request
-- [ ] 实现 `on_inbound_pairing` / `accept_pairing` / `reject_pairing` — 入站处理
-- [ ] 实现 `request_direct_pairing` — 局域网直连配对
-- [ ] 实现 `announce_online` — 节点启动时 startProvide
+- [ ] 实现 `generate_code` — 生成码 + get_addrs + putRecord（含地址）
+- [ ] 实现 `get_device_info` — getRecord + 解析 ShareCodeRecord
+- [ ] 实现 `request_pairing` — add_peer_addrs + dial + send_request（含可选 addrs）
+- [ ] 实现 `on_inbound_pairing` / `handle_pairing_request` — 入站处理
+- [ ] 实现 `announce_online` — putRecord(online_key, OnlineRecord)
+- [ ] 实现 `announce_offline` — removeRecord(online_key)
 
 ### Step 4：Tauri 命令注册
 
@@ -879,7 +875,9 @@ src/
 ## 安全考虑
 
 1. **配对码有效期**：默认 5 分钟，过期后自动从 DHT 清除
-2. **随机性**：使用 `rand::thread_rng()`（底层 ChaCha20），满足密码学安全要求
+2. **随机性**：使用 `rand::rng()`（底层 ChaCha20），满足密码学安全要求
 3. **双向确认**：配对必须双方明确同意
-4. **DHT Record 不含敏感信息**：仅存 PeerId + 设备名 + 过期时间，不含密钥
-5. **E2E 加密密钥协商**：留给 Phase 3 文件传输阶段，配对阶段不涉及
+4. **DHT Key 命名空间**：不同用途的 Key 使用不同命名空间前缀（`/swarmdrop/share-code/`、`/swarmdrop/online/`），防止 Key 冲突
+5. **DHT Record 不含敏感信息**：仅存设备信息 + 可达地址 + 时间戳，不含密钥
+6. **配对码哈希存储**：配对码经 SHA256(namespace + code) 哈希后作为 DHT Key，无法从 Key 反推配对码
+7. **E2E 加密密钥协商**：留给 Phase 3 文件传输阶段，配对阶段不涉及
