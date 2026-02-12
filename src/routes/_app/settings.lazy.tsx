@@ -9,6 +9,7 @@ import { hostname } from "@tauri-apps/plugin-os";
 import { Trans } from "@lingui/react/macro";
 import { useLingui } from "@lingui/react/macro";
 import { msg } from "@lingui/core/macro";
+import { useTheme } from "next-themes";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Select,
@@ -17,10 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  usePreferencesStore,
-  type Theme,
-} from "@/stores/preferences-store";
+import { usePreferencesStore } from "@/stores/preferences-store";
 import { locales, type LocaleKey } from "@/lib/i18n";
 
 export const Route = createLazyFileRoute("/_app/settings")({
@@ -28,17 +26,16 @@ export const Route = createLazyFileRoute("/_app/settings")({
 });
 
 const themeOptions = [
-  { value: "system" as Theme, label: msg`跟随系统` },
-  { value: "light" as Theme, label: msg`浅色` },
-  { value: "dark" as Theme, label: msg`深色` },
+  { value: "system", label: msg`跟随系统` },
+  { value: "light", label: msg`浅色` },
+  { value: "dark", label: msg`深色` },
 ];
 
 function SettingsPage() {
   const { t } = useLingui();
-  const theme = usePreferencesStore((s) => s.theme);
+  const { theme, setTheme } = useTheme();
   const locale = usePreferencesStore((s) => s.locale);
   const deviceName = usePreferencesStore((s) => s.deviceName);
-  const setTheme = usePreferencesStore((s) => s.setTheme);
   const setLocale = usePreferencesStore((s) => s.setLocale);
 
   const [systemHostname, setSystemHostname] = useState("");
@@ -102,7 +99,7 @@ function SettingsPage() {
                 </div>
                 <Select
                   value={theme}
-                  onValueChange={(value) => setTheme(value as Theme)}
+                  onValueChange={setTheme}
                 >
                   <SelectTrigger className="w-30 sm:w-35">
                     <SelectValue />
