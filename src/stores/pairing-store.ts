@@ -231,6 +231,7 @@ export const usePairingStore = create<PairingState>()(
           { status: "refused", reason: "user_rejected" },
         );
         set({ incomingRequest: null });
+        toast.success(`已拒绝来自 ${request.osInfo.hostname} 的配对请求`);
         // 处理队列中的下一个请求
         get().processNextInbound();
       } catch (err) {

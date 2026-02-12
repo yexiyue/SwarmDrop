@@ -12,6 +12,7 @@ use swarm_p2p_core::{
     NodeConfig, NodeEvent,
 };
 use tauri::{ipc::Channel, AppHandle, Manager, State};
+use tauri_plugin_notification::NotificationExt;
 use tokio::sync::Mutex;
 use tracing::{error, info, warn};
 
@@ -96,8 +97,39 @@ pub async fn start(
         }
     });
 
+    let event_app = app.clone();
     tokio::spawn(async move {
         while let Some(event) = receiver.recv().await {
+            match &event {
+                NodeEvent::InboundRequest {
+                    peer_id,
+                    pending_id: _,
+                    request,
+                } => {
+                    info!("Inbound request from {:?}: {:?}", peer_id, request);
+
+                    // 配对请求 + 窗口不在前台时：发送系统通知
+                    #[allow(irrefutable_let_patterns)]
+                    if let AppRequest::Pairing(req) = request {
+                        if let Some(window) = event_app.get_webview_window("main") {
+                            let is_focused = window.is_focused().unwrap_or(false);
+                            if !is_focused {
+                                if let Err(e) = event_app
+                                    .notification()
+                                    .builder()
+                                    .title("配对请求")
+                                    .body(format!("{} 请求与您配对", req.os_info.hostname))
+                                    .show()
+                                {
+                                    warn!("Failed to send notification: {}", e);
+                                }
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+
             if let Err(e) = channel.send(event) {
                 error!("Failed to send event: {}", e);
             }
