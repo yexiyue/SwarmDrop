@@ -16,6 +16,7 @@
     "biometry:default",
     "os:default",
     "os:allow-hostname",
-    "store:default"
+    "store:default",
+    "notification:default"
   ]
 }
