@@ -7,7 +7,6 @@ import {
   RadioTower,
   Send,
   Smartphone,
-  Tablet,
   Unlink,
   Wifi,
   Zap,
@@ -34,33 +33,22 @@ import { msg } from "@lingui/core/macro";
 import type { MessageDescriptor } from "@lingui/core";
 import { useLingui } from "@lingui/react/macro";
 import { Trans } from "@lingui/react/macro";
+import type { Device, ConnectionType } from "@/commands/network";
 
-export type DeviceType = "smartphone" | "tablet" | "laptop" | "desktop";
-export type DeviceStatus = "online" | "offline";
-export type ConnectionType = "lan" | "dcutr" | "relay" | "none";
-
-export interface Device {
-  id: string;
-  name: string;
-  type: DeviceType;
-  status: DeviceStatus;
-  connection?: ConnectionType;
-  latency?: number;
-  isPaired: boolean;
+/** 根据 OS 名称返回对应的设备图标 */
+function getDeviceIcon(os: string): React.ComponentType<{ className?: string }> {
+  const osLower = os.toLowerCase();
+  if (osLower === "ios") return Smartphone;
+  if (osLower === "android") return Smartphone;
+  if (osLower === "macos" || osLower === "darwin") return Laptop;
+  return Monitor;
 }
-
-const deviceIcons: Record<DeviceType, React.ComponentType<{ className?: string }>> = {
-  smartphone: Smartphone,
-  tablet: Tablet,
-  laptop: Laptop,
-  desktop: Monitor,
-};
 
 const connectionConfig: Record<
   ConnectionType,
   {
     icon: React.ComponentType<{ className?: string }>;
-    label?: MessageDescriptor;
+    label: MessageDescriptor;
     bgColor: string;
     textColor: string;
   }
@@ -83,11 +71,6 @@ const connectionConfig: Record<
     bgColor: "bg-amber-100",
     textColor: "text-amber-600",
   },
-  none: {
-    icon: Wifi,
-    bgColor: "",
-    textColor: "",
-  },
 };
 
 interface DeviceCardProps {
@@ -100,10 +83,9 @@ interface DeviceCardProps {
 
 export function DeviceCard({ device, variant = "card", onSend, onConnect, onUnpair }: DeviceCardProps) {
   const { t } = useLingui();
-  const DeviceIcon = deviceIcons[device.type];
+  const DeviceIcon = getDeviceIcon(device.os);
   const isOnline = device.status === "online";
-  const connection = device.connection ?? "none";
-  const connConfig = connectionConfig[connection];
+  const connConfig = device.connection ? connectionConfig[device.connection] : null;
 
   const [unpairOpen, setUnpairOpen] = useState(false);
 
@@ -129,7 +111,7 @@ export function DeviceCard({ device, variant = "card", onSend, onConnect, onUnpa
           {/* Info */}
           <div className="flex flex-1 flex-col gap-1">
             <span className="text-[15px] font-medium text-foreground">
-              {device.name}
+              {device.hostname}
             </span>
             {device.isPaired ? (
               <div className="flex items-center gap-1.5">
@@ -208,7 +190,7 @@ export function DeviceCard({ device, variant = "card", onSend, onConnect, onUnpa
         <UnpairAlertDialog
           open={unpairOpen}
           onOpenChange={setUnpairOpen}
-          deviceName={device.name}
+          deviceName={device.hostname}
           onConfirm={() => onUnpair?.(device)}
         />
       </>
@@ -231,7 +213,7 @@ export function DeviceCard({ device, variant = "card", onSend, onConnect, onUnpa
           </div>
           <div className="flex flex-1 flex-col gap-1">
             <span className="text-sm font-medium text-foreground">
-              {device.name}
+              {device.hostname}
             </span>
             <div className="flex items-center gap-1">
               {device.isPaired ? (
@@ -285,7 +267,7 @@ export function DeviceCard({ device, variant = "card", onSend, onConnect, onUnpa
         {/* Footer */}
         <div className="flex items-center justify-between">
           {/* Connection Badge */}
-          {connection !== "none" && device.latency !== undefined && (
+          {connConfig && device.latency !== undefined ? (
             <div
               className={cn(
                 "flex items-center gap-1 rounded-full px-1.5 py-0.5",
@@ -293,17 +275,16 @@ export function DeviceCard({ device, variant = "card", onSend, onConnect, onUnpa
               )}
             >
               <connConfig.icon className={cn("size-2.5", connConfig.textColor)} />
-              {connConfig.label && (
-                <span className={cn("text-[10px] font-medium", connConfig.textColor)}>
-                  {t(connConfig.label)}
-                </span>
-              )}
+              <span className={cn("text-[10px] font-medium", connConfig.textColor)}>
+                {t(connConfig.label)}
+              </span>
               <span className={cn("text-[10px] font-medium", connConfig.textColor)}>
                 {device.latency}ms
               </span>
             </div>
+          ) : (
+            <div />
           )}
-          {connection === "none" && <div />}
 
           {/* Action Button */}
           {device.isPaired ? (
@@ -340,7 +321,7 @@ export function DeviceCard({ device, variant = "card", onSend, onConnect, onUnpa
       <UnpairAlertDialog
         open={unpairOpen}
         onOpenChange={setUnpairOpen}
-        deviceName={device.name}
+        deviceName={device.hostname}
         onConfirm={() => onUnpair?.(device)}
       />
     </>

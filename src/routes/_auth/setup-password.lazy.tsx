@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuthStore } from "@/stores/auth-store";
-import { getErrorMessage, getLoadingMessage, isKnownErrorType } from "@/lib/auth-messages";
+import { getAuthErrorMessage, getLoadingMessage, isKnownErrorType } from "@/lib/auth-messages";
 import { ArrowLeft, Eye, EyeOff, Check, Circle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -71,7 +71,7 @@ function SetupPasswordPage() {
     : null;
   const translatedError = error
     ? isKnownErrorType(error)
-      ? t(getErrorMessage(error) as MessageDescriptor)
+      ? t(getAuthErrorMessage(error) as MessageDescriptor)
       : error
     : null;
 

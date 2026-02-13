@@ -1,58 +1,31 @@
 /**
  * Network Store
- * 管理 P2P 网络状态和设备列表
+ * 管理 P2P 网络状态，消费后端数据
  */
 
 import { create } from "zustand";
-import type {
-  Device,
-  DeviceType,
-  ConnectionType,
-} from "@/components/devices/device-card";
-import type {
-  NodeEvent,
-  PeerId,
-  Multiaddr,
-  NatStatus,
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import type { Device, NetworkStatus } from "@/commands/network";
+import {
+  start,
+  shutdown,
+  listDevices,
+  getNetworkStatus,
 } from "@/commands/network";
-import { start, shutdown } from "@/commands/network";
-import { useSecretStore } from "@/stores/secret-store";
+import { getErrorMessage } from "@/lib/errors";
+import { useSecretStore, type PairedDevice } from "@/stores/secret-store";
 import { usePairingStore } from "@/stores/pairing-store";
 
-/** 节点状态 */
+/** 节点状态（前端 UI 生命周期） */
 export type NodeStatus = "stopped" | "starting" | "running" | "error";
-
-/** 解析后的 Agent 信息 */
-interface AgentInfo {
-  version: string;
-  os: string;
-  platform?: string;
-  arch: string;
-  hostname: string;
-}
-
-/** Peer 信息（内部使用） */
-interface PeerInfo {
-  peerId: PeerId;
-  addrs: Multiaddr[];
-  agentInfo?: AgentInfo;
-  rttMs?: number;
-  isConnected: boolean;
-  discoveredAt: number;
-  connectedAt?: number;
-}
 
 interface NetworkState {
   /** 节点状态 */
   status: NodeStatus;
-  /** 监听地址列表 */
-  listenAddrs: Multiaddr[];
-  /** NAT 状态 */
-  natStatus: NatStatus;
-  /** 公网地址（如果有） */
-  publicAddr: Multiaddr | null;
-  /** Peer 信息 Map */
-  peers: Map<PeerId, PeerInfo>;
+  /** 后端设备列表 */
+  devices: Device[];
+  /** 后端网络状态 */
+  networkStatus: NetworkStatus | null;
   /** 错误信息 */
   error: string | null;
   /** 节点启动时间戳 */
@@ -64,10 +37,10 @@ interface NetworkState {
   startNetwork: () => Promise<void>;
   /** 停止网络 */
   stopNetwork: () => Promise<void>;
-  /** 处理节点事件 */
-  handleEvent: (event: NodeEvent) => void;
-  /** 获取附近设备列表（未配对） */
-  getNearbyDevices: () => Device[];
+  /** 从后端获取设备列表 */
+  fetchDevices: (filter?: "all" | "connected" | "paired") => Promise<void>;
+  /** 从后端获取网络状态 */
+  fetchNetworkStatus: () => Promise<void>;
   /** 获取已连接的 peer 数量 */
   getConnectedCount: () => number;
   /** 获取已发现的 peer 数量 */
@@ -76,93 +49,57 @@ interface NetworkState {
   clearError: () => void;
 }
 
-/**
- * 解析 agent_version 字符串
- * 兼容两种格式：
- *   新: swarmdrop/{ver}; os={os}; platform={platform}; arch={arch}; host={hostname}
- *   旧: swarmdrop/{ver}; os={os}; arch={arch}; host={hostname}
- */
-function parseAgentVersion(agentVersion: string): AgentInfo | undefined {
-  const match = agentVersion.match(
-    /^swarmdrop\/([^;]+);\s*os=([^;]+);\s*(?:platform=([^;]+);\s*)?arch=([^;]+);\s*host=(.+)$/,
-  );
+// Tauri Event 监听器清理函数
+let unlistenFns: UnlistenFn[] = [];
 
-  if (!match) return undefined;
+/** 设置 Tauri Event 监听（直接接收后端推送的 payload） */
+async function setupEventListeners() {
+  // 清理旧的监听器
+  await cleanupEventListeners();
 
-  return {
-    version: match[1],
-    os: match[2],
-    platform: match[3], // undefined if old format
-    arch: match[4],
-    hostname: match[5],
-  };
+  const fns = await Promise.all([
+    // 设备列表变更（后端推送完整列表）
+    listen<Device[]>("devices-changed", (event) => {
+      useNetworkStore.setState({ devices: event.payload });
+    }),
+
+    // 网络状态变更（后端推送完整状态，同时判断节点是否已启动）
+    listen<NetworkStatus>("network-status-changed", (event) => {
+      const store = useNetworkStore.getState();
+      const updates: Partial<NetworkState> = { networkStatus: event.payload };
+      if (event.payload.status === "running" && store.status !== "running") {
+        updates.status = "running";
+        updates.startedAt = store.startedAt ?? Date.now();
+      }
+      useNetworkStore.setState(updates);
+    }),
+
+    // 配对请求（转发给 pairing-store）
+    listen("pairing-request-received", (event) => {
+      usePairingStore.getState().handleInboundRequest(event.payload as any);
+    }),
+
+    // 配对成功（后端已添加到运行时，同步到 Stronghold 持久化）
+    listen<PairedDevice>("paired-device-added", (event) => {
+      useSecretStore.getState().addPairedDevice(event.payload);
+    }),
+  ]);
+
+  unlistenFns = fns;
 }
 
-/**
- * 根据 OS 推断设备类型
- */
-export function inferDeviceType(os: string): DeviceType {
-  const osLower = os.toLowerCase();
-  if (osLower === "ios") return "smartphone";
-  if (osLower === "android") return "smartphone";
-  if (osLower === "macos" || osLower === "darwin") return "laptop";
-  if (osLower === "windows") return "desktop";
-  if (osLower === "linux") return "desktop";
-  return "desktop"; // 默认
+/** 清理 Tauri Event 监听 */
+async function cleanupEventListeners() {
+  for (const unlisten of unlistenFns) {
+    unlisten();
+  }
+  unlistenFns = [];
 }
-
-/**
- * 根据延迟推断连接类型
- */
-export function inferConnectionType(rttMs?: number): ConnectionType {
-  if (rttMs === undefined) return "none";
-  if (rttMs < 10) return "lan"; // < 10ms 认为是局域网
-  if (rttMs < 100) return "dcutr"; // < 100ms 认为是打洞成功
-  return "relay"; // >= 100ms 认为是中继
-}
-
-/**
- * 将 PeerInfo 转换为 Device
- */
-export function peerToDevice(peer: PeerInfo): Device {
-  const agentInfo = peer.agentInfo;
-  const name = agentInfo?.hostname ?? peer.peerId.slice(0, 8);
-  const deviceType = agentInfo ? inferDeviceType(agentInfo.os) : "desktop";
-  const connection = inferConnectionType(peer.rttMs);
-
-  return {
-    id: peer.peerId,
-    name,
-    type: deviceType,
-    status: peer.isConnected ? "online" : "offline",
-    connection: peer.isConnected ? connection : undefined,
-    latency: peer.isConnected ? peer.rttMs : undefined,
-    isPaired: false, // 目前都是未配对的附近设备
-  };
-}
-
-// === Selectors ===
-
-/** 选择附近设备列表 */
-export const selectNearbyDevices = (state: NetworkState): Device[] =>
-  Array.from(state.peers.values())
-    .filter((peer) => peer.isConnected)
-    .map(peerToDevice);
-
-/** 选择已连接的 peer 数量 */
-export const selectConnectedCount = (state: NetworkState): number =>
-  Array.from(state.peers.values()).filter((p) => p.isConnected).length;
-
-/** 选择已发现的 peer 数量 */
-export const selectDiscoveredCount = (state: NetworkState): number =>
-  state.peers.size;
 
 export const useNetworkStore = create<NetworkState>()((set, get) => ({
   status: "stopped",
-  listenAddrs: [],
-  natStatus: "unknown",
-  publicAddr: null,
-  peers: new Map(),
+  devices: [],
+  networkStatus: null,
   error: null,
   startedAt: null,
 
@@ -171,7 +108,7 @@ export const useNetworkStore = create<NetworkState>()((set, get) => ({
     if (status === "running" || status === "starting") return;
 
     // 检查 keypair 是否已初始化
-    const { deviceId } = useSecretStore.getState();
+    const { deviceId, pairedDevices } = useSecretStore.getState();
     if (!deviceId) {
       set({ status: "error", error: "Keypair not initialized" });
       return;
@@ -180,20 +117,22 @@ export const useNetworkStore = create<NetworkState>()((set, get) => ({
     set({
       status: "starting",
       error: null,
-      listenAddrs: [],
-      peers: new Map(),
-      natStatus: "unknown",
-      publicAddr: null,
+      devices: [],
+      networkStatus: null,
     });
 
     try {
-      await start(get().handleEvent);
+      // 设置 Tauri Event 监听（在启动前设置，避免丢失早期事件）
+      await setupEventListeners();
+
+      await start(pairedDevices);
       // status 会在收到 listening 事件后更新为 running
     } catch (err) {
-      console.error("Failed to start node:", JSON.stringify(err));
+      console.error("Failed to start node:", err);
+      await cleanupEventListeners();
       set({
         status: "error",
-        error: err instanceof Error ? err.message : JSON.stringify(err),
+        error: getErrorMessage(err),
       });
     }
   },
@@ -204,171 +143,45 @@ export const useNetworkStore = create<NetworkState>()((set, get) => ({
 
     try {
       await shutdown();
+      await cleanupEventListeners();
       set({
         status: "stopped",
-        listenAddrs: [],
-        peers: new Map(),
-        natStatus: "unknown",
-        publicAddr: null,
+        devices: [],
+        networkStatus: null,
         startedAt: null,
       });
     } catch (err) {
       console.error("Failed to shutdown node:", err);
-      set({ error: err instanceof Error ? err.message : String(err) });
+      set({ error: getErrorMessage(err) });
     }
   },
 
-  handleEvent(event: NodeEvent) {
-    const { peers } = get();
-    console.log("Network event:", event);
-
-    switch (event.type) {
-      case "listening": {
-        set((state) => ({
-          status: "running",
-          listenAddrs: [...state.listenAddrs, event.addr],
-          startedAt: state.startedAt ?? Date.now(),
-        }));
-        break;
-      }
-
-      case "peersDiscovered": {
-        const newPeers = new Map(peers);
-        const now = Date.now();
-
-        for (const [peerId, addr] of event.peers) {
-          const existing = newPeers.get(peerId);
-          if (existing) {
-            // 创建新对象更新地址（不可变性）
-            if (!existing.addrs.includes(addr)) {
-              newPeers.set(peerId, {
-                ...existing,
-                addrs: [...existing.addrs, addr],
-              });
-            }
-          } else {
-            // 新 peer
-            newPeers.set(peerId, {
-              peerId,
-              addrs: [addr],
-              isConnected: false,
-              discoveredAt: now,
-            });
-          }
-        }
-
-        set({ peers: newPeers });
-        break;
-      }
-
-      case "peerConnected": {
-        const newPeers = new Map(peers);
-        const existing = newPeers.get(event.peerId);
-
-        if (existing) {
-          // 创建新对象（不可变性）
-          newPeers.set(event.peerId, {
-            ...existing,
-            isConnected: true,
-            connectedAt: Date.now(),
-          });
-        } else {
-          newPeers.set(event.peerId, {
-            peerId: event.peerId,
-            addrs: [],
-            isConnected: true,
-            discoveredAt: Date.now(),
-            connectedAt: Date.now(),
-          });
-        }
-
-        set({ peers: newPeers });
-        break;
-      }
-
-      case "peerDisconnected": {
-        const newPeers = new Map(peers);
-        const existing = newPeers.get(event.peerId);
-
-        if (existing) {
-          // 创建新对象（不可变性）
-          newPeers.set(event.peerId, {
-            ...existing,
-            isConnected: false,
-            connectedAt: undefined,
-            rttMs: undefined,
-          });
-        }
-
-        set({ peers: newPeers });
-        break;
-      }
-
-      case "identifyReceived": {
-        const newPeers = new Map(peers);
-        const existing = newPeers.get(event.peerId);
-
-        if (existing) {
-          // 创建新对象（不可变性）
-          let agentInfo = parseAgentVersion(event.agentVersion);
-          console.log("Agent info:", agentInfo);
-          newPeers.set(event.peerId, {
-            ...existing,
-            agentInfo,
-          });
-        }
-
-        set({ peers: newPeers });
-        break;
-      }
-
-      case "pingSuccess": {
-        const newPeers = new Map(peers);
-        const existing = newPeers.get(event.peerId);
-
-        if (existing) {
-          // 创建新对象（不可变性）
-          newPeers.set(event.peerId, {
-            ...existing,
-            rttMs: event.rttMs,
-          });
-        }
-
-        set({ peers: newPeers });
-        break;
-      }
-
-      case "natStatusChanged": {
-        set({
-          natStatus: event.status,
-          publicAddr: event.publicAddr,
-        });
-        break;
-      }
-
-      case "inboundRequest": {
-        usePairingStore
-          .getState()
-          .handleInboundRequest(event.peerId, event.pendingId, event.request);
-        break;
-      }
+  async fetchDevices(filter) {
+    try {
+      const result = await listDevices(filter);
+      set({ devices: result.devices });
+    } catch (err) {
+      console.error("Failed to fetch devices:", err);
     }
   },
 
-  getNearbyDevices(): Device[] {
-    const { peers } = get();
-    return Array.from(peers.values())
-      .filter((peer) => peer.isConnected && peer.agentInfo)
-      .map(peerToDevice);
+  async fetchNetworkStatus() {
+    try {
+      const status = await getNetworkStatus();
+      set({ networkStatus: status });
+    } catch (err) {
+      console.error("Failed to fetch network status:", err);
+    }
   },
 
   getConnectedCount(): number {
-    const { peers } = get();
-    return Array.from(peers.values()).filter((p) => p.isConnected).length;
+    const { networkStatus } = get();
+    return networkStatus?.connectedPeers ?? 0;
   },
 
   getDiscoveredCount(): number {
-    return get().peers.size;
+    const { networkStatus } = get();
+    return networkStatus?.discoveredPeers ?? 0;
   },
 
   clearError() {

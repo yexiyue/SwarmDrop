@@ -1,3 +1,8 @@
+//! 应用层协议类型
+//!
+//! 定义 libp2p Request-Response 协议的请求/响应类型。
+//! CBOR 编解码由 `swarm-p2p-core` 自动完成。
+
 use serde::{Deserialize, Serialize};
 use swarm_p2p_core::NetClient;
 

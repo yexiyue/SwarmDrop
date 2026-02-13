@@ -6,14 +6,10 @@
 
 import { useMemo, useState } from "react";
 import { createLazyFileRoute } from "@tanstack/react-router";
-import { DeviceCard, type Device } from "@/components/devices/device-card";
+import { DeviceCard } from "@/components/devices/device-card";
+import type { Device } from "@/commands/network";
 import { Trans } from "@lingui/react/macro";
-import {
-  useNetworkStore,
-  inferConnectionType,
-  inferDeviceType,
-  peerToDevice,
-} from "@/stores/network-store";
+import { useNetworkStore } from "@/stores/network-store";
 import { useSecretStore } from "@/stores/secret-store";
 import { usePairingStore } from "@/stores/pairing-store";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
@@ -32,7 +28,7 @@ function DevicesPage() {
   const isMobile = breakpoint === "mobile";
 
   // 共享数据 hooks
-  const peers = useNetworkStore((state) => state.peers);
+  const devices = useNetworkStore((state) => state.devices);
   const status = useNetworkStore((state) => state.status);
   const storedPairedDevices = useSecretStore((state) => state.pairedDevices);
   const directPairing = usePairingStore((s) => s.directPairing);
@@ -41,37 +37,30 @@ function DevicesPage() {
   const [startSheetOpen, setStartSheetOpen] = useState(false);
   const [stopSheetOpen, setStopSheetOpen] = useState(false);
 
-  // 从 peers 派生附近设备列表（过滤掉非 SwarmDrop 设备，如 bootstrap 节点）
-  const nearbyDevices = useMemo(() => {
-    return Array.from(peers.values())
-      .filter((peer) => peer.isConnected && peer.agentInfo)
-      .map(peerToDevice);
-  }, [peers]);
-
-  // 将已配对设备与在线状态结合
+  // 已配对设备：后端在线数据优先，离线回退到 secret-store
   const pairedDevices = useMemo<Device[]>(() => {
     return storedPairedDevices.map((stored) => {
-      const peerInfo = peers.get(stored.id);
-      const isOnline = peerInfo?.isConnected ?? false;
-      const connection = isOnline ? inferConnectionType(peerInfo?.rttMs) : undefined;
-
+      const backendDevice = devices.find((d) => d.peerId === stored.peerId);
+      if (backendDevice) {
+        return backendDevice;
+      }
+      // 节点未运行或设备离线，用 secret-store 数据显示为离线
       return {
-        id: stored.id,
-        name: stored.name,
-        type: inferDeviceType(stored.platform ?? stored.os),
-        status: isOnline ? "online" : "offline",
-        connection,
-        latency: isOnline ? peerInfo?.rttMs : undefined,
+        peerId: stored.peerId,
+        hostname: stored.hostname,
+        os: stored.os,
+        platform: stored.platform,
+        arch: stored.arch,
+        status: "offline" as const,
         isPaired: true,
       };
     });
-  }, [storedPairedDevices, peers]);
+  }, [storedPairedDevices, devices]);
 
-  // 过滤掉已配对的设备，只显示未配对的附近设备
+  // 附近设备：后端返回的未配对设备
   const filteredNearbyDevices = useMemo(() => {
-    const pairedIds = new Set(storedPairedDevices.map((d) => d.id));
-    return nearbyDevices.filter((d) => !pairedIds.has(d.id));
-  }, [nearbyDevices, storedPairedDevices]);
+    return devices.filter((d) => !d.isPaired);
+  }, [devices]);
 
   const handleSend = (device: Device) => {
     // TODO: Phase 3 文件传输
@@ -79,11 +68,11 @@ function DevicesPage() {
   };
 
   const handleConnect = (device: Device) => {
-    void directPairing(device.id);
+    void directPairing(device.peerId);
   };
 
   const handleUnpair = (device: Device) => {
-    useSecretStore.getState().removePairedDevice(device.id);
+    useSecretStore.getState().removePairedDevice(device.peerId);
   };
 
   const isOnline = status === "running" || status === "starting";
@@ -165,7 +154,7 @@ function MobileDevicesView({
                 <div className="flex flex-col gap-2.5">
                   {pairedDevices.map((device) => (
                     <DeviceCard
-                      key={device.id}
+                      key={device.peerId}
                       device={device}
                       variant="list"
                       onSend={onSend}
@@ -191,7 +180,7 @@ function MobileDevicesView({
                 <div className="flex flex-col gap-2.5">
                   {nearbyDevices.map((device) => (
                     <DeviceCard
-                      key={device.id}
+                      key={device.peerId}
                       device={device}
                       variant="list"
                       onSend={onSend}
@@ -255,7 +244,7 @@ function DesktopDevicesView({
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {pairedDevices.map((device) => (
                 <DeviceCard
-                  key={device.id}
+                  key={device.peerId}
                   device={device}
                   onSend={onSend}
                   onConnect={onConnect}
@@ -281,7 +270,7 @@ function DesktopDevicesView({
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {nearbyDevices.map((device) => (
                 <DeviceCard
-                  key={device.id}
+                  key={device.peerId}
                   device={device}
                   onSend={onSend}
                   onConnect={onConnect}
