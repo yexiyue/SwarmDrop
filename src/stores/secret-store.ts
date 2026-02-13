@@ -8,18 +8,18 @@ import { createJSONStorage, persist, type StateStorage } from "zustand/middlewar
 import { getStrongholdStorage, isStrongholdInitialized } from "@/lib/stronghold";
 import { generateKeypair, registerKeypair } from "@/commands/identity";
 
-/** 已配对设备信息（持久化存储） */
+/** 已配对设备信息（持久化存储，与后端 PairedDeviceInfo 对齐） */
 export interface PairedDevice {
   /** PeerId */
-  id: string;
-  /** 设备名称 */
-  name: string;
-  /** 操作系统类型（原始值，如 windows, macos, linux, ios, android） */
+  peerId: string;
+  /** 设备主机名 */
+  hostname: string;
+  /** 操作系统类型（windows, macos, linux, ios, android） */
   os: string;
   /** 平台（windows, macos, linux, ios, android） */
-  platform?: string;
+  platform: string;
   /** 架构（x86_64, aarch64 等） */
-  arch?: string;
+  arch: string;
   /** 配对时间戳 */
   pairedAt: number;
 }
@@ -43,9 +43,9 @@ interface SecretState {
   /** 添加已配对设备 */
   addPairedDevice: (device: Omit<PairedDevice, "pairedAt">) => void;
   /** 移除已配对设备 */
-  removePairedDevice: (id: string) => void;
-  /** 更新已配对设备名称 */
-  updatePairedDeviceName: (id: string, name: string) => void;
+  removePairedDevice: (peerId: string) => void;
+  /** 更新已配对设备主机名 */
+  updatePairedDeviceHostname: (peerId: string, hostname: string) => void;
 }
 
 /**
@@ -106,8 +106,7 @@ export const useSecretStore = create<SecretState>()(
 
       addPairedDevice(device) {
         const { pairedDevices } = get();
-        // 检查是否已存在
-        if (pairedDevices.some((d) => d.id === device.id)) {
+        if (pairedDevices.some((d) => d.peerId === device.peerId)) {
           return;
         }
         set({
@@ -118,16 +117,16 @@ export const useSecretStore = create<SecretState>()(
         });
       },
 
-      removePairedDevice(id) {
+      removePairedDevice(peerId) {
         set({
-          pairedDevices: get().pairedDevices.filter((d) => d.id !== id),
+          pairedDevices: get().pairedDevices.filter((d) => d.peerId !== peerId),
         });
       },
 
-      updatePairedDeviceName(id, name) {
+      updatePairedDeviceHostname(peerId: string, hostname: string) {
         set({
           pairedDevices: get().pairedDevices.map((d) =>
-            d.id === id ? { ...d, name } : d
+            d.peerId === peerId ? { ...d, hostname } : d
           ),
         });
       },

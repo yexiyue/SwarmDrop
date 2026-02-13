@@ -13,21 +13,19 @@ import {
   Laptop,
   Monitor,
   Smartphone,
-  Tablet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Trans } from "@lingui/react/macro";
 import type { DeviceInfo } from "@/commands/pairing";
-import type { DeviceType } from "@/components/devices/device-card";
-import { inferDeviceType } from "@/stores/network-store";
 import { usePairingStore } from "@/stores/pairing-store";
 
-const deviceIcons: Record<DeviceType, React.ComponentType<{ className?: string }>> = {
-  smartphone: Smartphone,
-  tablet: Tablet,
-  laptop: Laptop,
-  desktop: Monitor,
-};
+/** 根据平台名称返回对应的设备图标 */
+function getDeviceIcon(platform: string): React.ComponentType<{ className?: string }> {
+  const p = platform.toLowerCase();
+  if (p === "ios" || p === "android") return Smartphone;
+  if (p === "macos" || p === "darwin") return Laptop;
+  return Monitor;
+}
 
 function formatPlatformDisplay(platform: string): string {
   const map: Record<string, string> = {
@@ -82,8 +80,7 @@ function DeviceHeader({
   arch: string;
   size?: "lg" | "md";
 }) {
-  const deviceType = inferDeviceType(platform);
-  const DeviceIcon = deviceIcons[deviceType];
+  const DeviceIcon = getDeviceIcon(platform);
   const osDisplay = formatPlatformDisplay(platform);
 
   return (

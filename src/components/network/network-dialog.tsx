@@ -60,7 +60,7 @@ export function NetworkDialog({ open, onOpenChange }: NetworkDialogProps) {
   const { t } = useLingui();
   const {
     status,
-    listenAddrs,
+    networkStatus,
     error,
     startNetwork,
     stopNetwork,
@@ -69,7 +69,7 @@ export function NetworkDialog({ open, onOpenChange }: NetworkDialogProps) {
   } = useNetworkStore(
     useShallow((state) => ({
       status: state.status,
-      listenAddrs: state.listenAddrs,
+      networkStatus: state.networkStatus,
       error: state.error,
       startNetwork: state.startNetwork,
       stopNetwork: state.stopNetwork,
@@ -77,6 +77,8 @@ export function NetworkDialog({ open, onOpenChange }: NetworkDialogProps) {
       getDiscoveredCount: state.getDiscoveredCount,
     }))
   );
+
+  const listenAddrs = networkStatus?.listenAddrs ?? [];
 
   const config = statusConfig[status];
   const isRunning = status === "running";

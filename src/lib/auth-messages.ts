@@ -38,7 +38,7 @@ export function getLoadingMessage(type: LoadingMessageType): MessageDescriptor {
  * 获取错误消息的翻译描述符
  * 如果是已知类型返回翻译，否则返回原始字符串
  */
-export function getErrorMessage(error: ErrorMessageType | string): MessageDescriptor | string {
+export function getAuthErrorMessage(error: ErrorMessageType | string): MessageDescriptor | string {
   if (knownErrorTypes.has(error)) {
     return errorMessages[error as ErrorMessageType];
   }
