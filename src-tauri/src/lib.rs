@@ -1,6 +1,7 @@
 pub mod commands;
 pub mod device;
 pub mod error;
+pub(crate) mod network;
 pub(crate) mod pairing;
 pub mod protocol;
 pub use error::{AppError, AppResult};
@@ -44,6 +45,8 @@ pub fn run() {
             commands::get_device_info,
             commands::request_pairing,
             commands::respond_pairing_request,
+            commands::list_devices,
+            commands::get_network_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

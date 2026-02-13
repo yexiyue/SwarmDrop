@@ -1,91 +1,41 @@
+//! Tauri IPC 命令入口
+//!
+//! 薄层命令入口，仅负责 Tauri 状态读取和参数解析，
+//! 所有业务逻辑委托给 [`network`](crate::network)、
+//! [`device`](crate::device) 和 [`pairing`](crate::pairing) 模块。
+
 mod identity;
 mod pairing;
 
+// glob re-export：Tauri 的 #[tauri::command] 宏会生成 __cmd__* 隐藏符号，
+// generate_handler! 需要通过模块路径访问这些符号，显式导出无法覆盖。
 pub use identity::*;
 pub use pairing::*;
 
-use crate::pairing::manager::PairingManager;
-use crate::protocol::{AppNetClient, AppRequest, AppResponse};
-use std::time::Duration;
-use swarm_p2p_core::{
-    libp2p::{identity::Keypair, multiaddr::Protocol, Multiaddr, PeerId},
-    NodeConfig, NodeEvent,
-};
-use tauri::{ipc::Channel, AppHandle, Manager, State};
-use tauri_plugin_notification::NotificationExt;
+use crate::device::{DeviceFilter, DeviceListResult, PairedDeviceInfo};
+use crate::network::{NatStatus, NetManager, NetManagerState, NetworkStatus, NodeStatus};
+use crate::protocol::{AppRequest, AppResponse};
+use crate::AppError;
+use swarm_p2p_core::libp2p::{identity::Keypair, PeerId};
+use tauri::{AppHandle, Manager, State};
 use tokio::sync::Mutex;
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 
-/// SwarmDrop 引导+中继节点
-///
-/// 使用 /ip4/ 格式，所有平台通用（Android 无 DNS transport）。
-/// 部署到正式 VPS 后替换为公网 IP。
-const BOOTSTRAP_NODES: &[&str] = &[
-    // ==== SwarmDrop 自有引导+中继节点 ====
-    "/ip4/47.115.172.218/tcp/4001/p2p/12D3KooWCq8xgrSap7VZZHpW7EYXw8zFmNEgru9D7cGHGW3bMASX",
-    "/ip4/47.115.172.218/udp/4001/quic-v1/p2p/12D3KooWCq8xgrSap7VZZHpW7EYXw8zFmNEgru9D7cGHGW3bMASX",
-];
-
-/// 解析引导节点地址列表为 (PeerId, Multiaddr) 对
-fn parse_bootstrap_peers() -> Vec<(PeerId, Multiaddr)> {
-    BOOTSTRAP_NODES
-        .iter()
-        .filter_map(|s| {
-            let addr: Multiaddr = s.parse().ok()?;
-            // 从 multiaddr 末尾的 /p2p/<peer_id> 提取 PeerId
-            let peer_id = addr.iter().find_map(|p| match p {
-                Protocol::P2p(id) => Some(id),
-                _ => None,
-            })?;
-            Some((peer_id, addr))
-        })
-        .collect()
+/// 节点未启动时的统一错误
+pub(super) fn not_started() -> AppError {
+    AppError::NodeNotStarted
 }
-
-/// 网络管理器，统一管理 NetClient 和各子功能 Manager
-pub struct NetManager {
-    pub client: AppNetClient,
-    pub peer_id: PeerId,
-    pub pairing: PairingManager,
-}
-
-impl NetManager {
-    pub fn new(client: AppNetClient, peer_id: PeerId) -> Self {
-        let pairing = PairingManager::new(client.clone(), peer_id);
-        Self {
-            client,
-            peer_id,
-            pairing,
-        }
-    }
-
-    pub fn pairing(&self) -> &PairingManager {
-        &self.pairing
-    }
-}
-
-pub type NetManagerState = Mutex<Option<NetManager>>;
 
 #[tauri::command]
 pub async fn start(
     app: AppHandle,
     keypair: State<'_, Keypair>,
-    channel: Channel<NodeEvent<AppRequest>>,
+    paired_devices: Vec<PairedDeviceInfo>,
 ) -> crate::AppResult<()> {
-    let agent_version = crate::device::OsInfo::new().to_agent_version();
+    let agent_version = crate::device::OsInfo::default().to_agent_version();
+    let config = crate::network::config::create_node_config(agent_version);
 
-    let bootstrap_peers = parse_bootstrap_peers();
-    info!("Parsed {} bootstrap peers", bootstrap_peers.len());
-
-    let config = NodeConfig::new("/swarmdrop/1.0.0", agent_version)
-        .with_mdns(true)
-        .with_relay_client(true)
-        .with_dcutr(true)
-        .with_autonat(true)
-        .with_req_resp_timeout(Duration::from_secs(180))
-        .with_bootstrap_peers(bootstrap_peers);
-
-    let (client, mut receiver) =
+    let (client, receiver) =
         swarm_p2p_core::start::<AppRequest, AppResponse>((*keypair).clone(), config)?;
 
     // 异步执行 DHT bootstrap（填充路由表）
@@ -97,58 +47,26 @@ pub async fn start(
         }
     });
 
-    let event_app = app.clone();
-    tokio::spawn(async move {
-        while let Some(event) = receiver.recv().await {
-            match &event {
-                NodeEvent::InboundRequest {
-                    peer_id,
-                    pending_id: _,
-                    request,
-                } => {
-                    info!("Inbound request from {:?}: {:?}", peer_id, request);
-
-                    // 配对请求 + 窗口不在前台时：发送系统通知
-                    #[allow(irrefutable_let_patterns)]
-                    if let AppRequest::Pairing(req) = request {
-                        if let Some(window) = event_app.get_webview_window("main") {
-                            let is_focused = window.is_focused().unwrap_or(false);
-                            if !is_focused {
-                                if let Err(e) = event_app
-                                    .notification()
-                                    .builder()
-                                    .title("配对请求")
-                                    .body(format!("{} 请求与您配对", req.os_info.hostname))
-                                    .show()
-                                {
-                                    warn!("Failed to send notification: {}", e);
-                                }
-                            }
-                        }
-                    }
-                }
-                _ => {}
-            }
-
-            if let Err(e) = channel.send(event) {
-                error!("Failed to send event: {}", e);
-            }
-        }
-    });
-
     let peer_id = PeerId::from_public_key(&keypair.public());
-    let net_manager = NetManager::new(client, peer_id);
+    let net_manager = NetManager::new(client, peer_id, paired_devices);
 
-    // 宣布上线，让其他节点可以发现自己
+    // 宣布上线
     if let Err(e) = net_manager.pairing().announce_online().await {
         warn!("Failed to announce online: {}", e);
     }
 
+    // 获取事件循环需要的共享引用（在存入 state 之前）
+    let shared = net_manager.shared_refs();
+
+    // 存入 Tauri state
     if let Some(state) = app.try_state::<NetManagerState>() {
         *state.lock().await = Some(net_manager);
     } else {
         app.manage(Mutex::new(Some(net_manager)));
     }
+
+    // 启动事件循环
+    crate::network::spawn_event_loop(receiver, app, shared);
 
     Ok(())
 }
@@ -158,14 +76,55 @@ pub async fn shutdown(app: AppHandle) -> crate::AppResult<()> {
     if let Some(state) = app.try_state::<NetManagerState>() {
         let mut guard = state.lock().await;
         if let Some(manager) = guard.as_ref() {
-            // 先宣布离线，再释放资源
             if let Err(e) = manager.pairing().announce_offline().await {
                 warn!("Failed to announce offline: {}", e);
             }
         }
-        // drop NetManager，释放所有 client clone
         guard.take();
     }
 
     Ok(())
+}
+
+#[tauri::command]
+pub async fn list_devices(
+    net: State<'_, NetManagerState>,
+    filter: Option<String>,
+) -> crate::AppResult<DeviceListResult> {
+    let guard = net.lock().await;
+    let manager = guard.as_ref().ok_or_else(not_started)?;
+
+    let device_filter = match filter.as_deref() {
+        Some("all") => DeviceFilter::All,
+        Some("connected") | None => DeviceFilter::Connected,
+        Some("paired") => DeviceFilter::Paired,
+        Some(_) => {
+            return Err(crate::AppError::Network(
+                "filter 必须是 all, connected 或 paired".to_string(),
+            ))
+        }
+    };
+
+    let devices = manager.devices().get_devices(device_filter);
+    let total = devices.len();
+    Ok(DeviceListResult { devices, total })
+}
+
+#[tauri::command]
+pub async fn get_network_status(
+    net: State<'_, NetManagerState>,
+) -> crate::AppResult<NetworkStatus> {
+    let guard = net.lock().await;
+    match guard.as_ref() {
+        Some(manager) => Ok(manager.get_network_status()),
+        None => Ok(NetworkStatus {
+            status: NodeStatus::Stopped,
+            peer_id: None,
+            listen_addrs: vec![],
+            nat_status: NatStatus::Unknown,
+            public_addr: None,
+            connected_peers: 0,
+            discovered_peers: 0,
+        }),
+    }
 }

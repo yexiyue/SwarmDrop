@@ -12,7 +12,7 @@ import { msg } from "@lingui/core/macro";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuthStore, BiometryType } from "@/stores/auth-store";
-import { getErrorMessage, isKnownErrorType } from "@/lib/auth-messages";
+import { getAuthErrorMessage, isKnownErrorType } from "@/lib/auth-messages";
 import { Send, ScanFace, Fingerprint, Eye, EyeOff, Loader2 } from "lucide-react";
 
 export const Route = createLazyFileRoute("/_auth/unlock")({
@@ -45,7 +45,7 @@ function UnlockPage() {
   // 翻译错误消息
   const translatedError = error
     ? isKnownErrorType(error)
-      ? t(getErrorMessage(error) as import("@lingui/core").MessageDescriptor)
+      ? t(getAuthErrorMessage(error) as import("@lingui/core").MessageDescriptor)
       : error
     : null;
 

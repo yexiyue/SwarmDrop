@@ -1,0 +1,217 @@
+use std::sync::Arc;
+
+use dashmap::DashMap;
+use swarm_p2p_core::libp2p::{Multiaddr, PeerId};
+use swarm_p2p_core::NodeEvent;
+
+use super::utils::infer_connection_type;
+use super::{ConnectionType, Device, DeviceStatus, OsInfo, PairedDeviceInfo};
+use crate::protocol::AppRequest;
+
+/// 运行时 Peer 信息（DashMap 中的值）
+#[derive(Debug, Clone)]
+pub(super) struct PeerInfo {
+    pub peer_id: PeerId,
+    pub addrs: Vec<Multiaddr>,
+    pub agent_version: Option<String>,
+    pub rtt_ms: Option<u64>,
+    pub is_connected: bool,
+    /// 发现时间戳，暂未使用但后续可用于超时清理
+    #[expect(dead_code)]
+    pub discovered_at: i64,
+    pub connected_at: Option<i64>,
+}
+
+impl PeerInfo {
+    /// 创建新发现的 Peer（未连接状态）
+    fn new_discovered(peer_id: PeerId, addrs: Vec<Multiaddr>) -> Self {
+        Self {
+            peer_id,
+            addrs,
+            agent_version: None,
+            rtt_ms: None,
+            is_connected: false,
+            discovered_at: chrono::Utc::now().timestamp_millis(),
+            connected_at: None,
+        }
+    }
+}
+
+/// 设备过滤器
+#[derive(Debug, Clone)]
+pub enum DeviceFilter {
+    All,
+    Connected,
+    Paired,
+}
+
+/// 设备管理器
+///
+/// 维护运行时发现的 peer，提供统一的设备查询接口。
+/// 已配对设备通过共享 `Arc<DashMap>` 从 [`PairingManager`](crate::pairing::manager::PairingManager) 读取。
+///
+/// 本身不含 Arc，需要共享时由使用方包裹 `Arc<DeviceManager>`。
+pub struct DeviceManager {
+    peers: DashMap<PeerId, PeerInfo>,
+    /// 与 PairingManager 共享的已配对设备（只读）
+    paired_devices: Arc<DashMap<PeerId, PairedDeviceInfo>>,
+}
+
+impl DeviceManager {
+    /// 创建 DeviceManager，传入与 PairingManager 共享的已配对设备引用
+    pub fn new(paired_devices: Arc<DashMap<PeerId, PairedDeviceInfo>>) -> Self {
+        Self {
+            peers: DashMap::new(),
+            paired_devices,
+        }
+    }
+
+    /// 处理 NodeEvent，更新 peer 状态
+    pub fn handle_event(&self, event: &NodeEvent<AppRequest>) {
+        match event {
+            NodeEvent::PeersDiscovered { peers } => {
+                for (peer_id, addr) in peers {
+                    match self.peers.get_mut(peer_id) {
+                        Some(mut entry) => {
+                            if !entry.addrs.contains(addr) {
+                                entry.addrs.push(addr.clone());
+                            }
+                        }
+                        None => {
+                            self.peers.insert(
+                                *peer_id,
+                                PeerInfo::new_discovered(*peer_id, vec![addr.clone()]),
+                            );
+                        }
+                    }
+                }
+            }
+
+            NodeEvent::PeerConnected { peer_id } => {
+                let now = chrono::Utc::now().timestamp_millis();
+                match self.peers.get_mut(peer_id) {
+                    Some(mut entry) => {
+                        entry.is_connected = true;
+                        entry.connected_at = Some(now);
+                    }
+                    None => {
+                        let mut info = PeerInfo::new_discovered(*peer_id, vec![]);
+                        info.is_connected = true;
+                        info.connected_at = Some(now);
+                        self.peers.insert(*peer_id, info);
+                    }
+                }
+            }
+
+            NodeEvent::PeerDisconnected { peer_id } => {
+                if let Some(mut entry) = self.peers.get_mut(peer_id) {
+                    entry.is_connected = false;
+                    entry.rtt_ms = None;
+                }
+            }
+
+            NodeEvent::IdentifyReceived {
+                peer_id,
+                agent_version,
+                ..
+            } => {
+                if let Some(mut entry) = self.peers.get_mut(peer_id) {
+                    entry.agent_version = Some(agent_version.clone());
+                }
+            }
+
+            NodeEvent::PingSuccess { peer_id, rtt_ms } => {
+                if let Some(mut entry) = self.peers.get_mut(peer_id) {
+                    entry.rtt_ms = Some(*rtt_ms);
+                }
+            }
+
+            // 其他事件忽略
+            _ => {}
+        }
+    }
+
+    /// 统一查询设备列表
+    pub fn get_devices(&self, filter: DeviceFilter) -> Vec<Device> {
+        match filter {
+            DeviceFilter::All => self.get_discovered_devices(false),
+            DeviceFilter::Connected => self.get_discovered_devices(true),
+            DeviceFilter::Paired => self.get_paired_devices_as_device(),
+        }
+    }
+
+    /// 返回已发现的 peer 列表，可选仅已连接
+    fn get_discovered_devices(&self, connected_only: bool) -> Vec<Device> {
+        self.peers
+            .iter()
+            .filter(|entry| !connected_only || entry.value().is_connected)
+            .map(|entry| self.peer_to_device(entry.value()))
+            .collect()
+    }
+
+    /// 返回已配对设备，合并运行时在线状态
+    fn get_paired_devices_as_device(&self) -> Vec<Device> {
+        self.paired_devices
+            .iter()
+            .map(|entry| {
+                let info = entry.value();
+                let peer_info = self.peers.get(&info.peer_id);
+                let (status, connection, latency) = match peer_info.as_deref() {
+                    Some(p) if p.is_connected => connection_info(&p.addrs, p.rtt_ms),
+                    _ => (DeviceStatus::Offline, None, None),
+                };
+
+                Device {
+                    peer_id: info.peer_id,
+                    os_info: info.os_info.clone(),
+                    status,
+                    connection,
+                    latency,
+                    is_paired: true,
+                }
+            })
+            .collect()
+    }
+
+    /// 将 PeerInfo 转换为 Device
+    fn peer_to_device(&self, peer: &PeerInfo) -> Device {
+        let os_info = peer
+            .agent_version
+            .as_deref()
+            .and_then(OsInfo::from_agent_version)
+            .unwrap_or_else(|| OsInfo::unknown_from_peer_id(&peer.peer_id));
+
+        let (status, connection, latency) = if peer.is_connected {
+            connection_info(&peer.addrs, peer.rtt_ms)
+        } else {
+            (DeviceStatus::Offline, None, None)
+        };
+
+        Device {
+            peer_id: peer.peer_id,
+            os_info,
+            status,
+            connection,
+            latency,
+            is_paired: self.paired_devices.contains_key(&peer.peer_id),
+        }
+    }
+
+    /// 已连接 peer 数量
+    pub fn connected_count(&self) -> usize {
+        self.peers.iter().filter(|e| e.value().is_connected).count()
+    }
+
+    /// 已发现 peer 数量
+    pub fn discovered_count(&self) -> usize {
+        self.peers.len()
+    }
+}
+
+/// 根据连接状态提取 (DeviceStatus, ConnectionType, latency)
+fn connection_info(
+    addrs: &[swarm_p2p_core::libp2p::Multiaddr],
+    rtt_ms: Option<u64>,
+) -> (DeviceStatus, Option<ConnectionType>, Option<u64>) {
+    (DeviceStatus::Online, infer_connection_type(addrs), rtt_ms)
+}

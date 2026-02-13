@@ -1,10 +1,12 @@
-use super::NetManagerState;
+use crate::network::NetManagerState;
 use crate::pairing::code::{PairingCodeInfo, ShareCodeRecord};
 use crate::protocol::{PairingMethod, PairingResponse};
-use crate::{AppError, AppResult};
+use crate::AppResult;
 use serde::{Deserialize, Serialize};
 use swarm_p2p_core::libp2p::{Multiaddr, PeerId};
-use tauri::State;
+use tauri::{AppHandle, Emitter, State};
+
+use super::not_started;
 
 /// 查询设备信息的返回类型
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12,11 +14,6 @@ use tauri::State;
 pub struct DeviceInfo {
     pub peer_id: PeerId,
     pub code_record: ShareCodeRecord,
-}
-
-/// 获取节点未启动的错误
-fn not_started() -> AppError {
-    AppError::Network("节点未启动".into())
 }
 
 /// 生成配对码
@@ -50,8 +47,11 @@ pub async fn get_device_info(
 }
 
 /// 向对端发起配对请求
+///
+/// 配对成功后自动添加到已配对设备，并 emit `paired-device-added` 事件通知前端。
 #[tauri::command]
 pub async fn request_pairing(
+    app: AppHandle,
     net: State<'_, NetManagerState>,
     peer_id: PeerId,
     method: PairingMethod,
@@ -59,15 +59,24 @@ pub async fn request_pairing(
 ) -> AppResult<PairingResponse> {
     let guard = net.lock().await;
     let manager = guard.as_ref().ok_or_else(not_started)?;
-    manager
+    let (response, paired_info) = manager
         .pairing()
         .request_pairing(peer_id, method, addrs)
-        .await
+        .await?;
+
+    if let Some(info) = paired_info {
+        let _ = app.emit("paired-device-added", &info);
+    }
+
+    Ok(response)
 }
 
 /// 处理收到的配对请求（接受/拒绝）
+///
+/// 接受配对后自动添加到已配对设备，并 emit `paired-device-added` 事件通知前端。
 #[tauri::command]
 pub async fn respond_pairing_request(
+    app: AppHandle,
     net: State<'_, NetManagerState>,
     pending_id: u64,
     method: PairingMethod,
@@ -75,8 +84,14 @@ pub async fn respond_pairing_request(
 ) -> AppResult<()> {
     let guard = net.lock().await;
     let manager = guard.as_ref().ok_or_else(not_started)?;
-    manager
+    let paired_info = manager
         .pairing()
         .handle_pairing_request(pending_id, &method, response)
-        .await
+        .await?;
+
+    if let Some(info) = paired_info {
+        let _ = app.emit("paired-device-added", &info);
+    }
+
+    Ok(())
 }
