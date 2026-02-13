@@ -48,6 +48,10 @@ pub enum AppError {
     #[error("Transfer error: {0}")]
     Transfer(String),
 
+    /// 节点未启动
+    #[error("Node not started")]
+    NodeNotStarted,
+
     /// 配对码已过期
     #[error("配对码已过期")]
     ExpiredCode,
@@ -89,6 +93,7 @@ impl Serialize for AppError {
             AppError::Crypto(msg) => ("Crypto", msg.clone()),
             AppError::Config(msg) => ("Config", msg.clone()),
             AppError::Transfer(msg) => ("Transfer", msg.clone()),
+            AppError::NodeNotStarted => ("NodeNotStarted", self.to_string()),
             AppError::ExpiredCode => ("ExpiredCode", self.to_string()),
             AppError::InvalidCode => ("InvalidCode", self.to_string()),
             AppError::Peer(msg) => ("Peer", msg.clone()),

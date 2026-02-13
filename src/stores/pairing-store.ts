@@ -5,15 +5,15 @@
 
 import { create } from "zustand";
 import { toast } from "sonner";
-import type { PairingCodeInfo, DeviceInfo, PairingResponse } from "@/commands/pairing";
+import type { PairingCodeInfo, DeviceInfo, PairingResponse, PairingMethod } from "@/commands/pairing";
 import {
   generatePairingCode,
   getDeviceInfo,
   requestPairing,
   respondPairingRequest,
 } from "@/commands/pairing";
-import type { AppRequest, PeerId } from "@/commands/network";
-import { useSecretStore } from "@/stores/secret-store";
+import type { PeerId } from "@/commands/network";
+import { isErrorKind, getErrorMessage } from "@/lib/errors";
 import { useNetworkStore } from "@/stores/network-store";
 
 /** 请求超时时间（毫秒） */
@@ -35,6 +35,19 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   ]);
 }
 
+/** 检查是否为 NodeNotStarted 错误，如果是则弹出启动提示并返回 true */
+function handleNodeNotStarted(err: unknown): boolean {
+  if (!isErrorKind(err, "NodeNotStarted")) return false;
+  toast.error("节点未启动", {
+    description: "请先启动网络节点",
+    action: {
+      label: "启动",
+      onClick: () => useNetworkStore.getState().startNetwork(),
+    },
+  });
+  return true;
+}
+
 /** 配对流程阶段（仅管理出站配对流程） */
 export type PairingPhase =
   | { phase: "idle" }
@@ -46,11 +59,13 @@ export type PairingPhase =
   | { phase: "success"; peerId: string; deviceName: string }
   | { phase: "error"; message: string };
 
-/** 排队的入站请求 */
+/** 入站配对请求（对应后端 PairingRequestPayload，flatten 了 PairingRequest） */
 interface QueuedInboundRequest {
   peerId: PeerId;
   pendingId: number;
-  request: AppRequest;
+  osInfo: { hostname: string; os: string; platform: string; arch: string };
+  timestamp: number;
+  method: PairingMethod;
 }
 
 interface PairingState {
@@ -74,7 +89,7 @@ interface PairingState {
   /** 发起配对请求（Code 模式） */
   sendPairingRequest: () => Promise<void>;
   /** 处理收到的入站配对请求 */
-  handleInboundRequest: (peerId: PeerId, pendingId: number, request: AppRequest) => void;
+  handleInboundRequest: (payload: QueuedInboundRequest) => void;
   /** 接受配对请求 */
   acceptRequest: () => Promise<void>;
   /** 拒绝配对请求 */
@@ -98,7 +113,8 @@ export const usePairingStore = create<PairingState>()(
         const codeInfo = await generatePairingCode(300); // 5 分钟
         set({ current: { phase: "generating", codeInfo } });
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+        if (handleNodeNotStarted(err)) return;
+        const message = getErrorMessage(err);
         set({ current: { phase: "error", message } });
         toast.error(message);
       }
@@ -126,7 +142,8 @@ export const usePairingStore = create<PairingState>()(
         set({ current: { phase: "found", code, deviceInfo } });
       } catch (err) {
         if (searchVersion !== version) return;
-        const message = err instanceof Error ? err.message : String(err);
+        if (handleNodeNotStarted(err)) return;
+        const message = getErrorMessage(err);
         set({ current: { phase: "error", message } });
         toast.error(message);
       }
@@ -147,13 +164,7 @@ export const usePairingStore = create<PairingState>()(
         );
 
         if (response.status === "success") {
-          useSecretStore.getState().addPairedDevice({
-            id: deviceInfo.peerId,
-            name: deviceInfo.codeRecord.hostname,
-            os: deviceInfo.codeRecord.os,
-            platform: deviceInfo.codeRecord.platform,
-            arch: deviceInfo.codeRecord.arch,
-          });
+          // 已配对设备由后端通过 paired-device-added 事件同步到 Stronghold
           set({
             current: {
               phase: "success",
@@ -167,22 +178,21 @@ export const usePairingStore = create<PairingState>()(
           toast.error(response.reason);
         }
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+        if (handleNodeNotStarted(err)) return;
+        const message = getErrorMessage(err);
         set({ current: { phase: "error", message } });
         toast.error(message);
       }
     },
 
-    handleInboundRequest(peerId: PeerId, pendingId: number, request: AppRequest) {
+    handleInboundRequest(payload: QueuedInboundRequest) {
       const { incomingRequest } = get();
 
       if (incomingRequest === null) {
-        // 当前无入站请求，直接展示
-        set({ incomingRequest: { peerId, pendingId, request } });
+        set({ incomingRequest: payload });
       } else {
-        // 已有入站请求展示中，排入队列
         set((state) => ({
-          inboundQueue: [...state.inboundQueue, { peerId, pendingId, request }],
+          inboundQueue: [...state.inboundQueue, payload],
         }));
       }
     },
@@ -191,28 +201,22 @@ export const usePairingStore = create<PairingState>()(
       const { incomingRequest } = get();
       if (!incomingRequest) return;
 
-      const { peerId, pendingId, request } = incomingRequest;
+      const { pendingId, osInfo, method } = incomingRequest;
       try {
         await respondPairingRequest(
           pendingId,
-          request.method,
+          method,
           { status: "success" },
         );
 
-        useSecretStore.getState().addPairedDevice({
-          id: peerId,
-          name: request.osInfo.hostname,
-          os: request.osInfo.os,
-          platform: request.osInfo.platform,
-          arch: request.osInfo.arch,
-        });
-
+        // 已配对设备由后端通过 paired-device-added 事件同步到 Stronghold
         set({ incomingRequest: null });
-        toast.success(`已与 ${request.osInfo.hostname} 配对成功`);
+        toast.success(`已与 ${osInfo.hostname} 配对成功`);
         // 处理队列中的下一个请求
         get().processNextInbound();
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+        if (handleNodeNotStarted(err)) return;
+        const message = getErrorMessage(err);
         set({ incomingRequest: null });
         toast.error(message);
         get().processNextInbound();
@@ -223,19 +227,20 @@ export const usePairingStore = create<PairingState>()(
       const { incomingRequest } = get();
       if (!incomingRequest) return;
 
-      const { pendingId, request } = incomingRequest;
+      const { pendingId, osInfo, method } = incomingRequest;
       try {
         await respondPairingRequest(
           pendingId,
-          request.method,
+          method,
           { status: "refused", reason: "user_rejected" },
         );
         set({ incomingRequest: null });
-        toast.success(`已拒绝来自 ${request.osInfo.hostname} 的配对请求`);
+        toast.success(`已拒绝来自 ${osInfo.hostname} 的配对请求`);
         // 处理队列中的下一个请求
         get().processNextInbound();
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+        if (handleNodeNotStarted(err)) return;
+        const message = getErrorMessage(err);
         set({ incomingRequest: null });
         toast.error(message);
         get().processNextInbound();
@@ -253,17 +258,9 @@ export const usePairingStore = create<PairingState>()(
         );
 
         if (response.status === "success") {
-          const peerInfo = useNetworkStore.getState().peers.get(peerId);
-          const agentInfo = peerInfo?.agentInfo;
-          const deviceName = agentInfo?.hostname ?? peerId.slice(0, 8);
-
-          useSecretStore.getState().addPairedDevice({
-            id: peerId,
-            name: deviceName,
-            os: agentInfo?.os ?? "unknown",
-            platform: agentInfo?.platform,
-            arch: agentInfo?.arch,
-          });
+          // 已配对设备由后端通过 paired-device-added 事件同步到 Stronghold
+          const device = useNetworkStore.getState().devices.find(d => d.peerId === peerId);
+          const deviceName = device?.hostname ?? peerId.slice(0, 8);
 
           set({
             current: {
@@ -278,7 +275,8 @@ export const usePairingStore = create<PairingState>()(
           toast.error(response.reason);
         }
       } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
+        if (handleNodeNotStarted(err)) return;
+        const message = getErrorMessage(err);
         set({ current: { phase: "error", message } });
         toast.error(message);
       }
