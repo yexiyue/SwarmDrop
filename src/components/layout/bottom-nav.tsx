@@ -9,7 +9,7 @@ export function BottomNav() {
   const currentPath = routerState.location.pathname;
 
   return (
-    <nav className="flex h-14 shrink-0 items-center justify-around border-t border-border bg-background">
+    <nav className="flex h-14 shrink-0 items-center justify-around border-t border-border bg-background pb-(--sab)">
       {mobileNavItems.map((item) => {
         const isActive =
           currentPath === item.href ||

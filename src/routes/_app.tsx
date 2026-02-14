@@ -86,7 +86,7 @@ function MobileHeader() {
   const navigate = useNavigate();
 
   return (
-    <header className="flex items-center justify-between px-5 py-2">
+    <header className="flex items-center justify-between px-5 py-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
       <span className="text-2xl font-bold text-foreground">SwarmDrop</span>
       <button
         type="button"
