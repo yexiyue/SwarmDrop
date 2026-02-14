@@ -238,7 +238,11 @@ function MobileUpdateButton({
           className="flex items-center gap-1 rounded-md bg-primary px-2.5 py-1.5 text-[11px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
         >
           <ExternalLink className="size-3" />
-          <Trans>前往下载</Trans>
+          {latestVersion ? (
+            <span>v{latestVersion}</span>
+          ) : (
+            <Trans>前往下载</Trans>
+          )}
         </button>
       );
 
