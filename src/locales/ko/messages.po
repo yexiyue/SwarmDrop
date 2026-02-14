@@ -16,27 +16,35 @@ msgstr ""
 #. placeholder {0}: feature.text
 #: src/components/network/start-node-sheet.tsx
 msgid "{0}"
-msgstr ""
+msgstr "{0}"
 
 #: src/components/network/stop-node-sheet.tsx
 msgid "{connectedCount} 台"
-msgstr ""
+msgstr "{connectedCount}대"
 
 #: src/routes/_app/pairing/-device-found-view.tsx
 msgid "CPU 架构"
-msgstr ""
+msgstr "CPU 아키텍처"
+
+#: src/components/ForceUpdateDialog.tsx
+msgid "P2P 协议已变更，旧版本无法与其他设备通信"
+msgstr "P2P 프로토콜이 변경되어 이전 버전은 다른 장치와 통신할 수 없습니다"
 
 #: src/components/network/network-status-bar.tsx
 msgid "P2P 节点未启动"
-msgstr ""
+msgstr "P2P 노드가 시작되지 않았습니다"
 
 #: src/components/network/network-status-bar.tsx
 msgid "P2P 节点运行中 · {connectedCount} 台设备在线"
-msgstr ""
+msgstr "P2P 노드 실행 중 · {connectedCount}대의 장치 온라인"
+
+#: src/components/settings/AboutSection.tsx
+msgid "SwarmDrop v{latestVersion} 已发布"
+msgstr "SwarmDrop v{latestVersion} 출시"
 
 #: src/components/pairing/connection-request-dialog.tsx
 msgid "一台设备正在请求与您配对"
-msgstr ""
+msgstr "장치가 페어링을 요청하고 있습니다"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "一般"
@@ -45,6 +53,14 @@ msgstr "보통"
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "下一步"
 msgstr "다음"
+
+#: src/components/settings/AboutSection.tsx
+msgid "下载中..."
+msgstr "다운로드 중..."
+
+#: src/components/ForceUpdateDialog.tsx
+msgid "下载完成后将自动安装并重启"
+msgstr "다운로드 완료 후 자동으로 설치 및 재시작됩니다"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "中等"
@@ -60,7 +76,7 @@ msgstr "테마"
 
 #: src/components/layout/nav-items.ts
 msgid "传输"
-msgstr ""
+msgstr "전송"
 
 #: src/routes/_auth/unlock.lazy.tsx
 msgid "使用密码解锁"
@@ -80,17 +96,19 @@ msgstr "얼굴 인식으로 잠금 해제"
 
 #: src/components/network/network-status-bar.tsx
 msgid "停止"
-msgstr ""
+msgstr "중지"
 
 #: src/components/network/stop-node-sheet.tsx
 msgid "停止 P2P 节点"
-msgstr ""
+msgstr "P2P 노드 중지"
 
 #: src/components/network/stop-node-sheet.tsx
 msgid ""
 "停止后将断开所有连接，\n"
 "其他设备将无法发现你。"
 msgstr ""
+"중지 시 모든 연결이 끊어지며,\n"
+"다른 장치에서 사용자를 찾을 수 없게 됩니다."
 
 #: src/components/network/network-dialog.tsx
 #: src/components/network/stop-node-sheet.tsx
@@ -98,9 +116,21 @@ msgstr ""
 msgid "停止节点"
 msgstr "노드 중지"
 
+#: src/components/settings/AboutSection.tsx
+msgid "关于"
+msgstr "정보"
+
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "再次输入密码"
 msgstr "비밀번호 재입력"
+
+#: src/components/ForceUpdateDialog.tsx
+msgid "最低要求"
+msgstr "최소 요구"
+
+#: src/components/ForceUpdateDialog.tsx
+msgid "最新版本"
+msgstr "최신 버전"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "创建中..."
@@ -110,13 +140,18 @@ msgstr "생성 중..."
 msgid "创建主密码"
 msgstr "기본 비밀번호 생성"
 
+#: src/components/ForceUpdateDialog.tsx
+#: src/components/settings/AboutSection.tsx
+msgid "前往下载"
+msgstr "다운로드로 이동"
+
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "包含字母和数字"
 msgstr "영문자와 숫자 포함"
 
 #: src/routes/_app/pairing/-device-found-view.tsx
 msgid "发起配对"
-msgstr ""
+msgstr "페어링"
 
 #: src/components/devices/device-card.tsx
 msgid "发送"
@@ -128,7 +163,7 @@ msgstr "파일 전송"
 
 #: src/routes/_app/pairing/-device-found-view.tsx
 msgid "发送配对请求"
-msgstr ""
+msgstr "페어링 요청 보내기"
 
 #: src/components/devices/device-card.tsx
 #: src/components/network/start-node-sheet.tsx
@@ -138,25 +173,25 @@ msgstr ""
 #: src/routes/_app/pairing/generate.lazy.tsx
 #: src/routes/_app/pairing/input.lazy.tsx
 msgid "取消"
-msgstr ""
+msgstr "취소"
 
 #: src/components/devices/device-card.tsx
 #: src/components/devices/device-card.tsx
 #: src/components/devices/device-card.tsx
 msgid "取消配对"
-msgstr ""
+msgstr "페어링 해제"
 
 #: src/components/network/start-node-sheet.tsx
 msgid "启动"
-msgstr ""
+msgstr "시작"
 
 #: src/components/network/start-node-sheet.tsx
 msgid "启动 P2P 节点"
-msgstr ""
+msgstr "P2P 노드 시작"
 
 #: src/components/network/offline-empty-state.tsx
 msgid "启动 P2P 节点后才能发现设备和传输文件"
-msgstr ""
+msgstr "P2P 노드를 시작해야 장치를 검색하고 파일을 전송할 수 있습니다"
 
 #: src/components/network/network-dialog.tsx
 #: src/components/network/stop-node-sheet.tsx
@@ -189,11 +224,11 @@ msgstr "생체 인식 활성화"
 
 #: src/routes/_app/pairing/generate.lazy.tsx
 msgid "在另一台设备上输入以下配对码"
-msgstr ""
+msgstr "다른 장치에서 아래 페어링 코드를 입력하세요"
 
 #: src/components/pairing/mobile-generate-code-view.tsx
 msgid "在另一台设备上输入此配对码"
-msgstr ""
+msgstr "다른 장치에서 이 페어링 코드를 입력하세요"
 
 #: src/components/devices/device-card.tsx
 #: src/components/devices/device-card.tsx
@@ -203,7 +238,7 @@ msgstr "온라인"
 
 #: src/routes/_app/pairing/generate.lazy.tsx
 msgid "复制配对码"
-msgstr ""
+msgstr "코드 복사"
 
 #: src/routes/_app/settings.lazy.tsx
 msgid "外观"
@@ -239,6 +274,8 @@ msgid ""
 "将连接到 SwarmDrop 网络，\n"
 "其他设备将能够发现你并发送文件。"
 msgstr ""
+"SwarmDrop 네트워크에 연결됩니다.\n"
+"다른 장치에서 사용자를 찾고 파일을 보낼 수 있습니다."
 
 #: src/components/devices/device-card.tsx
 msgid "局域网"
@@ -256,7 +293,7 @@ msgstr "발견된 노드"
 
 #: src/routes/_app/pairing/generate.lazy.tsx
 msgid "已复制"
-msgstr ""
+msgstr "복사됨"
 
 #: src/components/network/network-dialog.tsx
 #: src/components/network/start-node-sheet.tsx
@@ -266,7 +303,7 @@ msgstr "연결된 노드"
 
 #: src/components/network/stop-node-sheet.tsx
 msgid "已连接设备"
-msgstr ""
+msgstr "연결된 장치"
 
 #: src/routes/_app/devices.lazy.tsx
 #: src/routes/_app/devices.lazy.tsx
@@ -285,9 +322,17 @@ msgstr "약함"
 msgid "强"
 msgstr "강함"
 
+#: src/components/ForceUpdateDialog.tsx
+msgid "当前版本"
+msgstr "현재 버전"
+
+#: src/components/ForceUpdateDialog.tsx
+msgid "当前版本过旧，无法正常使用"
+msgstr "현재 버전이 너무 오래되어 정상적으로 사용할 수 없습니다"
+
 #: src/components/network/stop-node-sheet.tsx
 msgid "所有活跃连接将被断开"
-msgstr ""
+msgstr "모든 활성 연결이 끊어집니다"
 
 #: src/components/devices/device-card.tsx
 msgid "打洞"
@@ -295,11 +340,11 @@ msgstr "홀 펀칭"
 
 #: src/components/pairing/connection-request-dialog.tsx
 msgid "拒绝"
-msgstr ""
+msgstr "거절"
 
 #: src/components/pairing/connection-request-dialog.tsx
 msgid "接受配对"
-msgstr ""
+msgstr "페어링 수락"
 
 #: src/components/layout/nav-items.ts
 msgid "接收文件"
@@ -311,7 +356,7 @@ msgstr "특수 문자 포함 권장"
 
 #: src/routes/_app/pairing/-device-found-view.tsx
 msgid "操作系统"
-msgstr ""
+msgstr "운영체제"
 
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "文件传输全程加密保护"
@@ -324,6 +369,14 @@ msgstr "비밀번호를 가져올 수 없습니다"
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "无需服务器"
 msgstr "서버 불필요"
+
+#: src/components/settings/AboutSection.tsx
+msgid "更新到 v{latestVersion}"
+msgstr "v{latestVersion}으로 업데이트"
+
+#: src/components/settings/AboutSection.tsx
+msgid "更新日志"
+msgstr "업데이트 로그"
 
 #: src/components/network/network-dialog.tsx
 #: src/components/network/start-node-sheet.tsx
@@ -342,7 +395,24 @@ msgstr "페어링되지 않음"
 
 #: src/components/pairing/mobile-input-code-view.tsx
 msgid "查找设备"
-msgstr ""
+msgstr "장치 찾기"
+
+#: src/components/settings/AboutSection.tsx
+msgid "检查中..."
+msgstr "확인 중..."
+
+#: src/components/settings/AboutSection.tsx
+msgid "检查更新"
+msgstr "업데이트 확인"
+
+#: src/components/ForceUpdateDialog.tsx
+#: src/components/settings/AboutSection.tsx
+msgid "正在下载 v{latestVersion}"
+msgstr "v{latestVersion} 다운로드 중"
+
+#: src/components/ForceUpdateDialog.tsx
+msgid "正在下载最新版本，请勿关闭应用"
+msgstr "최신 버전을 다운로드 중입니다. 앱을 닫지 마세요"
 
 #: src/lib/auth-messages.ts
 msgid "正在初始化加密存储..."
@@ -352,9 +422,13 @@ msgstr "암호화 저장소 초기화 중..."
 msgid "正在加载设备密钥..."
 msgstr "장치 키 로딩 중..."
 
+#: src/components/ForceUpdateDialog.tsx
+msgid "正在更新"
+msgstr "업데이트 중"
+
 #: src/routes/_app/pairing/input.lazy.tsx
 msgid "正在查找设备..."
-msgstr ""
+msgstr "장치 검색 중..."
 
 #: src/lib/auth-messages.ts
 msgid "正在生成设备密钥..."
@@ -379,20 +453,44 @@ msgstr "다크"
 #: src/routes/_app/pairing/generate.lazy.tsx
 #: src/routes/_app/pairing/generate.lazy.tsx
 msgid "添加新设备"
-msgstr ""
+msgstr "새 장치 추가"
 
 #: src/routes/_app/pairing/index.lazy.tsx
 msgid "添加设备"
-msgstr ""
+msgstr "장치 추가"
 
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "点对点直连，无需注册账号"
 msgstr "P2P 직접 연결, 계정 등록 불필요"
 
+#: src/components/settings/AboutSection.tsx
+msgid "版本 {ver}"
+msgstr "버전 {ver}"
+
+#: src/components/settings/AboutSection.tsx
+msgid "版本 {ver} · 已是最新版本"
+msgstr "버전 {ver} · 최신 상태"
+
+#: src/components/settings/AboutSection.tsx
+msgid "版本 {ver} · 有新版本可用"
+msgstr "버전 {ver} · 새 버전 사용 가능"
+
+#: src/components/settings/AboutSection.tsx
+msgid "版本 {ver} · 检查中..."
+msgstr "버전 {ver} · 확인 중..."
+
+#: src/components/settings/AboutSection.tsx
+msgid "版本 {ver} · 检查失败"
+msgstr "버전 {ver} · 확인 실패"
+
+#: src/components/settings/AboutSection.tsx
+msgid "版本 {ver} · 正在更新..."
+msgstr "버전 {ver} · 업데이트 중..."
+
 #: src/components/pairing/add-device-menu.tsx
 #: src/routes/_app/pairing/index.lazy.tsx
 msgid "生成配对码"
-msgstr ""
+msgstr "코드 생성"
 
 #: src/lib/auth-messages.ts
 msgid "生物识别不可用"
@@ -410,15 +508,15 @@ msgstr "리스닝 주소"
 
 #: src/components/devices/device-card.tsx
 msgid "确定要取消与「{deviceName}」的配对吗？取消后需要重新配对才能传输文件。"
-msgstr ""
+msgstr "\"{deviceName}\"와의 페어링을 해제하시겠습니까? 해제 후 파일 전송을 위해 다시 페어링해야 합니다."
 
 #: src/routes/_app/pairing/input.lazy.tsx
 msgid "确认"
-msgstr ""
+msgstr "확인"
 
 #: src/components/devices/device-card.tsx
 msgid "确认取消配对"
-msgstr ""
+msgstr "페어링 해제 확인"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "确认密码"
@@ -434,6 +532,10 @@ msgstr "오프라인"
 msgid "稍后设置"
 msgstr "나중에 설정"
 
+#: src/components/ForceUpdateDialog.tsx
+msgid "立即更新"
+msgstr "지금 업데이트"
+
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "端到端加密"
 msgstr "엔드투엔드 암호화"
@@ -441,7 +543,7 @@ msgstr "엔드투엔드 암호화"
 #: src/routes/_app/pairing/-device-found-view.tsx
 #: src/routes/_app/pairing/-device-found-view.tsx
 msgid "等待对方确认..."
-msgstr ""
+msgstr "상대방 확인 대기 중..."
 
 #: src/components/network/network-dialog.tsx
 #: src/components/network/start-node-sheet.tsx
@@ -461,7 +563,7 @@ msgstr "최소 8자 이상"
 
 #: src/components/network/network-status-bar.tsx
 msgid "节点启动中..."
-msgstr ""
+msgstr "노드 시작 중..."
 
 #: src/components/network/network-dialog.tsx
 #: src/components/network/offline-empty-state.tsx
@@ -478,7 +580,7 @@ msgstr "노드 상태"
 
 #: src/components/network/network-status-bar.tsx
 msgid "节点错误"
-msgstr ""
+msgstr "노드 오류"
 
 #: src/routes/_auth/unlock.lazy.tsx
 #: src/routes/_auth/unlock.lazy.tsx
@@ -502,12 +604,12 @@ msgstr "장치 정보"
 
 #: src/routes/_app/pairing/-device-found-view.tsx
 msgid "设备在线，可以建立连接"
-msgstr ""
+msgstr "장치 온라인, 연결 가능"
 
 #: src/routes/_app/pairing/-device-found-view.tsx
 #: src/routes/_app/pairing/input.lazy.tsx
 msgid "设备详情"
-msgstr ""
+msgstr "장치 상세 정보"
 
 #: src/components/layout/nav-items.ts
 #: src/components/layout/nav-items.ts
@@ -529,11 +631,11 @@ msgstr "크로스 네트워크 전송"
 
 #: src/routes/_app/pairing/input.lazy.tsx
 msgid "输入另一台设备上显示的配对码"
-msgstr ""
+msgstr "다른 장치에 표시된 페어링 코드를 입력하세요"
 
 #: src/components/pairing/mobile-input-code-view.tsx
 msgid "输入另一台设备上的配对码"
-msgstr ""
+msgstr "다른 장치의 페어링 코드를 입력하세요"
 
 #: src/routes/_auth/unlock.lazy.tsx
 msgid "输入密码"
@@ -546,7 +648,7 @@ msgstr "최소 8자 이상의 비밀번호를 입력하세요"
 #: src/components/pairing/add-device-menu.tsx
 #: src/routes/_app/pairing/index.lazy.tsx
 msgid "输入配对码"
-msgstr ""
+msgstr "코드 입력"
 
 #: src/components/network/network-dialog.tsx
 #: src/components/network/stop-node-sheet.tsx
@@ -555,7 +657,7 @@ msgstr "실행 중"
 
 #: src/components/network/stop-node-sheet.tsx
 msgid "运行时长"
-msgstr ""
+msgstr "실행 시간"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "返回"
@@ -573,7 +675,7 @@ msgstr "연결 중"
 #: src/routes/_app/pairing/input.lazy.tsx
 #: src/routes/_app/pairing/input.lazy.tsx
 msgid "连接已有设备"
-msgstr ""
+msgstr "기존 장치 연결"
 
 #: src/components/pairing/add-device-menu.tsx
 msgid "连接设备"
@@ -581,7 +683,7 @@ msgstr "장치 연결"
 
 #: src/components/pairing/connection-request-dialog.tsx
 msgid "连接请求"
-msgstr ""
+msgstr "연결 요청"
 
 #: src/routes/_app/settings.lazy.tsx
 msgid "选择应用显示语言"
@@ -593,31 +695,31 @@ msgstr "앱 외관 테마 선택"
 
 #: src/components/pairing/connection-request-dialog.tsx
 msgid "配对后，该设备可以向您发送文件。请确认您认识此设备。"
-msgstr ""
+msgstr "페어링 후 이 장치에서 파일을 보낼 수 있습니다. 이 장치를 알고 있는지 확인해 주세요."
 
 #: src/routes/_app/pairing/-device-found-view.tsx
 msgid "配对方式"
-msgstr ""
+msgstr "페어링 방법"
 
 #: src/routes/_app/pairing/-device-found-view.tsx
 msgid "配对码"
-msgstr ""
+msgstr "페어링 코드"
 
 #. placeholder {0}: formatTime(remainingSeconds)
 #: src/components/pairing/mobile-generate-code-view.tsx
 #: src/routes/_app/pairing/generate.lazy.tsx
 msgid "配对码将在 {0} 后过期"
-msgstr ""
+msgstr "페어링 코드는 {0} 후 만료됩니다"
 
 #: src/components/pairing/mobile-generate-code-view.tsx
 #: src/routes/_app/pairing/generate.lazy.tsx
 msgid "配对码已过期"
-msgstr ""
+msgstr "페어링 코드가 만료되었습니다"
 
 #: src/components/pairing/mobile-generate-code-view.tsx
 #: src/routes/_app/pairing/generate.lazy.tsx
 msgid "重新生成"
-msgstr ""
+msgstr "다시 생성"
 
 #: src/components/layout/sidebar.tsx
 #: src/components/network/network-dialog.tsx
@@ -629,3 +731,7 @@ msgstr "오류"
 #: src/routes/_app/devices.lazy.tsx
 msgid "附近设备"
 msgstr "근처 장치"
+
+#: src/components/ForceUpdateDialog.tsx
+msgid "需要更新"
+msgstr "업데이트 필요"
