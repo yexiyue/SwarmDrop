@@ -9,7 +9,7 @@ on:
       min_version:
         description: '强制更新最低版本号 (如 0.2.0)，留空则不设置'
         required: false
-        default: ''
+        default: '0.1.2'
 
 concurrency:
   group: release-${{ github.ref }}
