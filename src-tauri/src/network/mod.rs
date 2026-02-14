@@ -18,15 +18,16 @@ use serde::Serialize;
 use swarm_p2p_core::libp2p::{Multiaddr, PeerId};
 
 /// 节点运行状态
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum NodeStatus {
     Running,
+    #[default]
     Stopped,
 }
 
 /// 网络状态快照
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Default, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NetworkStatus {
     pub status: NodeStatus,
