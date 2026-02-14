@@ -9,8 +9,8 @@ import { platform, arch } from "@tauri-apps/plugin-os";
 // 升级策略类型
 export type UpgradeType = "force" | "prompt" | "silent" | null;
 
-// 扩展 Tauri Update 类型，包含 UpgradeLink 的 upgradeType
-export interface UpdateInfo extends Update {
+// 升级信息接口
+export interface UpdateInfo {
   upgradeType?: UpgradeType;
   rawJson?: {
     upgradeType?: number;
@@ -133,9 +133,26 @@ async function fetchUpgradeType(version: string): Promise<UpgradeType> {
  */
 export async function executeDesktopUpdate(
   update: Update,
-  onProgress?: (downloaded: number, total?: number) => void,
+  onProgress?: (downloaded: number, total: number) => void,
 ): Promise<void> {
-  await update.downloadAndInstall(onProgress);
+  let downloadedBytes = 0;
+  let totalBytes = 0;
+
+  await update.downloadAndInstall((event) => {
+    if (!onProgress) return;
+
+    switch (event.event) {
+      case 'Started':
+        totalBytes = event.data.contentLength || 0;
+        break;
+      case 'Progress':
+        downloadedBytes += event.data.chunkLength;
+        onProgress(downloadedBytes, totalBytes);
+        break;
+      case 'Finished':
+        break;
+    }
+  });
 }
 
 /**

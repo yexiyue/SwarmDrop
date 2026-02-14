@@ -14,7 +14,6 @@ import {
   checkAndroidUpdate,
   executeDesktopUpdate,
   type UpgradeType,
-  type UpgradeCheckResult,
 } from "@/commands/upgrade";
 import {
   check as checkDesktopUpdate,
@@ -258,7 +257,7 @@ export const useUpgradeLinkStore = create<UpgradeLinkState>()((set, get) => ({
 
 // 检查桌面端更新
 async function checkDesktop(
-  currentVersion: string,
+  _currentVersion: string,
   set: (state: Partial<UpgradeLinkState>) => void,
 ) {
   // 1. 使用 Tauri 官方 check() 获取更新
