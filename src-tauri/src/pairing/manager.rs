@@ -53,6 +53,24 @@ impl PairingManager {
         }
     }
 
+    /// 序列化数据并发布到 DHT
+    async fn put_json_record(
+        &self,
+        key: swarm_p2p_core::libp2p::kad::RecordKey,
+        data: &impl serde::Serialize,
+        ttl_secs: u64,
+    ) -> AppResult<()> {
+        self.client
+            .put_record(Record {
+                key,
+                value: serde_json::to_vec(data)?,
+                publisher: Some(self.peer_id),
+                expires: Some(Instant::now() + Duration::from_secs(ttl_secs)),
+            })
+            .await?;
+        Ok(())
+    }
+
     // === DHT 在线宣告 ===
 
     /// 宣布上线：将本节点的可达地址发布到 DHT
@@ -63,15 +81,12 @@ impl PairingManager {
             listen_addrs: addrs,
             timestamp: chrono::Utc::now().timestamp(),
         };
-        self.client
-            .put_record(Record {
-                key: dht_key::online_key(&self.peer_id.to_bytes()),
-                value: serde_json::to_vec(&record_data)?,
-                publisher: Some(self.peer_id),
-                expires: Some(Instant::now() + Duration::from_secs(300)),
-            })
-            .await?;
-        Ok(())
+        self.put_json_record(
+            dht_key::online_key(&self.peer_id.to_bytes()),
+            &record_data,
+            300,
+        )
+        .await
     }
 
     /// 宣布下线：从 DHT 移除在线记录
@@ -92,14 +107,12 @@ impl PairingManager {
         let mut record_data = ShareCodeRecord::from(&code_info);
         record_data.listen_addrs = addrs;
 
-        self.client
-            .put_record(Record {
-                key: dht_key::share_code_key(&code_info.code),
-                value: serde_json::to_vec(&record_data)?,
-                publisher: Some(self.peer_id),
-                expires: Some(Instant::now() + Duration::from_secs(expires_in_secs)),
-            })
-            .await?;
+        self.put_json_record(
+            dht_key::share_code_key(&code_info.code),
+            &record_data,
+            expires_in_secs,
+        )
+        .await?;
 
         self.active_codes
             .insert(code_info.code.clone(), code_info.clone());
@@ -155,9 +168,7 @@ impl PairingManager {
             self.client.add_peer_addrs(peer_id, addrs).await?;
         }
 
-        if !self.client.is_connected(peer_id).await? {
-            self.client.dial(peer_id).await?;
-        }
+        self.client.dial(peer_id).await?;
 
         let res = self
             .client

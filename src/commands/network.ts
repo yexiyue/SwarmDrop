@@ -19,7 +19,7 @@ export type Multiaddr = string;
 /**
  * NAT 状态
  */
-export type NatStatus = "public" | "private" | "unknown";
+export type NatStatus = "public" | "unknown";
 
 // === 后端输出类型 ===
 
