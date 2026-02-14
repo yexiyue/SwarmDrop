@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { usePreferencesStore } from "@/stores/preferences-store";
 import { locales, type LocaleKey } from "@/lib/i18n";
+import { AboutSection } from "@/components/settings/AboutSection";
 
 export const Route = createLazyFileRoute("/_app/settings")({
   component: SettingsPage,
@@ -59,6 +60,9 @@ function SettingsPage() {
       {/* Page Content */}
       <div className="flex-1 overflow-auto p-4 md:p-5 lg:p-6">
         <div className="mx-auto flex max-w-2xl flex-col gap-6">
+          {/* 关于 & 更新 */}
+          <AboutSection />
+
           {/* 设备信息 */}
           <section className="flex flex-col gap-3">
             <h2 className="text-sm font-semibold text-foreground">
