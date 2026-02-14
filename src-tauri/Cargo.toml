@@ -44,6 +44,10 @@ dashmap = "6.1.0"
 [target.'cfg(not(target_os = "android"))'.dependencies]
 swarm-p2p-core = { path = "../libs/core", features = ["dns"] }
 
+# Android JNI 支持
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21"
+
 # 在 dev 模式下为依赖开启优化（加密运算必须）
 # 否则 Stronghold 等加密库会慢 10-100 倍
 [profile.dev.package."*"]

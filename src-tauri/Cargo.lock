@@ -6005,6 +6005,7 @@ version = "0.1.2"
 dependencies = [
  "chrono",
  "dashmap",
+ "jni",
  "rand 0.10.0",
  "serde",
  "serde_json",

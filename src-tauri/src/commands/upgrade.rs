@@ -9,24 +9,42 @@ use tauri::{AppHandle, command, Runtime};
 /// 前端调用此命令触发 Android 原生安装流程
 #[command]
 pub async fn install_android_update<R: Runtime>(
-    _app: AppHandle<R>,
-    url: String,
+    #[allow(unused_variables)] app: AppHandle<R>,
+    #[allow(unused_variables)] url: String,
+    #[allow(unused_variables)] is_force: bool,
 ) -> Result<(), String> {
-    // Android 平台：通过 Tauri Bridge 调用 Kotlin 代码
-    // 实际实现在 MainActivity.kt 中
-    // 这里只需要定义命令接口，Tauri 会自动桥接
-
     #[cfg(target_os = "android")]
     {
-        // Android 实现由前端直接调用，或通过 JNI 桥接
-        // 详见 MainActivity.kt 中的 startApkUpdate 方法
-        let _ = url;
-        Ok(())
+        use jni::signature::JavaType;
+
+        // 使用 Tauri 提供的 Android 上下文访问
+        app.run_on_android_context(|env, activity, _webview| {
+            // 将 Rust string 转为 Java string
+            let url_jstring = env
+                .new_string(&url)
+                .map_err(|e| format!("Failed to create JString: {}", e))?;
+
+            // 调用 MainActivity.startApkUpdate(String url, boolean isForce)
+            let result = env.call_method(
+                activity,
+                "startApkUpdate",
+                "(Ljava/lang/String;Z)V",
+                &[
+                    (&url_jstring).into(),
+                    jni::objects::JValue::Bool(if is_force { 1 } else { 0 }),
+                ],
+            );
+
+            match result {
+                Ok(_) => Ok(()),
+                Err(e) => Err(format!("Failed to call startApkUpdate: {}", e)),
+            }
+        })
+        .map_err(|e| e.to_string())?
     }
 
     #[cfg(not(target_os = "android"))]
     {
-        let _ = url;
         Err("This command is only available on Android".to_string())
     }
 }
