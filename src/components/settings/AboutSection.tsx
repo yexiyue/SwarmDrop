@@ -42,37 +42,48 @@ export function AboutSection() {
         <Trans>关于</Trans>
       </h2>
       <div className="overflow-hidden rounded-lg border border-border">
-        {/* App Info Row */}
-        <div className="flex flex-col gap-3 p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex size-10 items-center justify-center rounded-lg bg-blue-500">
-                <Zap className="size-[22px] text-white" />
-              </div>
-              <div className="flex flex-col gap-0.5">
-                <span className="text-[15px] font-semibold text-foreground">
-                  SwarmDrop
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  <VersionDescription
-                    status={status}
-                    currentVersion={currentVersion}
-                  />
-                </span>
-              </div>
+        {/* App Info Row - 桌面端 space-between，支持自动换行 */}
+        <div className="flex flex-col gap-4 p-4 min-[480px]:flex-row min-[480px]:items-center min-[480px]:justify-between">
+          {/* 应用信息 */}
+          <div className="flex items-center gap-3">
+            <div className="flex size-10 items-center justify-center rounded-lg bg-blue-500">
+              <Zap className="size-[22px] text-white" />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <span className="text-[15px] font-semibold text-foreground">
+                SwarmDrop
+              </span>
+              <span className="text-xs text-muted-foreground">
+                <VersionDescription
+                  status={status}
+                  currentVersion={currentVersion}
+                />
+              </span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <ReleaseNotesButton />
-            <UpdateActionButton
+
+          {/* 分隔线 - 仅小屏幕显示，占满容器宽度 */}
+          <div className="relative left-[-1rem] block w-[calc(100%+2rem)] border-t border-border min-[480px]:hidden" />
+
+          {/* 按钮组 - 桌面端显示两个按钮，移动端简化 */}
+          {isMobile ? (
+            <MobileUpdateButton
               status={status}
               latestVersion={latestVersion}
-              isMobile={isMobile}
               onCheck={checkForUpdate}
-              onDownload={downloadAndInstall}
               onOpenPage={openDownloadPage}
             />
-          </div>
+          ) : (
+            <div className="flex flex-wrap items-center justify-around gap-2 min-[480px]:justify-end">
+              <ReleaseNotesButton />
+              <DesktopUpdateButton
+                status={status}
+                latestVersion={latestVersion}
+                onCheck={checkForUpdate}
+                onDownload={downloadAndInstall}
+              />
+            </div>
+          )}
         </div>
 
         {/* Update Banner / Progress */}
@@ -118,12 +129,12 @@ function VersionDescription({
   }
 }
 
-/** 更新日志按钮 */
+/** 桌面端：更新日志按钮 */
 function ReleaseNotesButton() {
   return (
     <button
       type="button"
-      className="flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+      className="flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
     >
       <ExternalLink className="size-3.5" />
       <Trans>更新日志</Trans>
@@ -131,21 +142,17 @@ function ReleaseNotesButton() {
   );
 }
 
-/** 更新操作按钮（根据状态变化） */
-function UpdateActionButton({
+/** 桌面端：更新操作按钮 */
+function DesktopUpdateButton({
   status,
   latestVersion,
-  isMobile,
   onCheck,
   onDownload,
-  onOpenPage,
 }: {
   status: UpdateStatus;
   latestVersion: string | null;
-  isMobile: boolean;
   onCheck: () => void;
   onDownload: () => void;
-  onOpenPage: () => void;
 }) {
   switch (status) {
     case "checking":
@@ -161,18 +168,6 @@ function UpdateActionButton({
       );
 
     case "available":
-      if (isMobile) {
-        return (
-          <button
-            type="button"
-            onClick={onOpenPage}
-            className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            <ExternalLink className="size-3.5" />
-            <Trans>前往下载</Trans>
-          </button>
-        );
-      }
       return (
         <button
           type="button"
@@ -204,6 +199,69 @@ function UpdateActionButton({
           className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
         >
           <RefreshCw className="size-3.5" />
+          <Trans>检查更新</Trans>
+        </button>
+      );
+  }
+}
+
+/** 移动端：简化更新按钮（无更新日志按钮） */
+function MobileUpdateButton({
+  status,
+  latestVersion,
+  onCheck,
+  onOpenPage,
+}: {
+  status: UpdateStatus;
+  latestVersion: string | null;
+  onCheck: () => void;
+  onOpenPage: () => void;
+}) {
+  switch (status) {
+    case "checking":
+      return (
+        <button
+          type="button"
+          disabled
+          className="flex items-center gap-1 rounded-md bg-primary/50 px-2.5 py-1.5 text-[11px] font-medium text-primary-foreground"
+        >
+          <Loader2 className="size-3 animate-spin" />
+          <Trans>检查中</Trans>
+        </button>
+      );
+
+    case "available":
+      return (
+        <button
+          type="button"
+          onClick={onOpenPage}
+          className="flex items-center gap-1 rounded-md bg-primary px-2.5 py-1.5 text-[11px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          <ExternalLink className="size-3" />
+          <Trans>前往下载</Trans>
+        </button>
+      );
+
+    case "downloading":
+      return (
+        <button
+          type="button"
+          disabled
+          className="flex items-center gap-1 rounded-md bg-muted px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground"
+        >
+          <Loader2 className="size-3 animate-spin" />
+          <Trans>下载中</Trans>
+        </button>
+      );
+
+    default:
+      return (
+        <button
+          type="button"
+          onClick={onCheck}
+          className="flex items-center gap-1 rounded-md bg-primary px-2.5 py-1.5 text-[11px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          <RefreshCw className="size-3" />
           <Trans>检查更新</Trans>
         </button>
       );

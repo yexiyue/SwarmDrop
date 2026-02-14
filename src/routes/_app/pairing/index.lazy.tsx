@@ -84,7 +84,7 @@ function MobilePairingPage() {
   // ─── 设备详情视图 ───
   if (showDeviceFound && deviceInfo) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col bg-background">
+      <div className="fixed inset-0 z-50 flex flex-col bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
         <MobileDeviceFoundView
           deviceInfo={deviceInfo}
           isRequesting={isRequesting}
@@ -97,7 +97,7 @@ function MobilePairingPage() {
 
   // ─── Tabs 视图 ───
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-background">
+    <div className="fixed inset-0 z-50 flex flex-col bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-3">
         <button
