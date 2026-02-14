@@ -17,6 +17,8 @@
     "os:default",
     "os:allow-hostname",
     "store:default",
-    "notification:default"
+    "notification:default",
+    "updater:default",
+    "process:allow-restart"
   ]
 }

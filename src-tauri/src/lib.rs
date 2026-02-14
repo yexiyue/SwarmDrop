@@ -30,7 +30,15 @@ pub fn run() {
         .plugin(tauri_plugin_biometry::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
+            // updater 在 setup 中注册，移动端不支持时容错跳过
+            if let Err(e) = app
+                .handle()
+                .plugin(tauri_plugin_updater::Builder::new().build())
+            {
+                tracing::warn!("Failed to initialize updater plugin: {e}");
+            }
             let salt_path = app.path().app_local_data_dir()?.join("salt.txt");
             app.handle()
                 .plugin(tauri_plugin_stronghold::Builder::with_argon2(&salt_path).build())?;

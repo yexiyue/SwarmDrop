@@ -28,3 +28,6 @@ dist-ssr
 **/openspec
 **/.obsidian
 .tanstack
+
+# Signing keys
+keys/

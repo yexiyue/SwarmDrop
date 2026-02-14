@@ -16,23 +16,31 @@ msgstr ""
 #. placeholder {0}: feature.text
 #: src/components/network/start-node-sheet.tsx
 msgid "{0}"
-msgstr ""
+msgstr "{0}"
 
 #: src/components/network/stop-node-sheet.tsx
 msgid "{connectedCount} 台"
-msgstr ""
+msgstr "{connectedCount} devices"
 
 #: src/routes/_app/pairing/-device-found-view.tsx
 msgid "CPU 架构"
-msgstr ""
+msgstr "CPU Architecture"
+
+#: src/components/ForceUpdateDialog.tsx
+msgid "P2P 协议已变更，旧版本无法与其他设备通信"
+msgstr "P2P protocol has changed, old versions cannot communicate with other devices"
 
 #: src/components/network/network-status-bar.tsx
 msgid "P2P 节点未启动"
-msgstr ""
+msgstr "P2P node not started"
 
 #: src/components/network/network-status-bar.tsx
 msgid "P2P 节点运行中 · {connectedCount} 台设备在线"
-msgstr ""
+msgstr "P2P node running · {connectedCount} devices online"
+
+#: src/components/settings/AboutSection.tsx
+msgid "SwarmDrop v{latestVersion} 已发布"
+msgstr "SwarmDrop v{latestVersion} released"
 
 #: src/components/pairing/connection-request-dialog.tsx
 msgid "一台设备正在请求与您配对"
@@ -45,6 +53,14 @@ msgstr "Fair"
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "下一步"
 msgstr "Next"
+
+#: src/components/settings/AboutSection.tsx
+msgid "下载中..."
+msgstr "Downloading..."
+
+#: src/components/ForceUpdateDialog.tsx
+msgid "下载完成后将自动安装并重启"
+msgstr "Will auto-install and restart after download"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "中等"
@@ -60,7 +76,7 @@ msgstr "Theme"
 
 #: src/components/layout/nav-items.ts
 msgid "传输"
-msgstr ""
+msgstr "Transfer"
 
 #: src/routes/_auth/unlock.lazy.tsx
 msgid "使用密码解锁"
@@ -80,17 +96,19 @@ msgstr "Use Face ID to unlock"
 
 #: src/components/network/network-status-bar.tsx
 msgid "停止"
-msgstr ""
+msgstr "Stop"
 
 #: src/components/network/stop-node-sheet.tsx
 msgid "停止 P2P 节点"
-msgstr ""
+msgstr "Stop P2P Node"
 
 #: src/components/network/stop-node-sheet.tsx
 msgid ""
 "停止后将断开所有连接，\n"
 "其他设备将无法发现你。"
 msgstr ""
+"All connections will be disconnected.\n"
+"Other devices will not be able to find you."
 
 #: src/components/network/network-dialog.tsx
 #: src/components/network/stop-node-sheet.tsx
@@ -98,9 +116,21 @@ msgstr ""
 msgid "停止节点"
 msgstr "Stop Node"
 
+#: src/components/settings/AboutSection.tsx
+msgid "关于"
+msgstr "About"
+
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "再次输入密码"
 msgstr "Enter password again"
+
+#: src/components/ForceUpdateDialog.tsx
+msgid "最低要求"
+msgstr "Minimum Required"
+
+#: src/components/ForceUpdateDialog.tsx
+msgid "最新版本"
+msgstr "Latest Version"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "创建中..."
@@ -109,6 +139,11 @@ msgstr "Creating..."
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "创建主密码"
 msgstr "Create Master Password"
+
+#: src/components/ForceUpdateDialog.tsx
+#: src/components/settings/AboutSection.tsx
+msgid "前往下载"
+msgstr "Go to Download"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "包含字母和数字"
@@ -128,7 +163,7 @@ msgstr "Send Files"
 
 #: src/routes/_app/pairing/-device-found-view.tsx
 msgid "发送配对请求"
-msgstr ""
+msgstr "Send Pairing Request"
 
 #: src/components/devices/device-card.tsx
 #: src/components/network/start-node-sheet.tsx
@@ -144,19 +179,19 @@ msgstr "Cancel"
 #: src/components/devices/device-card.tsx
 #: src/components/devices/device-card.tsx
 msgid "取消配对"
-msgstr ""
+msgstr "Unpair"
 
 #: src/components/network/start-node-sheet.tsx
 msgid "启动"
-msgstr ""
+msgstr "Start"
 
 #: src/components/network/start-node-sheet.tsx
 msgid "启动 P2P 节点"
-msgstr ""
+msgstr "Start P2P Node"
 
 #: src/components/network/offline-empty-state.tsx
 msgid "启动 P2P 节点后才能发现设备和传输文件"
-msgstr ""
+msgstr "Start the P2P node to discover devices and transfer files"
 
 #: src/components/network/network-dialog.tsx
 #: src/components/network/stop-node-sheet.tsx
@@ -193,7 +228,7 @@ msgstr "Enter the following pairing code on the other device"
 
 #: src/components/pairing/mobile-generate-code-view.tsx
 msgid "在另一台设备上输入此配对码"
-msgstr ""
+msgstr "Enter this pairing code on the other device"
 
 #: src/components/devices/device-card.tsx
 #: src/components/devices/device-card.tsx
@@ -239,6 +274,8 @@ msgid ""
 "将连接到 SwarmDrop 网络，\n"
 "其他设备将能够发现你并发送文件。"
 msgstr ""
+"Will connect to the SwarmDrop network.\n"
+"Other devices will be able to find you and send files."
 
 #: src/components/devices/device-card.tsx
 msgid "局域网"
@@ -266,7 +303,7 @@ msgstr "Connected Peers"
 
 #: src/components/network/stop-node-sheet.tsx
 msgid "已连接设备"
-msgstr ""
+msgstr "Connected Devices"
 
 #: src/routes/_app/devices.lazy.tsx
 #: src/routes/_app/devices.lazy.tsx
@@ -285,17 +322,17 @@ msgstr "Weak"
 msgid "强"
 msgstr "Strong"
 
-#: src/components/layout/sidebar.tsx
-#~ msgid "我的 MacBook"
-#~ msgstr "My MacBook"
+#: src/components/ForceUpdateDialog.tsx
+msgid "当前版本"
+msgstr "Current Version"
 
-#: src/routes/_auth/unlock.lazy.tsx
-#~ msgid "或"
-#~ msgstr "OR"
+#: src/components/ForceUpdateDialog.tsx
+msgid "当前版本过旧，无法正常使用"
+msgstr "Current version is too old to function properly"
 
 #: src/components/network/stop-node-sheet.tsx
 msgid "所有活跃连接将被断开"
-msgstr ""
+msgstr "All active connections will be disconnected"
 
 #: src/components/devices/device-card.tsx
 msgid "打洞"
@@ -319,7 +356,7 @@ msgstr "Recommended to include special characters"
 
 #: src/routes/_app/pairing/-device-found-view.tsx
 msgid "操作系统"
-msgstr ""
+msgstr "OS"
 
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "文件传输全程加密保护"
@@ -332,6 +369,14 @@ msgstr "Cannot retrieve password"
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "无需服务器"
 msgstr "No server required"
+
+#: src/components/settings/AboutSection.tsx
+msgid "更新到 v{latestVersion}"
+msgstr "Update to v{latestVersion}"
+
+#: src/components/settings/AboutSection.tsx
+msgid "更新日志"
+msgstr "Release Notes"
 
 #: src/components/network/network-dialog.tsx
 #: src/components/network/start-node-sheet.tsx
@@ -350,7 +395,24 @@ msgstr "Not Paired"
 
 #: src/components/pairing/mobile-input-code-view.tsx
 msgid "查找设备"
-msgstr ""
+msgstr "Find Device"
+
+#: src/components/settings/AboutSection.tsx
+msgid "检查中..."
+msgstr "Checking..."
+
+#: src/components/settings/AboutSection.tsx
+msgid "检查更新"
+msgstr "Check for Updates"
+
+#: src/components/ForceUpdateDialog.tsx
+#: src/components/settings/AboutSection.tsx
+msgid "正在下载 v{latestVersion}"
+msgstr "Downloading v{latestVersion}"
+
+#: src/components/ForceUpdateDialog.tsx
+msgid "正在下载最新版本，请勿关闭应用"
+msgstr "Downloading the latest version, please don't close the app"
 
 #: src/lib/auth-messages.ts
 msgid "正在初始化加密存储..."
@@ -359,6 +421,10 @@ msgstr "Initializing encrypted storage..."
 #: src/lib/auth-messages.ts
 msgid "正在加载设备密钥..."
 msgstr "Loading device key..."
+
+#: src/components/ForceUpdateDialog.tsx
+msgid "正在更新"
+msgstr "Updating"
 
 #: src/routes/_app/pairing/input.lazy.tsx
 msgid "正在查找设备..."
@@ -391,15 +457,35 @@ msgstr "Add New Device"
 
 #: src/routes/_app/pairing/index.lazy.tsx
 msgid "添加设备"
-msgstr ""
-
-#: src/routes/_auth/unlock.lazy.tsx
-#~ msgid "点击使用生物识别解锁"
-#~ msgstr "Tap to unlock with biometric authentication"
+msgstr "Add Device"
 
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "点对点直连，无需注册账号"
 msgstr "Peer-to-peer connection, no account required"
+
+#: src/components/settings/AboutSection.tsx
+msgid "版本 {ver}"
+msgstr "Version {ver}"
+
+#: src/components/settings/AboutSection.tsx
+msgid "版本 {ver} · 已是最新版本"
+msgstr "Version {ver} · Up to date"
+
+#: src/components/settings/AboutSection.tsx
+msgid "版本 {ver} · 有新版本可用"
+msgstr "Version {ver} · Update available"
+
+#: src/components/settings/AboutSection.tsx
+msgid "版本 {ver} · 检查中..."
+msgstr "Version {ver} · Checking..."
+
+#: src/components/settings/AboutSection.tsx
+msgid "版本 {ver} · 检查失败"
+msgstr "Version {ver} · Check failed"
+
+#: src/components/settings/AboutSection.tsx
+msgid "版本 {ver} · 正在更新..."
+msgstr "Version {ver} · Updating..."
 
 #: src/components/pairing/add-device-menu.tsx
 #: src/routes/_app/pairing/index.lazy.tsx
@@ -422,15 +508,15 @@ msgstr "Listening Addresses"
 
 #: src/components/devices/device-card.tsx
 msgid "确定要取消与「{deviceName}」的配对吗？取消后需要重新配对才能传输文件。"
-msgstr ""
+msgstr "Are you sure you want to unpair \"{deviceName}\"? You'll need to pair again to transfer files."
 
 #: src/routes/_app/pairing/input.lazy.tsx
 msgid "确认"
-msgstr ""
+msgstr "Confirm"
 
 #: src/components/devices/device-card.tsx
 msgid "确认取消配对"
-msgstr ""
+msgstr "Confirm Unpair"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "确认密码"
@@ -445,6 +531,10 @@ msgstr "Offline"
 #: src/routes/_auth/enable-biometric.lazy.tsx
 msgid "稍后设置"
 msgstr "Set Up Later"
+
+#: src/components/ForceUpdateDialog.tsx
+msgid "立即更新"
+msgstr "Update Now"
 
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "端到端加密"
@@ -473,7 +563,7 @@ msgstr "At least 8 characters"
 
 #: src/components/network/network-status-bar.tsx
 msgid "节点启动中..."
-msgstr ""
+msgstr "Node starting..."
 
 #: src/components/network/network-dialog.tsx
 #: src/components/network/offline-empty-state.tsx
@@ -490,7 +580,7 @@ msgstr "Node Status"
 
 #: src/components/network/network-status-bar.tsx
 msgid "节点错误"
-msgstr ""
+msgstr "Node error"
 
 #: src/routes/_auth/unlock.lazy.tsx
 #: src/routes/_auth/unlock.lazy.tsx
@@ -514,12 +604,12 @@ msgstr "Device Info"
 
 #: src/routes/_app/pairing/-device-found-view.tsx
 msgid "设备在线，可以建立连接"
-msgstr ""
+msgstr "Device online, ready to connect"
 
 #: src/routes/_app/pairing/-device-found-view.tsx
 #: src/routes/_app/pairing/input.lazy.tsx
 msgid "设备详情"
-msgstr ""
+msgstr "Device Details"
 
 #: src/components/layout/nav-items.ts
 #: src/components/layout/nav-items.ts
@@ -545,7 +635,7 @@ msgstr "Enter the pairing code shown on the other device"
 
 #: src/components/pairing/mobile-input-code-view.tsx
 msgid "输入另一台设备上的配对码"
-msgstr ""
+msgstr "Enter the pairing code from another device"
 
 #: src/routes/_auth/unlock.lazy.tsx
 msgid "输入密码"
@@ -567,7 +657,7 @@ msgstr "Running"
 
 #: src/components/network/stop-node-sheet.tsx
 msgid "运行时长"
-msgstr ""
+msgstr "Uptime"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "返回"
@@ -609,11 +699,11 @@ msgstr "Once paired, this device can send you files. Please make sure you recogn
 
 #: src/routes/_app/pairing/-device-found-view.tsx
 msgid "配对方式"
-msgstr ""
+msgstr "Pairing Method"
 
 #: src/routes/_app/pairing/-device-found-view.tsx
 msgid "配对码"
-msgstr ""
+msgstr "Pairing Code"
 
 #. placeholder {0}: formatTime(remainingSeconds)
 #: src/components/pairing/mobile-generate-code-view.tsx
@@ -641,3 +731,7 @@ msgstr "Error"
 #: src/routes/_app/devices.lazy.tsx
 msgid "附近设备"
 msgstr "Nearby Devices"
+
+#: src/components/ForceUpdateDialog.tsx
+msgid "需要更新"
+msgstr "Update Required"
