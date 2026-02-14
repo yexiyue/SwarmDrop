@@ -30,24 +30,3 @@ pub async fn install_android_update<R: Runtime>(
         Err("This command is only available on Android".to_string())
     }
 }
-
-/// 获取当前平台类型
-#[command]
-pub fn get_platform() -> String {
-    #[cfg(target_os = "windows")]
-    return "windows".to_string();
-
-    #[cfg(target_os = "macos")]
-    return "macos".to_string();
-
-    #[cfg(target_os = "linux")]
-    return "linux".to_string();
-
-    #[cfg(target_os = "android")]
-    return "android".to_string();
-
-    #[cfg(target_os = "ios")]
-    return "ios".to_string();
-
-    "unknown".to_string()
-}

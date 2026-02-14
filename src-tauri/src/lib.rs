@@ -56,7 +56,6 @@ pub fn run() {
             commands::list_devices,
             commands::get_network_status,
             commands::upgrade::install_android_update,
-            commands::upgrade::get_platform,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
