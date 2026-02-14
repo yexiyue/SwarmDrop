@@ -43,21 +43,23 @@ export function AboutSection() {
       </h2>
       <div className="overflow-hidden rounded-lg border border-border">
         {/* App Info Row */}
-        <div className="flex items-center justify-between p-4">
-          <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-blue-500">
-              <Zap className="size-[22px] text-white" />
-            </div>
-            <div className="flex flex-col gap-0.5">
-              <span className="text-[15px] font-semibold text-foreground">
-                SwarmDrop
-              </span>
-              <span className="text-xs text-muted-foreground">
-                <VersionDescription
-                  status={status}
-                  currentVersion={currentVersion}
-                />
-              </span>
+        <div className="flex flex-col gap-3 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-lg bg-blue-500">
+                <Zap className="size-[22px] text-white" />
+              </div>
+              <div className="flex flex-col gap-0.5">
+                <span className="text-[15px] font-semibold text-foreground">
+                  SwarmDrop
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  <VersionDescription
+                    status={status}
+                    currentVersion={currentVersion}
+                  />
+                </span>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
