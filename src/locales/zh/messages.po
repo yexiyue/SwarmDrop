@@ -31,6 +31,10 @@ msgstr "{connectedCount} 台"
 msgid "CPU 架构"
 msgstr "CPU 架构"
 
+#: src/components/ForceUpdateDialog.tsx
+msgid "P2P 协议已变更，旧版本无法与其他设备通信"
+msgstr "P2P 协议已变更，旧版本无法与其他设备通信"
+
 #: src/components/network/network-status-bar.tsx
 msgid "P2P 节点未启动"
 msgstr "P2P 节点未启动"
@@ -38,6 +42,10 @@ msgstr "P2P 节点未启动"
 #: src/components/network/network-status-bar.tsx
 msgid "P2P 节点运行中 · {connectedCount} 台设备在线"
 msgstr "P2P 节点运行中 · {connectedCount} 台设备在线"
+
+#: src/components/settings/AboutSection.tsx
+msgid "SwarmDrop v{latestVersion} 已发布"
+msgstr "SwarmDrop v{latestVersion} 已发布"
 
 #: src/components/pairing/connection-request-dialog.tsx
 msgid "一台设备正在请求与您配对"
@@ -50,6 +58,14 @@ msgstr "一般"
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "下一步"
 msgstr "下一步"
+
+#: src/components/settings/AboutSection.tsx
+msgid "下载中..."
+msgstr "下载中..."
+
+#: src/components/ForceUpdateDialog.tsx
+msgid "下载完成后将自动安装并重启"
+msgstr "下载完成后将自动安装并重启"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "中等"
@@ -105,9 +121,21 @@ msgstr ""
 msgid "停止节点"
 msgstr "停止节点"
 
+#: src/components/settings/AboutSection.tsx
+msgid "关于"
+msgstr "关于"
+
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "再次输入密码"
 msgstr "再次输入密码"
+
+#: src/components/ForceUpdateDialog.tsx
+msgid "最低要求"
+msgstr "最低要求"
+
+#: src/components/ForceUpdateDialog.tsx
+msgid "最新版本"
+msgstr "最新版本"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "创建中..."
@@ -116,6 +144,11 @@ msgstr "创建中..."
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "创建主密码"
 msgstr "创建主密码"
+
+#: src/components/ForceUpdateDialog.tsx
+#: src/components/settings/AboutSection.tsx
+msgid "前往下载"
+msgstr "前往下载"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "包含字母和数字"
@@ -294,6 +327,14 @@ msgstr "弱"
 msgid "强"
 msgstr "强"
 
+#: src/components/ForceUpdateDialog.tsx
+msgid "当前版本"
+msgstr "当前版本"
+
+#: src/components/ForceUpdateDialog.tsx
+msgid "当前版本过旧，无法正常使用"
+msgstr "当前版本过旧，无法正常使用"
+
 #: src/components/layout/sidebar.tsx
 #~ msgid "我的 MacBook"
 #~ msgstr "我的 MacBook"
@@ -342,6 +383,14 @@ msgstr "无法获取密码"
 msgid "无需服务器"
 msgstr "无需服务器"
 
+#: src/components/settings/AboutSection.tsx
+msgid "更新到 v{latestVersion}"
+msgstr "更新到 v{latestVersion}"
+
+#: src/components/settings/AboutSection.tsx
+msgid "更新日志"
+msgstr "更新日志"
+
 #: src/components/network/network-dialog.tsx
 #: src/components/network/start-node-sheet.tsx
 #: src/components/network/stop-node-sheet.tsx
@@ -361,6 +410,23 @@ msgstr "未配对"
 msgid "查找设备"
 msgstr "查找设备"
 
+#: src/components/settings/AboutSection.tsx
+msgid "检查中..."
+msgstr "检查中..."
+
+#: src/components/settings/AboutSection.tsx
+msgid "检查更新"
+msgstr "检查更新"
+
+#: src/components/ForceUpdateDialog.tsx
+#: src/components/settings/AboutSection.tsx
+msgid "正在下载 v{latestVersion}"
+msgstr "正在下载 v{latestVersion}"
+
+#: src/components/ForceUpdateDialog.tsx
+msgid "正在下载最新版本，请勿关闭应用"
+msgstr "正在下载最新版本，请勿关闭应用"
+
 #: src/lib/auth-messages.ts
 msgid "正在初始化加密存储..."
 msgstr "正在初始化加密存储..."
@@ -368,6 +434,10 @@ msgstr "正在初始化加密存储..."
 #: src/lib/auth-messages.ts
 msgid "正在加载设备密钥..."
 msgstr "正在加载设备密钥..."
+
+#: src/components/ForceUpdateDialog.tsx
+msgid "正在更新"
+msgstr "正在更新"
 
 #: src/routes/_app/pairing/input.lazy.tsx
 msgid "正在查找设备..."
@@ -409,6 +479,30 @@ msgstr "添加设备"
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "点对点直连，无需注册账号"
 msgstr "点对点直连，无需注册账号"
+
+#: src/components/settings/AboutSection.tsx
+msgid "版本 {ver}"
+msgstr "版本 {ver}"
+
+#: src/components/settings/AboutSection.tsx
+msgid "版本 {ver} · 已是最新版本"
+msgstr "版本 {ver} · 已是最新版本"
+
+#: src/components/settings/AboutSection.tsx
+msgid "版本 {ver} · 有新版本可用"
+msgstr "版本 {ver} · 有新版本可用"
+
+#: src/components/settings/AboutSection.tsx
+msgid "版本 {ver} · 检查中..."
+msgstr "版本 {ver} · 检查中..."
+
+#: src/components/settings/AboutSection.tsx
+msgid "版本 {ver} · 检查失败"
+msgstr "版本 {ver} · 检查失败"
+
+#: src/components/settings/AboutSection.tsx
+msgid "版本 {ver} · 正在更新..."
+msgstr "版本 {ver} · 正在更新..."
 
 #: src/components/pairing/add-device-menu.tsx
 #: src/routes/_app/pairing/index.lazy.tsx
@@ -454,6 +548,10 @@ msgstr "离线"
 #: src/routes/_auth/enable-biometric.lazy.tsx
 msgid "稍后设置"
 msgstr "稍后设置"
+
+#: src/components/ForceUpdateDialog.tsx
+msgid "立即更新"
+msgstr "立即更新"
 
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "端到端加密"
@@ -650,3 +748,7 @@ msgstr "错误"
 #: src/routes/_app/devices.lazy.tsx
 msgid "附近设备"
 msgstr "附近设备"
+
+#: src/components/ForceUpdateDialog.tsx
+msgid "需要更新"
+msgstr "需要更新"

@@ -8,12 +8,15 @@
 
 import { createFileRoute, Outlet, redirect, useNavigate } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
+import { useEffect } from "react";
 import { AppSidebar } from "@/components/layout/sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { useAuthStore } from "@/stores/auth-store";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { ConnectionRequestDialog } from "@/components/pairing/connection-request-dialog";
+import { ForceUpdateDialog } from "@/components/ForceUpdateDialog";
+import { useUpdateStore } from "@/stores/update-store";
 
 export const Route = createFileRoute("/_app")({
   beforeLoad: () => {
@@ -37,6 +40,14 @@ function AppLayout() {
   const isMobile = breakpoint === "mobile";
   const isDesktop = breakpoint === "desktop";
 
+  // 启动后延迟 3 秒自动检查更新
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      useUpdateStore.getState().checkForUpdate();
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, []);
+
   if (isMobile) {
     return (
       <div className="flex h-svh flex-col">
@@ -46,6 +57,7 @@ function AppLayout() {
         </main>
         <BottomNav />
         <ConnectionRequestDialog />
+        <ForceUpdateDialog />
       </div>
     );
   }
@@ -65,6 +77,7 @@ function AppLayout() {
         <Outlet />
       </SidebarInset>
       <ConnectionRequestDialog />
+      <ForceUpdateDialog />
     </SidebarProvider>
   );
 }
