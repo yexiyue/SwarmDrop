@@ -74,7 +74,8 @@ pub fn spawn_event_loop(
                 | NodeEvent::PeerConnected { .. }
                 | NodeEvent::PeerDisconnected { .. }
                 | NodeEvent::IdentifyReceived { .. }
-                | NodeEvent::PingSuccess { .. } => {
+                | NodeEvent::PingSuccess { .. }
+                | NodeEvent::HolePunchSucceeded { .. } => {
                     let devices = shared.devices.get_devices(DeviceFilter::All);
                     let _ = app.emit("devices-changed", &devices);
                     let net_status = shared.build_network_status();
@@ -110,10 +111,7 @@ pub fn spawn_event_loop(
                     }
                 }
 
-                // === 信息事件（仅日志） ===
-                NodeEvent::HolePunchSucceeded { peer_id } => {
-                    info!("Hole punch succeeded with {}", peer_id);
-                }
+                // === 信息事件（仅日志，打洞失败仍走 Relay，无需通知用户） ===
                 NodeEvent::HolePunchFailed { peer_id, error } => {
                     warn!("Hole punch failed with {}: {}", peer_id, error);
                 }
