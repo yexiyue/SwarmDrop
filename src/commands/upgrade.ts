@@ -4,7 +4,6 @@
  */
 
 import { check, type Update } from "@tauri-apps/plugin-updater";
-import { platform, arch } from "@tauri-apps/plugin-os";
 
 // 升级策略类型
 export type UpgradeType = "force" | "prompt" | "silent" | null;
@@ -38,6 +37,23 @@ const UPGRADELINK_KEYS = {
 };
 
 /**
+ * 解析 UpgradeLink 返回的 upgradeType
+ * 0: 不升级, 1: 提示升级, 2: 强制升级, 3: 静默升级
+ */
+function parseUpgradeType(upgradeType: unknown): UpgradeType {
+  switch (upgradeType) {
+    case 2:
+      return "force";
+    case 3:
+      return "silent";
+    case 1:
+      return "prompt";
+    default:
+      return "prompt"; // 默认提示升级
+  }
+}
+
+/**
  * 检查更新（使用 Tauri 官方 updater + UpgradeLink 端点）
  * 
  * tauri.conf.json 中配置 UpgradeLink 端点：
@@ -65,10 +81,8 @@ export async function checkForUpdate(): Promise<UpgradeCheckResult> {
       };
     }
 
-    // 从 update 的 raw body 中解析 upgradeType
-    // 注意：Tauri 的 Update 类型可能不包含 upgradeType，需要通过其他方式获取
-    // 方案：调用 UpgradeLink SDK 获取策略（轻量级查询）
-    const upgradeType = await fetchUpgradeType(update.version);
+    // 直接从 rawJson 中解析 upgradeType（UpgradeLink 返回的原始数据）
+    const upgradeType = parseUpgradeType(update.rawJson?.upgradeType);
 
     return {
       hasUpdate: true,
@@ -84,47 +98,6 @@ export async function checkForUpdate(): Promise<UpgradeCheckResult> {
       version: null,
       upgradeType: null,
     };
-  }
-}
-
-/**
- * 获取升级策略类型
- * 调用 UpgradeLink SDK 查询策略（轻量级）
- */
-async function fetchUpgradeType(version: string): Promise<UpgradeType> {
-  try {
-    const currentPlatform = await platform();
-    const currentArch = await arch();
-
-    // 构建 UpgradeLink 查询 URL
-    const url = new URL("https://api.upgrade.toolsetlink.com/v1/tauri/upgrade");
-    url.searchParams.set("tauriKey", UPGRADELINK_KEYS.tauriKey);
-    url.searchParams.set("versionName", version);
-    url.searchParams.set("target", currentPlatform);
-    url.searchParams.set("arch", currentArch);
-
-    const response = await fetch(url.toString());
-
-    if (!response.ok) {
-      return "prompt"; // 默认提示升级
-    }
-
-    const data = await response.json();
-    
-    // 解析 upgradeType
-    // 0: 不升级, 1: 提示升级, 2: 强制升级, 3: 静默升级
-    switch (data.upgradeType) {
-      case 2:
-        return "force";
-      case 3:
-        return "silent";
-      case 1:
-      default:
-        return "prompt";
-    }
-  } catch (error) {
-    console.warn("[upgrade] Failed to fetch upgrade type:", error);
-    return "prompt"; // 失败时默认提示升级
   }
 }
 
