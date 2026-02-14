@@ -5859,10 +5859,8 @@ dependencies = [
 name = "swarmdrop"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "chrono",
  "dashmap",
- "futures",
  "rand 0.10.0",
  "serde",
  "serde_json",
@@ -5881,7 +5879,6 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
- "walkdir",
 ]
 
 [[package]]

@@ -9,7 +9,7 @@ use thiserror::Error;
 ///
 /// 注意：使用 `#[from]` 的变体会存储原始错误类型，
 /// 但由于 `std::io::Error` 等不实现 `Serialize`，
-/// 我们使用 `#[serde(serialize_with)]` 或转为 String。
+/// 通过自定义 Serialize 实现统一转为 `{ kind, message }` 格式。
 #[derive(Debug, Error)]
 pub enum AppError {
     /// 文件系统错误
@@ -28,25 +28,13 @@ pub enum AppError {
     #[error("P2P error: {0}")]
     P2p(#[from] swarm_p2p_core::Error),
 
-    /// Anyhow 错误（用于简化错误处理）
-    #[error(transparent)]
-    Anyhow(#[from] anyhow::Error),
-
     /// P2P 网络错误
     #[error("Network error: {0}")]
     Network(String),
 
-    /// 加密相关错误
-    #[error("Crypto error: {0}")]
-    Crypto(String),
-
-    /// 配置错误
-    #[error("Config error: {0}")]
-    Config(String),
-
-    /// 文件传输错误
-    #[error("Transfer error: {0}")]
-    Transfer(String),
+    /// 身份/密钥对错误
+    #[error("Identity error: {0}")]
+    Identity(String),
 
     /// 节点未启动
     #[error("Node not started")]
@@ -59,18 +47,6 @@ pub enum AppError {
     /// 无效的配对码
     #[error("无效的配对码")]
     InvalidCode,
-
-    /// 对等节点错误
-    #[error("Peer error: {0}")]
-    Peer(String),
-
-    /// 身份/密钥对错误
-    #[error("Identity error: {0}")]
-    Identity(String),
-
-    /// 未知错误
-    #[error("{0}")]
-    Unknown(String),
 }
 
 /// 传递给前端的序列化错误格式
@@ -88,17 +64,11 @@ impl Serialize for AppError {
             AppError::Serialization(e) => ("Serialization", e.to_string()),
             AppError::Tauri(e) => ("Tauri", e.to_string()),
             AppError::P2p(e) => ("P2p", e.to_string()),
-            AppError::Anyhow(e) => ("Anyhow", e.to_string()),
             AppError::Network(msg) => ("Network", msg.clone()),
-            AppError::Crypto(msg) => ("Crypto", msg.clone()),
-            AppError::Config(msg) => ("Config", msg.clone()),
-            AppError::Transfer(msg) => ("Transfer", msg.clone()),
+            AppError::Identity(msg) => ("Identity", msg.clone()),
             AppError::NodeNotStarted => ("NodeNotStarted", self.to_string()),
             AppError::ExpiredCode => ("ExpiredCode", self.to_string()),
             AppError::InvalidCode => ("InvalidCode", self.to_string()),
-            AppError::Peer(msg) => ("Peer", msg.clone()),
-            AppError::Identity(msg) => ("Identity", msg.clone()),
-            AppError::Unknown(msg) => ("Unknown", msg.clone()),
         };
 
         state.serialize_field("kind", kind)?;

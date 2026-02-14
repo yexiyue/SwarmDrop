@@ -13,7 +13,7 @@ pub use identity::*;
 pub use pairing::*;
 
 use crate::device::{DeviceFilter, DeviceListResult, PairedDeviceInfo};
-use crate::network::{NatStatus, NetManager, NetManagerState, NetworkStatus, NodeStatus};
+use crate::network::{NetManager, NetManagerState, NetworkStatus};
 use crate::protocol::{AppRequest, AppResponse};
 use crate::AppError;
 use swarm_p2p_core::libp2p::{identity::Keypair, PeerId};
@@ -36,7 +36,8 @@ pub async fn start(
     let config = crate::network::config::create_node_config(agent_version);
 
     let (client, receiver) =
-        swarm_p2p_core::start::<AppRequest, AppResponse>((*keypair).clone(), config)?;
+        swarm_p2p_core::start::<AppRequest, AppResponse>((*keypair).clone(), config)
+            .map_err(|e| AppError::Network(e.to_string()))?;
 
     // 异步执行 DHT bootstrap（填充路由表）
     let bootstrap_client = client.clone();
@@ -89,23 +90,12 @@ pub async fn shutdown(app: AppHandle) -> crate::AppResult<()> {
 #[tauri::command]
 pub async fn list_devices(
     net: State<'_, NetManagerState>,
-    filter: Option<String>,
+    filter: Option<DeviceFilter>,
 ) -> crate::AppResult<DeviceListResult> {
     let guard = net.lock().await;
     let manager = guard.as_ref().ok_or_else(not_started)?;
 
-    let device_filter = match filter.as_deref() {
-        Some("all") => DeviceFilter::All,
-        Some("connected") | None => DeviceFilter::Connected,
-        Some("paired") => DeviceFilter::Paired,
-        Some(_) => {
-            return Err(crate::AppError::Network(
-                "filter 必须是 all, connected 或 paired".to_string(),
-            ))
-        }
-    };
-
-    let devices = manager.devices().get_devices(device_filter);
+    let devices = manager.devices().get_devices(filter.unwrap_or_default());
     let total = devices.len();
     Ok(DeviceListResult { devices, total })
 }
@@ -117,14 +107,6 @@ pub async fn get_network_status(
     let guard = net.lock().await;
     match guard.as_ref() {
         Some(manager) => Ok(manager.get_network_status()),
-        None => Ok(NetworkStatus {
-            status: NodeStatus::Stopped,
-            peer_id: None,
-            listen_addrs: vec![],
-            nat_status: NatStatus::Unknown,
-            public_addr: None,
-            connected_peers: 0,
-            discovered_peers: 0,
-        }),
+        None => Ok(NetworkStatus::default()),
     }
 }

@@ -16,6 +16,8 @@ pub(super) struct PeerInfo {
     pub agent_version: Option<String>,
     pub rtt_ms: Option<u64>,
     pub is_connected: bool,
+    /// DCUtR 打洞是否成功（比地址推断更准确）
+    pub hole_punched: bool,
     /// 发现时间戳，暂未使用但后续可用于超时清理
     #[expect(dead_code)]
     pub discovered_at: i64,
@@ -31,6 +33,7 @@ impl PeerInfo {
             agent_version: None,
             rtt_ms: None,
             is_connected: false,
+            hole_punched: false,
             discovered_at: chrono::Utc::now().timestamp_millis(),
             connected_at: None,
         }
@@ -38,8 +41,10 @@ impl PeerInfo {
 }
 
 /// 设备过滤器
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
 pub enum DeviceFilter {
+    #[default]
     All,
     Connected,
     Paired,
@@ -107,6 +112,7 @@ impl DeviceManager {
                 if let Some(mut entry) = self.peers.get_mut(peer_id) {
                     entry.is_connected = false;
                     entry.rtt_ms = None;
+                    entry.hole_punched = false;
                 }
             }
 
@@ -126,6 +132,12 @@ impl DeviceManager {
                 }
             }
 
+            NodeEvent::HolePunchSucceeded { peer_id } => {
+                if let Some(mut entry) = self.peers.get_mut(peer_id) {
+                    entry.hole_punched = true;
+                }
+            }
+
             // 其他事件忽略
             _ => {}
         }
@@ -134,43 +146,38 @@ impl DeviceManager {
     /// 统一查询设备列表
     pub fn get_devices(&self, filter: DeviceFilter) -> Vec<Device> {
         match filter {
-            DeviceFilter::All => self.get_discovered_devices(false),
-            DeviceFilter::Connected => self.get_discovered_devices(true),
-            DeviceFilter::Paired => self.get_paired_devices_as_device(),
+            DeviceFilter::All | DeviceFilter::Connected => {
+                let connected_only = matches!(filter, DeviceFilter::Connected);
+                self.peers
+                    .iter()
+                    .filter(|entry| !connected_only || entry.value().is_connected)
+                    .map(|entry| self.peer_to_device(entry.value()))
+                    .collect()
+            }
+            DeviceFilter::Paired => self
+                .paired_devices
+                .iter()
+                .map(|entry| {
+                    let info = entry.value();
+                    let peer_info = self.peers.get(&info.peer_id);
+                    let (status, connection, latency) = match peer_info.as_deref() {
+                        Some(p) if p.is_connected => {
+                            connection_info(&p.addrs, p.rtt_ms, p.hole_punched)
+                        }
+                        _ => (DeviceStatus::Offline, None, None),
+                    };
+
+                    Device {
+                        peer_id: info.peer_id,
+                        os_info: info.os_info.clone(),
+                        status,
+                        connection,
+                        latency,
+                        is_paired: true,
+                    }
+                })
+                .collect(),
         }
-    }
-
-    /// 返回已发现的 peer 列表，可选仅已连接
-    fn get_discovered_devices(&self, connected_only: bool) -> Vec<Device> {
-        self.peers
-            .iter()
-            .filter(|entry| !connected_only || entry.value().is_connected)
-            .map(|entry| self.peer_to_device(entry.value()))
-            .collect()
-    }
-
-    /// 返回已配对设备，合并运行时在线状态
-    fn get_paired_devices_as_device(&self) -> Vec<Device> {
-        self.paired_devices
-            .iter()
-            .map(|entry| {
-                let info = entry.value();
-                let peer_info = self.peers.get(&info.peer_id);
-                let (status, connection, latency) = match peer_info.as_deref() {
-                    Some(p) if p.is_connected => connection_info(&p.addrs, p.rtt_ms),
-                    _ => (DeviceStatus::Offline, None, None),
-                };
-
-                Device {
-                    peer_id: info.peer_id,
-                    os_info: info.os_info.clone(),
-                    status,
-                    connection,
-                    latency,
-                    is_paired: true,
-                }
-            })
-            .collect()
     }
 
     /// 将 PeerInfo 转换为 Device
@@ -182,7 +189,7 @@ impl DeviceManager {
             .unwrap_or_else(|| OsInfo::unknown_from_peer_id(&peer.peer_id));
 
         let (status, connection, latency) = if peer.is_connected {
-            connection_info(&peer.addrs, peer.rtt_ms)
+            connection_info(&peer.addrs, peer.rtt_ms, peer.hole_punched)
         } else {
             (DeviceStatus::Offline, None, None)
         };
@@ -209,9 +216,17 @@ impl DeviceManager {
 }
 
 /// 根据连接状态提取 (DeviceStatus, ConnectionType, latency)
+///
+/// `hole_punched` 为 true 时直接判定为 DCUtR，比地址推断更准确。
 fn connection_info(
     addrs: &[swarm_p2p_core::libp2p::Multiaddr],
     rtt_ms: Option<u64>,
+    hole_punched: bool,
 ) -> (DeviceStatus, Option<ConnectionType>, Option<u64>) {
-    (DeviceStatus::Online, infer_connection_type(addrs), rtt_ms)
+    let connection = if hole_punched {
+        Some(ConnectionType::Dcutr)
+    } else {
+        infer_connection_type(addrs)
+    };
+    (DeviceStatus::Online, connection, rtt_ms)
 }
