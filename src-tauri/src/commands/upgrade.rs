@@ -26,16 +26,20 @@ pub async fn install_android_update<R: Runtime>(
         window
             .with_webview(move |webview| {
                 // 获取 JNI Environment 和 Activity
-                let mut env = webview.jni_handle().map_err(|e| e.to_string())?;
-                let activity = webview.activity().map_err(|e| e.to_string())?;
+                let env = webview.jni_env();
+                let activity = webview.activity();
 
                 // 将 Rust string 转为 Java string
-                let url_jstring = env
-                    .new_string(&url)
-                    .map_err(|e| format!("Failed to create JString: {}", e))?;
+                let url_jstring = match env.new_string(&url) {
+                    Ok(s) => s,
+                    Err(e) => {
+                        eprintln!("[upgrade] Failed to create JString: {}", e);
+                        return Err(tauri::Error::Unknown(format!("Failed to create JString: {}", e)));
+                    }
+                };
 
                 // 调用 MainActivity.startApkUpdate(String url, boolean isForce)
-                env.call_method(
+                match env.call_method(
                     &activity,
                     "startApkUpdate",
                     "(Ljava/lang/String;Z)V",
@@ -43,12 +47,15 @@ pub async fn install_android_update<R: Runtime>(
                         (&url_jstring).into(),
                         jni::objects::JValue::Bool(if is_force { 1 } else { 0 }),
                     ],
-                )
-                .map_err(|e| format!("Failed to call startApkUpdate: {}", e))?;
-
-                Ok::<(), String>(())
+                ) {
+                    Ok(_) => Ok(()),
+                    Err(e) => {
+                        eprintln!("[upgrade] Failed to call startApkUpdate: {}", e);
+                        Err(tauri::Error::Unknown(format!("Failed to call startApkUpdate: {}", e)))
+                    }
+                }
             })
-            .map_err(|e| format!("Failed to access webview: {:?}", e))??;
+            .map_err(|e| e.to_string())?;
 
         Ok(())
     }
