@@ -6,6 +6,7 @@
 
 import { useMemo, useState } from "react";
 import { createLazyFileRoute } from "@tanstack/react-router";
+import { useShallow } from "zustand/react/shallow";
 import { DeviceCard } from "@/components/devices/device-card";
 import type { Device } from "@/commands/network";
 import { Trans } from "@lingui/react/macro";
@@ -27,11 +28,12 @@ function DevicesPage() {
   const breakpoint = useBreakpoint();
   const isMobile = breakpoint === "mobile";
 
-  // 共享数据 hooks
-  const devices = useNetworkStore((state) => state.devices);
-  const status = useNetworkStore((state) => state.status);
+  // 共享数据 hooks - 使用 useShallow 优化选择多个值的性能
+  const { devices, status } = useNetworkStore(
+    useShallow((state) => ({ devices: state.devices, status: state.status }))
+  );
   const storedPairedDevices = useSecretStore((state) => state.pairedDevices);
-  const directPairing = usePairingStore((s) => s.directPairing);
+  const directPairing = usePairingStore((state) => state.directPairing);
 
   // 节点控制弹窗状态
   const [startSheetOpen, setStartSheetOpen] = useState(false);

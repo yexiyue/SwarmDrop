@@ -6,7 +6,7 @@
  * - mobile (<768px): 隐藏侧边栏，显示底部导航栏
  */
 
-import { createFileRoute, Outlet, redirect, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, redirect } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 import { useEffect } from "react";
 import { AppSidebar } from "@/components/layout/sidebar";
@@ -83,18 +83,15 @@ function AppLayout() {
 }
 
 function MobileHeader() {
-  const navigate = useNavigate();
-
   return (
     <header className="flex items-center justify-between px-5 py-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
       <span className="text-2xl font-bold text-foreground">SwarmDrop</span>
-      <button
-        type="button"
-        onClick={() => navigate({ to: "/pairing" })}
+      <Link
+        to="/pairing"
         className="flex size-9 items-center justify-center rounded-full bg-blue-600 text-white transition-colors hover:bg-blue-700"
       >
         <Plus className="size-5" />
-      </button>
+      </Link>
     </header>
   );
 }

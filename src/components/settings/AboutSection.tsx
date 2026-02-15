@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { type } from "@tauri-apps/plugin-os";
 import { useUpdateStore, type UpdateStatus } from "@/stores/update-store";
+import { useShallow } from "zustand/react/shallow";
 import { Progress } from "@/components/ui/progress";
 
 /** 格式化字节数为人类可读 */
@@ -25,14 +26,27 @@ function formatBytes(bytes: number): string {
 }
 
 export function AboutSection() {
-  const status = useUpdateStore((s) => s.status);
-  const currentVersion = useUpdateStore((s) => s.currentVersion);
-  const latestVersion = useUpdateStore((s) => s.latestVersion);
-  const releaseNotes = useUpdateStore((s) => s.releaseNotes);
-  const progress = useUpdateStore((s) => s.progress);
-  const checkForUpdate = useUpdateStore((s) => s.checkForUpdate);
-  const downloadAndInstall = useUpdateStore((s) => s.downloadAndInstall);
-  const openDownloadPage = useUpdateStore((s) => s.openDownloadPage);
+  const {
+    status,
+    currentVersion,
+    latestVersion,
+    releaseNotes,
+    progress,
+    checkForUpdate,
+    downloadAndInstall,
+    openDownloadPage,
+  } = useUpdateStore(
+    useShallow((s) => ({
+      status: s.status,
+      currentVersion: s.currentVersion,
+      latestVersion: s.latestVersion,
+      releaseNotes: s.releaseNotes,
+      progress: s.progress,
+      checkForUpdate: s.checkForUpdate,
+      downloadAndInstall: s.downloadAndInstall,
+      openDownloadPage: s.openDownloadPage,
+    })),
+  );
 
   const isMobile = type() === "android" || type() === "ios";
 
