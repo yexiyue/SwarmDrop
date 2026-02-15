@@ -18,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useShallow } from "zustand/react/shallow";
 import { usePreferencesStore } from "@/stores/preferences-store";
 import { locales, type LocaleKey } from "@/lib/i18n";
 import { AboutSection } from "@/components/settings/AboutSection";
@@ -35,9 +36,13 @@ const themeOptions = [
 function SettingsPage() {
   const { t } = useLingui();
   const { theme, setTheme } = useTheme();
-  const locale = usePreferencesStore((s) => s.locale);
-  const deviceName = usePreferencesStore((s) => s.deviceName);
-  const setLocale = usePreferencesStore((s) => s.setLocale);
+  const { locale, deviceName, setLocale } = usePreferencesStore(
+    useShallow((state) => ({
+      locale: state.locale,
+      deviceName: state.deviceName,
+      setLocale: state.setLocale,
+    }))
+  );
 
   const [systemHostname, setSystemHostname] = useState("");
 
