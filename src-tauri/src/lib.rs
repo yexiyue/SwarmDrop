@@ -1,4 +1,4 @@
-pub mod commands;
+﻿pub mod commands;
 pub mod device;
 pub mod error;
 pub(crate) mod network;
@@ -6,34 +6,8 @@ pub(crate) mod pairing;
 pub mod protocol;
 pub use error::{AppError, AppResult};
 
-use tauri::{AppHandle, Manager, Runtime};
+use tauri::Manager;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
-
-/// Android 更新插件命令
-#[cfg(target_os = "android")]
-#[tauri::command]
-async fn install_android_update<R: Runtime>(
-    app: AppHandle<R>,
-    url: String,
-    is_force: bool,
-) -> Result<(), String> {
-    app.run_mobile_plugin::<serde_json::Value>(
-        "startApkUpdate",
-        serde_json::json!({ "url": url, "isForce": is_force }),
-    )
-    .await
-    .map_err(|e| e.to_string())
-}
-
-#[cfg(not(target_os = "android"))]
-#[tauri::command]
-async fn install_android_update<R: Runtime>(
-    _app: AppHandle<R>,
-    _url: String,
-    _is_force: bool,
-) -> Result<(), String> {
-    Err("This command is only available on Android".to_string())
-}
 
 fn init_tracing() {
     tracing_subscriber::registry()
@@ -43,6 +17,21 @@ fn init_tracing() {
                 .unwrap_or_else(|_| EnvFilter::new("swarmdrop=debug,swarm_p2p_core=debug")),
         )
         .init();
+}
+
+#[cfg(target_os = "android")]
+struct UpgradePluginHandle(tauri::plugin::PluginHandle<tauri::Wry>);
+
+#[cfg(target_os = "android")]
+impl UpgradePluginHandle {
+    fn new(handle: tauri::plugin::PluginHandle<tauri::Wry>) -> Self {
+        Self(handle)
+    }
+}
+
+#[tauri::command]
+pub async fn android_install_update(_url: String, _is_force: bool) -> Result<(), String> {
+    Err("Android update not available".to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -57,8 +46,14 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
+        .plugin(
+            tauri::plugin::Builder::<tauri::Wry, ()>::new("upgrade")
+                .setup(|_app_handle, _api| {
+                    Ok(())
+                })
+                .build(),
+        )
         .setup(|app| {
-            // updater 在 setup 中注册，移动端不支持时容错跳过
             if let Err(e) = app
                 .handle()
                 .plugin(tauri_plugin_updater::Builder::new().build())
@@ -68,17 +63,6 @@ pub fn run() {
             let salt_path = app.path().app_local_data_dir()?.join("salt.txt");
             app.handle()
                 .plugin(tauri_plugin_stronghold::Builder::with_argon2(&salt_path).build())?;
-            
-            // 注册 Android 更新插件
-            #[cfg(target_os = "android")]
-            {
-                app.handle().plugin(
-                    tauri::plugin::Builder::new("upgrade")
-                        .android_path("com.yexiyue.swarmdrop.UpgradePlugin")
-                        .build(),
-                )?;
-            }
-            
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -92,7 +76,7 @@ pub fn run() {
             commands::respond_pairing_request,
             commands::list_devices,
             commands::get_network_status,
-            install_android_update,
+            android_install_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
