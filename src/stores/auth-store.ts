@@ -16,7 +16,7 @@ import {
 } from "@choochmeque/tauri-plugin-biometry-api";
 
 /** Biometry 数据存储配置 */
-const BIOMETRY_DOMAIN = "com.gy.swarmdrop";
+const BIOMETRY_DOMAIN = "com.yexiyue.swarmdrop";
 const STRONGHOLD_PASSWORD_KEY = "stronghold_password";
 
 // 重新导出 BiometryType 供外部使用

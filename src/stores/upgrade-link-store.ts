@@ -111,20 +111,25 @@ export const useUpgradeLinkStore = create<UpgradeLinkState>()((set, get) => ({
 
     if (status !== "available" && status !== "force-required") return;
 
-    // Android: 触发 AppUpdater
+    // Android: 调用插件，AppUpdater 后台下载
     if (currentPlatform === "android") {
       if (!downloadUrl) {
         set({ status: "error", error: "No download URL" });
         return;
       }
 
-      set({ status: "downloading" });
-
       try {
-        await invoke("install_android_update", {
+        // 调用 Android 更新插件
+        await invoke("plugin:updater|install_update", {
           url: downloadUrl,
           isForce: upgradeType === "force",
         });
+
+        // 不设置 downloading 状态，避免显示进度条
+        // AppUpdater 在系统通知栏显示进度，用户可继续使用应用
+        // 可选：这里可以关闭弹窗或显示 Toast "后台下载中，请查看通知栏"
+        // 下载状态通过事件监听器更新（apk-download-done/error/cancel）
+
       } catch (err) {
         console.error("[upgrade] Android update failed:", err);
         set({
@@ -135,7 +140,7 @@ export const useUpgradeLinkStore = create<UpgradeLinkState>()((set, get) => ({
       return;
     }
 
-    // 桌面端: Tauri updater
+    // 桌面端: Tauri updater（保持原有逻辑）
     if (!_pendingDesktopUpdate) {
       set({ status: "error", error: "No update available" });
       return;

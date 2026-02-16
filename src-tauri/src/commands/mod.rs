@@ -6,7 +6,6 @@
 
 mod identity;
 mod pairing;
-mod upgrade;
 
 // glob re-export：Tauri 的 #[tauri::command] 宏会生成 __cmd__* 隐藏符号，
 // generate_handler! 需要通过模块路径访问这些符号，显式导出无法覆盖。

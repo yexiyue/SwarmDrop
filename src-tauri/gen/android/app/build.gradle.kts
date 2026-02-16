@@ -82,6 +82,8 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     // AppUpdate - Android 应用内更新
     implementation("io.github.azhon:appupdate:4.3.6")
+    // Kotlin 协程 - 用于 UpdaterPlugin 异步处理
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.1.4")
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.0")
