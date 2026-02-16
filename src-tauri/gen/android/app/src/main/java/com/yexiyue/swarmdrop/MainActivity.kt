@@ -1,4 +1,4 @@
-package com.gy.swarmdrop
+package com.yexiyue.swarmdrop
 
 import android.os.Bundle
 import android.content.Intent
@@ -28,14 +28,14 @@ class MainActivity : TauriActivity() {
                     window.__TAURI__.event.emit('$eventName', $payload);
                 }
             """.trimIndent()
-            
+
             // 使用 WryActivity 的 webView 发送事件
             val webView = findViewById<android.webkit.WebView>(android.R.id.content)
                 ?.rootView
                 ?.findViewById<android.webkit.WebView>(
                     resources.getIdentifier("web_view", "id", packageName)
                 )
-            
+
             webView?.evaluateJavascript(script, null)
         }
     }
@@ -71,7 +71,7 @@ class MainActivity : TauriActivity() {
                 setApkName("swarmdrop-update.apk")
                 setSmallIcon(R.mipmap.ic_launcher)
                 setDownloadPath(externalCacheDir?.absolutePath + "/Download")
-                
+
                 // 简化的下载监听 - 只处理关键事件
                 setOnDownloadListener(object : OnDownloadListener {
                     override fun start() {
@@ -95,14 +95,14 @@ class MainActivity : TauriActivity() {
                     override fun error(e: Throwable) {
                         val errorMsg = e.message?.replace("\"", "\\\"") ?: "Unknown error"
                         emitTauriEvent("apk-download-error", """{"error":"$errorMsg"}""")
-                        
+
                         // 如果是权限问题，引导用户开启
                         if (!canInstallApk()) {
                             openInstallPermissionSetting()
                         }
                     }
                 })
-                
+
                 // 开始下载，通知栏会自动显示进度
                 download()
             }

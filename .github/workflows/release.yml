@@ -245,13 +245,13 @@ jobs:
 
   # === UpgradeLink Sync Jobs ===
   # 参考: http://upgrade.toolsetlink.com/upgrade/example/tauri/tauri-action-example.html
-  # 
+  #
   # 需要配置的 GitHub Secrets:
-  # - UPGRADE_LINK_ACCESS_KEY (bnJ5md-5YtXhz-i710U8oA)
-  # - UPGRADE_LINK_ACCESS_SECRET (与 ACCESS_KEY 相同，用于开源项目)
-  # - UPGRADE_LINK_TAURI_KEY (LeRhLvlkcdd1FX0etgOJaw)
-  # - UPGRADE_LINK_APK_KEY (y1uazDtYlT_UrgDk6UeQmA)
-  
+  # - UPGRADE_LINK_ACCESS_KEY
+  # - UPGRADE_LINK_ACCESS_SECRET
+  # - UPGRADE_LINK_TAURI_KEY
+  # - UPGRADE_LINK_APK_KEY
+
   upgradeLink-upload:
     name: Sync to UpgradeLink
     needs: [build-tauri, build-android, update-latest-json]
@@ -300,8 +300,8 @@ jobs:
               "app_type": "apk",
               "request": {
                 "app_key": "${{ secrets.UPGRADE_LINK_APK_KEY }}",
-                "version_code": "${{ steps.release.outputs.version }}",
-                "version_name": "${{ steps.release.outputs.version }}",
-                "url_path": "https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.tag }}/swarmdrop_${{ steps.release.outputs.version }}_aarch64.apk"
+                "version": "${{ steps.release.outputs.version }}",
+                "url": "https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.tag }}/swarmdrop_${{ steps.release.outputs.version }}_aarch64.apk",
+                "prompt_upgrade_content": "SwarmDrop ${{ steps.release.outputs.version }} 已发布"
               }
             }
