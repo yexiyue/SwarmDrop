@@ -119,8 +119,8 @@ export const useUpgradeLinkStore = create<UpgradeLinkState>()((set, get) => ({
       }
 
       try {
-        // 调用 Android 更新插件
-        await invoke("plugin:updater|install_update", {
+        // 调用 Android 更新命令
+        await invoke("install_update", {
           url: downloadUrl,
           isForce: upgradeType === "force",
         });
