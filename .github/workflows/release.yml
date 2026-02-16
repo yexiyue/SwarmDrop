@@ -243,6 +243,32 @@ jobs:
             latest.json \
             --clobber
 
+  # 发布 Release（将草稿转为正式发布）
+  # 必须在所有构建和 latest.json 更新完成后执行，
+  # 这样 UpgradeLink 才能通过公开 URL 访问 release 资产
+  publish-release:
+    needs: [build-tauri, build-android, update-latest-json]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get release tag
+        id: tag
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else
+            VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
+            echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "${{ steps.tag.outputs.tag }}" --draft=false
+
   # === UpgradeLink Sync Jobs ===
   # 参考: http://upgrade.toolsetlink.com/upgrade/example/tauri/tauri-action-example.html
   #
@@ -254,7 +280,7 @@ jobs:
 
   upgradeLink-upload:
     name: Sync to UpgradeLink
-    needs: [build-tauri, build-android, update-latest-json]
+    needs: [publish-release]
     permissions:
       contents: write
     runs-on: ubuntu-latest
