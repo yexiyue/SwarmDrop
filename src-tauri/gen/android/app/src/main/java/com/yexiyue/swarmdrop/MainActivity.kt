@@ -5,9 +5,8 @@ import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
 import androidx.activity.enableEdgeToEdge
+import com.azhon.appupdate.listener.OnDownloadListenerAdapter
 import com.azhon.appupdate.manager.DownloadManager
-import com.azhon.appupdate.config.UpdateConfiguration
-import com.azhon.appupdate.listener.OnDownloadListener
 import java.io.File
 
 class MainActivity : TauriActivity() {
@@ -22,14 +21,12 @@ class MainActivity : TauriActivity() {
      */
     private fun emitTauriEvent(eventName: String, payload: String) {
         runOnUiThread {
-            // 通过 WebView 执行 JavaScript 发送 Tauri 事件
             val script = """
                 if (window.__TAURI__?.event) {
                     window.__TAURI__.event.emit('$eventName', $payload);
                 }
             """.trimIndent()
 
-            // 使用 WryActivity 的 webView 发送事件
             val webView = findViewById<android.webkit.WebView>(android.R.id.content)
                 ?.rootView
                 ?.findViewById<android.webkit.WebView>(
@@ -52,39 +49,19 @@ class MainActivity : TauriActivity() {
                 return@runOnUiThread
             }
 
-            val configuration = UpdateConfiguration().apply {
-                // 是否强制更新
-                isForcedUpgrade = isForce
-                // 下载完成后自动安装
-                isInstallApk = true
-                // 显示通知栏进度（默认 true，显式设置）
-                isShowNotification = true
-                // 显示下载界面（false = 只显示通知栏）
-                isShowDownloadUi = false
-                // 下载完成后显示通知
-                notifyDownloadComplete = true
-            }
-
-            DownloadManager.getInstance(this).apply {
-                setApkUrl(url)
-                setConfiguration(configuration)
-                setApkName("swarmdrop-update.apk")
-                setSmallIcon(R.mipmap.ic_launcher)
-                setDownloadPath(externalCacheDir?.absolutePath + "/Download")
-
-                // 简化的下载监听 - 只处理关键事件
-                setOnDownloadListener(object : OnDownloadListener {
-                    override fun start() {
-                        // 通知栏会自动显示进度，无需额外处理
-                    }
-
+            val manager = DownloadManager.Builder(this).run {
+                apkUrl(url)
+                apkName("swarmdrop-update.apk")
+                smallIcon(R.mipmap.ic_launcher)
+                showNotification(true)
+                forcedUpgrade(isForce)
+                onDownloadListener(object : OnDownloadListenerAdapter() {
                     override fun downloading(max: Int, progress: Int) {
                         // 通知栏自动更新进度，无需额外处理
                     }
 
                     override fun done(apk: File) {
                         // 下载完成，AppUpdater 自动触发安装
-                        // 可以发送事件通知前端更新状态
                         emitTauriEvent("apk-download-done", "{}")
                     }
 
@@ -96,16 +73,14 @@ class MainActivity : TauriActivity() {
                         val errorMsg = e.message?.replace("\"", "\\\"") ?: "Unknown error"
                         emitTauriEvent("apk-download-error", """{"error":"$errorMsg"}""")
 
-                        // 如果是权限问题，引导用户开启
                         if (!canInstallApk()) {
                             openInstallPermissionSetting()
                         }
                     }
                 })
-
-                // 开始下载，通知栏会自动显示进度
-                download()
+                build()
             }
+            manager?.download()
         }
     }
 
@@ -149,7 +124,6 @@ class MainActivity : TauriActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == REQUEST_CODE_INSTALL_PERMISSION) {
-            // 用户从权限设置页面返回，发送事件通知前端
             if (canInstallApk()) {
                 emitTauriEvent("apk-install-permission-granted", "{}")
             } else {
