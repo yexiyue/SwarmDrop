@@ -3,6 +3,7 @@ pub mod device;
 pub mod error;
 pub(crate) mod network;
 pub(crate) mod pairing;
+pub(crate) mod transfer;
 pub mod protocol;
 pub use error::{AppError, AppResult};
 
