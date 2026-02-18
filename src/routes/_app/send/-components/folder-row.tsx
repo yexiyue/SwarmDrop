@@ -42,7 +42,7 @@ export function FolderRow({
   return (
     <div
       className={cn(
-        "flex items-center gap-2 rounded-lg px-2 py-1.5 cursor-pointer",
+        "flex items-center gap-2 rounded-md px-2 py-1.5 cursor-pointer",
         isExpanded ? "bg-accent" : "hover:bg-muted/50",
       )}
       style={{ paddingLeft: `${level * 22 + 8}px` }}
@@ -59,7 +59,7 @@ export function FolderRow({
       {/* leftGroup */}
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <ChevronIcon className="size-4 shrink-0 text-muted-foreground" />
-        <FolderIcon className="size-4 shrink-0 text-blue-500" />
+        <FolderIcon className="size-4 shrink-0 text-amber-500" />
         <span className="min-w-0 truncate text-sm font-medium text-foreground">
           {name}
         </span>
@@ -81,7 +81,7 @@ export function FolderRow({
               <button
                 type="button"
                 onClick={onRemove}
-                className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="cursor-pointer rounded-sm p-0.5 text-muted-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive"
               >
                 <X className="size-3.5" />
               </button>

@@ -4,7 +4,7 @@
  * 支持两种模式：select（文件选择）和 transfer（传输进度）
  */
 
-import { useRef, useMemo } from "react";
+import { useRef, useMemo, useEffect } from "react";
 import { useTree } from "@headless-tree/react";
 import { syncDataLoaderFeature } from "@headless-tree/core";
 import { useVirtualizer } from "@tanstack/react-virtual";
@@ -39,7 +39,9 @@ interface FileTreeProps {
 }
 
 /** 行高（px） */
-const ROW_HEIGHT = 32;
+const ROW_HEIGHT = 34;
+/** 缩进步长（px） */
+const INDENT_SIZE = 22;
 
 export function FileTree({
   mode,
@@ -75,6 +77,11 @@ export function FileTree({
     features: [syncDataLoaderFeature],
   });
 
+  // 数据源变更时通知 headless-tree 重新读取
+  useEffect(() => {
+    tree.rebuildTree();
+  }, [tree, wrappedDataLoader]);
+
   const items = tree.getItems();
 
   const virtualizer = useVirtualizer({
@@ -87,7 +94,7 @@ export function FileTree({
   if (rootChildren.length === 0) return null;
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-2 md:min-h-0 md:flex-1">
       {/* 头部 */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-medium text-foreground">
@@ -113,7 +120,7 @@ export function FileTree({
       {/* 树列表（虚拟滚动） */}
       <div
         ref={scrollRef}
-        className="max-h-64 overflow-auto rounded-lg"
+        className="max-h-64 overflow-auto rounded-md border bg-card p-1 md:max-h-none md:min-h-0 md:flex-1"
       >
         <div
           className="relative w-full"
@@ -125,6 +132,18 @@ export function FileTree({
             const meta = item.getItemMeta();
             const level = meta.level;
 
+            // 缩进引导线（level > 0 时显示，level 0 是可见根级）
+            const guides =
+              level > 0
+                ? Array.from({ length: level }, (_, i) => (
+                    <div
+                      key={`g${i}`}
+                      className="absolute top-0 h-full w-px bg-border/40"
+                      style={{ left: `${i * INDENT_SIZE + 16}px` }}
+                    />
+                  ))
+                : null;
+
             if (data.type === "directory") {
               return (
                 <div
@@ -135,6 +154,7 @@ export function FileTree({
                     transform: `translateY(${virtualItem.start}px)`,
                   }}
                 >
+                  {guides}
                   <FolderRow
                     name={data.name}
                     isExpanded={item.isExpanded()}
@@ -177,6 +197,7 @@ export function FileTree({
                   transform: `translateY(${virtualItem.start}px)`,
                 }}
               >
+                {guides}
                 <FileTreeItem
                   name={data.name}
                   size={data.size}

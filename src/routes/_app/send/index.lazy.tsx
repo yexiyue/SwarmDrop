@@ -268,7 +268,7 @@ function DesktopSendView({
       </header>
 
       {/* Content */}
-      <div className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-5 overflow-hidden p-5 lg:p-6">
+      <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-5 overflow-hidden p-5 lg:p-6">
         {/* 可滚动区域：拖放区 + 文件树 */}
         <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-auto">
           <FileDropZone onFilesSelected={onFilesSelected} disabled={sending} />

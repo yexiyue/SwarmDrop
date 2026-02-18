@@ -49,10 +49,8 @@ export function useFileSelection(): FileSelection {
     let totalSize = 0;
     let totalCount = 0;
     for (const [, meta] of entries) {
-      if (!meta.isDirectory) {
-        totalSize += meta.size;
-        totalCount++;
-      }
+      totalSize += meta.size;
+      totalCount++;
     }
     return { totalSize, totalCount };
   }, [entries]);
@@ -63,33 +61,28 @@ export function useFileSelection(): FileSelection {
       const newEntryPoints: EntryPoint[] = [];
 
       for (const path of paths) {
-        // 判断是文件还是文件夹（通过 listFiles 命令）
         try {
-          const fileList = await listFiles(path);
+          const result = await listFiles(path);
 
-          if (fileList.length === 1 && !fileList[0].isDirectory) {
+          if (result.isDirectory) {
+            // 目录
+            newEntryPoints.push({ path, type: "folder" });
+            for (const file of result.entries) {
+              newEntries.set(file.path, {
+                absolutePath: file.path,
+                name: file.name,
+                size: file.size,
+              });
+            }
+          } else {
             // 单个文件
-            const file = fileList[0];
+            const file = result.entries[0];
             newEntryPoints.push({ path, type: "file" });
             newEntries.set(file.path, {
               absolutePath: file.path,
               name: file.name,
               size: file.size,
-              isDirectory: false,
             });
-          } else {
-            // 文件夹：记录为 folder EntryPoint
-            newEntryPoints.push({ path, type: "folder" });
-            for (const file of fileList) {
-              if (!file.isDirectory) {
-                newEntries.set(file.path, {
-                  absolutePath: file.path,
-                  name: file.name,
-                  size: file.size,
-                  isDirectory: false,
-                });
-              }
-            }
           }
         } catch {
           // 回退：尝试用 getFileMeta 获取单个文件信息
@@ -101,7 +94,6 @@ export function useFileSelection(): FileSelection {
                 absolutePath: meta.path,
                 name: meta.name,
                 size: meta.size,
-                isDirectory: false,
               });
             }
           } catch {
@@ -161,9 +153,7 @@ export function useFileSelection(): FileSelection {
   const getFilePaths = useCallback((): string[] => {
     const paths: string[] = [];
     for (const [, meta] of entries) {
-      if (!meta.isDirectory) {
-        paths.push(meta.absolutePath);
-      }
+      paths.push(meta.absolutePath);
     }
     return paths;
   }, [entries]);
