@@ -8,7 +8,7 @@ use super::{NatStatus, NetworkStatus, NodeStatus};
 use crate::device::{DeviceManager, PairedDeviceInfo};
 use crate::pairing::manager::PairingManager;
 use crate::protocol::AppNetClient;
-use crate::transfer::offer::OfferManager;
+use crate::transfer::offer::TransferManager;
 
 /// 网络管理器
 ///
@@ -19,7 +19,7 @@ pub struct NetManager {
     peer_id: PeerId,
     pairing: Arc<PairingManager>,
     devices: Arc<DeviceManager>,
-    offer: Arc<OfferManager>,
+    transfer: Arc<TransferManager>,
     // 网络状态（Arc<RwLock> 供事件循环并发更新）
     listen_addrs: Arc<RwLock<Vec<Multiaddr>>>,
     nat_status: Arc<RwLock<NatStatus>>,
@@ -46,13 +46,13 @@ impl NetManager {
             paired_map.clone(),
         ));
         let devices = Arc::new(DeviceManager::new(paired_map));
-        let offer = Arc::new(OfferManager::new(client.clone()));
+        let transfer = Arc::new(TransferManager::new(client.clone()));
         Self {
             client,
             peer_id,
             pairing,
             devices,
-            offer,
+            transfer,
             listen_addrs: Arc::new(RwLock::new(Vec::new())),
             nat_status: Arc::new(RwLock::new(NatStatus::Unknown)),
             public_addr: Arc::new(RwLock::new(None)),
@@ -67,12 +67,12 @@ impl NetManager {
         &self.devices
     }
 
-    pub fn offer(&self) -> &OfferManager {
-        &self.offer
+    pub fn transfer(&self) -> &TransferManager {
+        &self.transfer
     }
 
-    pub fn offer_arc(&self) -> Arc<OfferManager> {
-        self.offer.clone()
+    pub fn transfer_arc(&self) -> Arc<TransferManager> {
+        self.transfer.clone()
     }
 
     pub fn client(&self) -> &AppNetClient {
@@ -91,7 +91,7 @@ impl NetManager {
             client: self.client.clone(),
             devices: self.devices.clone(),
             pairing: self.pairing.clone(),
-            offer: self.offer.clone(),
+            transfer: self.transfer.clone(),
             listen_addrs: self.listen_addrs.clone(),
             nat_status: self.nat_status.clone(),
             public_addr: self.public_addr.clone(),
@@ -108,7 +108,7 @@ pub(crate) struct SharedNetRefs {
     pub client: AppNetClient,
     pub devices: Arc<DeviceManager>,
     pub pairing: Arc<PairingManager>,
-    pub offer: Arc<OfferManager>,
+    pub transfer: Arc<TransferManager>,
     pub listen_addrs: Arc<RwLock<Vec<Multiaddr>>>,
     pub nat_status: Arc<RwLock<NatStatus>>,
     pub public_addr: Arc<RwLock<Option<Multiaddr>>>,

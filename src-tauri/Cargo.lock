@@ -5750,6 +5750,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde_bytes"
+version = "0.11.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a5d440709e79d88e51ac01c4b72fc6cb7314017bb7da9eeff678aa94c10e3ea8"
+dependencies = [
+ "serde",
+ "serde_core",
+]
+
+[[package]]
 name = "serde_core"
 version = "1.0.228"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6194,7 +6204,7 @@ dependencies = [
 
 [[package]]
 name = "swarmdrop"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "blake3",
  "chacha20poly1305",
@@ -6204,6 +6214,7 @@ dependencies = [
  "pathdiff",
  "rand 0.10.0",
  "serde",
+ "serde_bytes",
  "serde_json",
  "sha2",
  "swarm-p2p-core",
@@ -6222,6 +6233,7 @@ dependencies = [
  "tauri-plugin-updater",
  "thiserror 2.0.18",
  "tokio",
+ "tokio-util",
  "tracing",
  "tracing-subscriber",
  "uuid",

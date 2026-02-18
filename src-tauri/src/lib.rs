@@ -68,6 +68,8 @@ pub fn run() {
             commands::start_send,
             commands::accept_receive,
             commands::reject_receive,
+            commands::cancel_send,
+            commands::cancel_receive,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

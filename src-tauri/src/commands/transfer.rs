@@ -46,13 +46,13 @@ pub async fn prepare_send(
     net: State<'_, NetManagerState>,
     file_paths: Vec<String>,
 ) -> crate::AppResult<PreparedTransferResult> {
-    let offer = {
+    let transfer = {
         let guard = net.lock().await;
         let manager = guard.as_ref().ok_or_else(super::not_started)?;
-        manager.offer_arc()
+        manager.transfer_arc()
     };
 
-    let prepared = offer.prepare(file_paths).await?;
+    let prepared = transfer.prepare(file_paths).await?;
 
     Ok(PreparedTransferResult {
         prepared_id: prepared.prepared_id,
@@ -79,33 +79,34 @@ pub async fn start_send(
     peer_id: String,
     selected_file_ids: Vec<u32>,
 ) -> crate::AppResult<StartSendResult> {
-    let offer = {
+    let transfer = {
         let guard = net.lock().await;
         let manager = guard.as_ref().ok_or_else(super::not_started)?;
-        manager.offer_arc()
+        manager.transfer_arc()
     };
 
-    offer
+    transfer
         .send_offer(&prepared_id, &peer_id, &selected_file_ids)
         .await
 }
 
-/// 确认接收：生成密钥，回复 OfferResult
+/// 确认接收：生成密钥，回复 OfferResult，启动后台拉取
 #[tauri::command]
 pub async fn accept_receive(
+    app: tauri::AppHandle,
     net: State<'_, NetManagerState>,
     session_id: String,
     save_path: String,
 ) -> crate::AppResult<()> {
-    let _ = save_path; // 后续分块传输阶段使用
-
-    let offer = {
+    let transfer = {
         let guard = net.lock().await;
         let manager = guard.as_ref().ok_or_else(super::not_started)?;
-        manager.offer_arc()
+        manager.transfer_arc()
     };
 
-    offer.accept_and_respond(&session_id).await
+    transfer
+        .accept_and_start_receive(&session_id, save_path, app)
+        .await
 }
 
 /// 拒绝接收：回复拒绝的 OfferResult
@@ -114,11 +115,41 @@ pub async fn reject_receive(
     net: State<'_, NetManagerState>,
     session_id: String,
 ) -> crate::AppResult<()> {
-    let offer = {
+    let transfer = {
         let guard = net.lock().await;
         let manager = guard.as_ref().ok_or_else(super::not_started)?;
-        manager.offer_arc()
+        manager.transfer_arc()
     };
 
-    offer.reject_and_respond(&session_id).await
+    transfer.reject_and_respond(&session_id).await
+}
+
+/// 取消发送
+#[tauri::command]
+pub async fn cancel_send(
+    net: State<'_, NetManagerState>,
+    session_id: String,
+) -> crate::AppResult<()> {
+    let transfer = {
+        let guard = net.lock().await;
+        let manager = guard.as_ref().ok_or_else(super::not_started)?;
+        manager.transfer_arc()
+    };
+
+    transfer.cancel_send(&session_id).await
+}
+
+/// 取消接收
+#[tauri::command]
+pub async fn cancel_receive(
+    net: State<'_, NetManagerState>,
+    session_id: String,
+) -> crate::AppResult<()> {
+    let transfer = {
+        let guard = net.lock().await;
+        let manager = guard.as_ref().ok_or_else(super::not_started)?;
+        manager.transfer_arc()
+    };
+
+    transfer.cancel_receive(&session_id).await
 }
