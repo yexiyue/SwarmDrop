@@ -36,7 +36,6 @@ export interface FileMeta {
   absolutePath: string;
   name: string;
   size: number;
-  isDirectory: boolean;
 }
 
 /** 入口点（用户选择的路径） */
@@ -76,7 +75,6 @@ export function buildTreeData(
   const fileEntries: { meta: FileMeta; relativePath: string }[] = [];
 
   for (const [, meta] of entries) {
-    if (meta.isDirectory) continue;
     const relativePath = computeRelativePath(meta.absolutePath, entryPoints);
     fileEntries.push({ meta, relativePath });
   }
@@ -107,12 +105,19 @@ export function buildTreeData(
       const dirId = `${currentPath}/`;
 
       if (!nodeMap.has(dirId)) {
+        // 从当前文件的绝对路径推算目录的绝对路径
+        const normalizedAbsPath = meta.absolutePath.replace(/\\/g, "/");
+        const dirAbsolutePath = normalizedAbsPath.endsWith(relativePath)
+          ? normalizedAbsPath.slice(0, -relativePath.length) + currentPath
+          : undefined;
+
         nodeMap.set(dirId, {
           id: dirId,
           name: parts[i],
           type: "directory",
           path: dirId,
           size: 0,
+          absolutePath: dirAbsolutePath,
         });
 
         // 将目录添加到父级的 children

@@ -135,7 +135,7 @@ export function FileTreeItem({
   if (variant === "transferring") {
     return (
       <div
-        className={cn("flex flex-col gap-1 rounded-lg px-2 py-1.5", styles.row)}
+        className={cn("flex flex-col gap-1 rounded-md px-2 py-1.5", styles.row)}
         style={{ paddingLeft: `${level * 22 + 8}px` }}
       >
         {/* 顶部行：leftGroup + rightGroup */}
@@ -159,7 +159,7 @@ export function FileTreeItem({
   return (
     <div
       className={cn(
-        "flex items-center gap-2 rounded-lg px-2 py-1.5",
+        "flex items-center gap-2 rounded-md px-2 py-1.5",
         styles.row,
       )}
       style={{ paddingLeft: `${level * 22 + 8}px` }}
@@ -181,7 +181,7 @@ export function FileTreeItem({
           <button
             type="button"
             onClick={onRemove}
-            className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="cursor-pointer rounded-sm p-0.5 text-muted-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive"
           >
             <X className="size-3.5" />
           </button>
