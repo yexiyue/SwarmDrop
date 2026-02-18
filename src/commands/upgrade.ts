@@ -5,7 +5,7 @@
 
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { fetch } from "@tauri-apps/plugin-http";
-import md5 from "js-md5";
+import { md5 } from "js-md5";
 import dayjs from "dayjs";
 
 // 升级策略类型
