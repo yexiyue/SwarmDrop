@@ -12,11 +12,6 @@ export const locales = {
   zh: "简体中文",
   "zh-TW": "繁體中文",
   en: "English",
-  ja: "日本語",
-  ko: "한국어",
-  es: "Español",
-  fr: "Français",
-  de: "Deutsch",
 };
 
 export type LocaleKey = keyof typeof locales;

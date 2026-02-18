@@ -25,16 +25,10 @@ export interface UpgradeCheckResult {
   upgradeType: UpgradeType;
 }
 
-// UpgradeLink 应用密钥配置
-// 注意：生产环境应该从环境变量读取
-const UPGRADELINK_KEYS = {
-  // Tauri 应用 Key
-  tauriKey: "LeRhLvlkcdd1FX0etgOJaw",
-  // Android 应用 Key
-  apkKey: "y1uazDtYlT_UrgDk6UeQmA",
-  // Access Key (用于 API 调用)
-  accessKey: "bnJ5md-5YtXhz-i710U8oA",
-};
+// UpgradeLink 应用密钥（从环境变量读取）
+const UPGRADELINK_ACCESS_KEY = import.meta.env.VITE_UPGRADE_LINK_ACCESS_KEY ?? "";
+const UPGRADELINK_ACCESS_SECRET = import.meta.env.VITE_UPGRADE_LINK_ACCESS_SECRET ?? "";
+const UPGRADELINK_APK_KEY = import.meta.env.VITE_UPGRADE_LINK_APK_KEY ?? "";
 
 /**
  * 解析 UpgradeLink 返回的 upgradeType
@@ -68,7 +62,7 @@ export async function checkForUpdate(): Promise<UpgradeCheckResult> {
       timeout: 10000,
       // 添加 UpgradeLink 认证头
       headers: {
-        'X-AccessKey': UPGRADELINK_KEYS.accessKey,
+        'X-AccessKey': UPGRADELINK_ACCESS_KEY,
       },
     });
 
@@ -150,13 +144,13 @@ export async function checkAndroidUpdate(
     );
 
     const config = new Config({
-      accessKey: import.meta.env.VITE_UPGRADE_LINK_ACCESS_KEY || "",
-      accessSecret: import.meta.env.VITE_UPGRADE_LINK_ACCESS_SECRET || "",
+      accessKey: UPGRADELINK_ACCESS_KEY,
+      accessSecret: UPGRADELINK_ACCESS_SECRET,
     });
     const client = new Client(config);
 
     const request = new ApkUpgradeRequest({
-      apkKey: UPGRADELINK_KEYS.apkKey,
+      apkKey: UPGRADELINK_APK_KEY,
       versionCode: currentVersionCode,
       appointVersionCode: 0,
       devModelKey: "",
