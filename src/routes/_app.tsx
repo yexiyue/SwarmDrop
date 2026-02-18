@@ -21,8 +21,6 @@ import { BottomNav } from "@/components/layout/bottom-nav";
 import { useAuthStore } from "@/stores/auth-store";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { ConnectionRequestDialog } from "@/components/pairing/connection-request-dialog";
-import { ForceUpdateDialog } from "@/components/ForceUpdateDialog";
-import { useUpdateStore } from "@/stores/update-store";
 import {
   setupTransferListeners,
   cleanupTransferListeners,
@@ -50,14 +48,6 @@ function AppLayout() {
   const breakpoint = useBreakpoint();
   const isMobile = breakpoint === "mobile";
   const isDesktop = breakpoint === "desktop";
-
-  // 启动后延迟 3 秒自动检查更新
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      useUpdateStore.getState().checkForUpdate();
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, []);
 
   // 传输事件监听
   useEffect(() => {
@@ -93,7 +83,6 @@ function AppLayout() {
         </main>
         {!isFullScreenRoute && <BottomNav />}
         <ConnectionRequestDialog />
-        <ForceUpdateDialog />
       </div>
     );
   }
@@ -113,7 +102,6 @@ function AppLayout() {
         <Outlet />
       </SidebarInset>
       <ConnectionRequestDialog />
-      <ForceUpdateDialog />
     </SidebarProvider>
   );
 }
