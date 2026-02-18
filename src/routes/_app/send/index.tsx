@@ -9,7 +9,7 @@ interface SendSearch {
   peerId: string;
 }
 
-export const Route = createFileRoute("/_app/send")({
+export const Route = createFileRoute("/_app/send/")({
   validateSearch: (search: Record<string, unknown>): SendSearch => ({
     peerId: (search.peerId as string) ?? "",
   }),

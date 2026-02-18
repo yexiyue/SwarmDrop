@@ -18,7 +18,7 @@ import { getErrorMessage } from "@/lib/errors";
 import { formatFileSize } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 
-export const Route = createLazyFileRoute("/_app/receive")({
+export const Route = createLazyFileRoute("/_app/receive/")({
   component: ReceivePage,
 });
 
