@@ -1,17 +1,17 @@
-//! Offer 管理器
+//! 传输管理器
 //!
-//! 管理发送方的 `PreparedTransfer` 缓存和接收方的 `PendingOffer` 缓存，
-//! 并封装 Offer 协议的完整业务逻辑（发送、接受、拒绝）。
-//! 遵循与 [`PairingManager`](crate::pairing::manager) 相同的模式：
+//! 管理 Offer 协议（发送、接受、拒绝）和活跃传输会话（发送/接收）。
 //! 事件循环写入缓存 → 前端操作后通过 Tauri 命令消费缓存。
 
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use blake3::Hasher;
 use dashmap::DashMap;
 use path_slash::PathExt as _;
 use serde::Serialize;
 use swarm_p2p_core::libp2p::PeerId;
+use tauri::AppHandle;
 use tracing::{info, warn};
 use walkdir::WalkDir;
 
@@ -19,6 +19,8 @@ use crate::protocol::{
     AppNetClient, AppRequest, AppResponse, FileInfo, TransferRequest, TransferResponse,
 };
 use crate::transfer::crypto::generate_key;
+use crate::transfer::receiver::ReceiveSession;
+use crate::transfer::sender::SendSession;
 use crate::{AppError, AppResult};
 
 /// 发送方准备好的传输信息
@@ -73,30 +75,34 @@ pub struct StartSendResult {
     pub reason: Option<String>,
 }
 
-/// Offer 管理器
-pub struct OfferManager {
+/// 传输管理器（原 OfferManager，扩展为管理完整传输生命周期）
+pub struct TransferManager {
     /// libp2p 网络客户端
     client: AppNetClient,
     /// 发送方：prepare_send 的缓存（key = prepared_id）
     prepared: DashMap<String, PreparedTransfer>,
     /// 接收方：入站 Offer 的缓存（key = session_id）
     pending: DashMap<String, PendingOffer>,
+    /// 活跃的发送会话（key = session_id）
+    send_sessions: DashMap<String, Arc<SendSession>>,
+    /// 活跃的接收会话（key = session_id, Arc 包装以便回调中清理）
+    receive_sessions: Arc<DashMap<String, Arc<ReceiveSession>>>,
 }
 
-impl OfferManager {
+impl TransferManager {
     pub fn new(client: AppNetClient) -> Self {
         Self {
             client,
             prepared: DashMap::new(),
             pending: DashMap::new(),
+            send_sessions: DashMap::new(),
+            receive_sessions: Arc::new(DashMap::new()),
         }
     }
 
     // ============ 准备阶段 ============
 
     /// 准备发送：扫描文件、计算 BLAKE3 校验和、分配 fileId
-    ///
-    /// 在 `tokio::task::spawn_blocking` 中调用，避免阻塞异步运行时。
     pub async fn prepare(&self, file_paths: Vec<String>) -> AppResult<PreparedTransfer> {
         let prepared = tokio::task::spawn_blocking(move || prepare_sync(file_paths)).await??;
 
@@ -106,12 +112,11 @@ impl OfferManager {
         Ok(prepared)
     }
 
-    // ============ 发送方：发送 Offer ============
+    // ============ 发送方：发送 Offer + 启动传输 ============
 
     /// 发送 Offer 到目标 peer，等待接收方回复
     ///
-    /// 消费 `PreparedTransfer`，筛选选中的文件，构造 Offer 请求并发送。
-    /// 返回接收方的接受/拒绝结果。
+    /// 如果被接受，自动创建 SendSession 并缓存。
     pub async fn send_offer(
         &self,
         prepared_id: &str,
@@ -125,10 +130,18 @@ impl OfferManager {
             })?;
 
         // 筛选选中的文件
-        let selected_files: Vec<FileInfo> = prepared
+        let selected_prepared: Vec<PreparedFile> = prepared
             .files
-            .iter()
+            .into_iter()
             .filter(|f| selected_file_ids.contains(&f.file_id))
+            .collect();
+
+        if selected_prepared.is_empty() {
+            return Err(AppError::Transfer("未选择任何文件".into()));
+        }
+
+        let selected_files: Vec<FileInfo> = selected_prepared
+            .iter()
             .map(|f| FileInfo {
                 file_id: f.file_id,
                 name: f.name.clone(),
@@ -137,10 +150,6 @@ impl OfferManager {
                 checksum: f.checksum.clone(),
             })
             .collect();
-
-        if selected_files.is_empty() {
-            return Err(AppError::Transfer("未选择任何文件".into()));
-        }
 
         let total_size: u64 = selected_files.iter().map(|f| f.size).sum();
         let session_id = generate_id();
@@ -176,9 +185,17 @@ impl OfferManager {
                 reason,
             }) => {
                 if accepted {
-                    if key.is_some() {
+                    if let Some(key) = key {
                         info!("Offer accepted for session {}, key received", session_id);
-                        // 密钥会在后续分块传输中使用
+
+                        // 创建 SendSession
+                        let send_session = Arc::new(SendSession::new(
+                            session_id.clone(),
+                            selected_prepared,
+                            &key,
+                        ));
+                        self.send_sessions
+                            .insert(session_id.clone(), send_session);
                     } else {
                         warn!(
                             "Offer accepted but no key received for session {}",
@@ -203,7 +220,19 @@ impl OfferManager {
         }
     }
 
-    // ============ 接收方：缓存 + 响应 ============
+    // ============ 发送方：响应 ChunkRequest ============
+
+    /// 获取发送会话（事件循环调用）
+    pub fn get_send_session(&self, session_id: &str) -> Option<Arc<SendSession>> {
+        self.send_sessions.get(session_id).map(|s| s.clone())
+    }
+
+    /// 移除发送会话
+    pub fn remove_send_session(&self, session_id: &str) {
+        self.send_sessions.remove(session_id);
+    }
+
+    // ============ 接收方：缓存 + 响应 + 启动传输 ============
 
     /// 缓存入站 Offer（事件循环调用）
     pub fn cache_inbound_offer(
@@ -226,9 +255,21 @@ impl OfferManager {
         );
     }
 
-    /// 接受传输：生成密钥，回复接受的 OfferResult
-    pub async fn accept_and_respond(&self, session_id: &str) -> AppResult<()> {
-        let (pending_id, key) = self.accept(session_id)?;
+    /// 接受传输并启动接收：生成密钥、回复 OfferResult、创建 ReceiveSession 并开始拉取
+    pub async fn accept_and_start_receive(
+        &self,
+        session_id: &str,
+        save_path: String,
+        app: AppHandle,
+    ) -> AppResult<()> {
+        let (_, offer) = self
+            .pending
+            .remove(session_id)
+            .ok_or_else(|| {
+                AppError::Transfer(format!("pending offer not found: {session_id}"))
+            })?;
+
+        let key = generate_key();
 
         info!("Accepting transfer offer: session={}", session_id);
 
@@ -239,14 +280,41 @@ impl OfferManager {
         });
 
         self.client
-            .send_response(pending_id, response)
+            .send_response(offer.pending_id, response)
             .await
-            .map_err(|e| AppError::Transfer(format!("回复 OfferResult 失败: {e}")))
+            .map_err(|e| AppError::Transfer(format!("回复 OfferResult 失败: {e}")))?;
+
+        // 创建 ReceiveSession 并启动后台拉取
+        let receive_session = Arc::new(ReceiveSession::new(
+            offer.session_id.clone(),
+            offer.peer_id,
+            offer.files,
+            offer.total_size,
+            PathBuf::from(save_path),
+            &key,
+            self.client.clone(),
+        ));
+
+        self.receive_sessions
+            .insert(offer.session_id.clone(), receive_session.clone());
+
+        // 传输结束后自动从 receive_sessions 中清理
+        let sessions_map = self.receive_sessions.clone();
+        receive_session.start_pulling(app, move |session_id| {
+            sessions_map.remove(session_id);
+        });
+
+        Ok(())
     }
 
     /// 拒绝传输：回复拒绝的 OfferResult
     pub async fn reject_and_respond(&self, session_id: &str) -> AppResult<()> {
-        let pending_id = self.reject(session_id)?;
+        let (_, offer) = self
+            .pending
+            .remove(session_id)
+            .ok_or_else(|| {
+                AppError::Transfer(format!("pending offer not found: {session_id}"))
+            })?;
 
         info!("Rejecting transfer offer: session={}", session_id);
 
@@ -257,37 +325,57 @@ impl OfferManager {
         });
 
         self.client
-            .send_response(pending_id, response)
+            .send_response(offer.pending_id, response)
             .await
             .map_err(|e| AppError::Transfer(format!("回复拒绝 OfferResult 失败: {e}")))
     }
 
+    // ============ 取消 ============
+
+    /// 取消发送
+    pub async fn cancel_send(&self, session_id: &str) -> AppResult<()> {
+        let (_, session) = self
+            .send_sessions
+            .remove(session_id)
+            .ok_or_else(|| {
+                AppError::Transfer(format!("发送会话不存在: {session_id}"))
+            })?;
+
+        session.cancel();
+        info!("Send session cancelled: session={}", session_id);
+        Ok(())
+    }
+
+    /// 取消接收
+    pub async fn cancel_receive(&self, session_id: &str) -> AppResult<()> {
+        let (_, session) = self
+            .receive_sessions
+            .remove(session_id)
+            .ok_or_else(|| {
+                AppError::Transfer(format!("接收会话不存在: {session_id}"))
+            })?;
+
+        session.cancel();
+        session.send_cancel().await;
+        session.cleanup_part_files().await;
+        info!("Receive session cancelled: session={}", session_id);
+        Ok(())
+    }
+
+    /// 获取接收会话（事件循环调用）
+    pub fn get_receive_session(&self, session_id: &str) -> Option<Arc<ReceiveSession>> {
+        self.receive_sessions.get(session_id).map(|s| s.clone())
+    }
+
+    /// 移除接收会话
+    pub fn remove_receive_session(&self, session_id: &str) {
+        self.receive_sessions.remove(session_id);
+    }
+
     // ============ 内部方法 ============
 
-    /// 消费一个 PreparedTransfer（一次性消费）
     fn take_prepared(&self, prepared_id: &str) -> Option<PreparedTransfer> {
         self.prepared.remove(prepared_id).map(|(_, v)| v)
-    }
-
-    /// 接受传输：取出 PendingOffer，生成密钥
-    fn accept(&self, session_id: &str) -> AppResult<(u64, [u8; 32])> {
-        let (_, offer) = self
-            .pending
-            .remove(session_id)
-            .ok_or_else(|| AppError::Transfer(format!("pending offer not found: {session_id}")))?;
-
-        let key = generate_key();
-        Ok((offer.pending_id, key))
-    }
-
-    /// 拒绝传输：取出 PendingOffer
-    fn reject(&self, session_id: &str) -> AppResult<u64> {
-        let (_, offer) = self
-            .pending
-            .remove(session_id)
-            .ok_or_else(|| AppError::Transfer(format!("pending offer not found: {session_id}")))?;
-
-        Ok(offer.pending_id)
     }
 }
 
@@ -311,7 +399,6 @@ fn prepare_sync(file_paths: Vec<String>) -> AppResult<PreparedTransfer> {
         let meta = std::fs::metadata(&path)?;
 
         if meta.is_file() {
-            // 单文件：relative_path = 文件名
             let name = path
                 .file_name()
                 .map(|n| n.to_string_lossy().into_owned())
@@ -330,7 +417,6 @@ fn prepare_sync(file_paths: Vec<String>) -> AppResult<PreparedTransfer> {
             total_size += size;
             file_id += 1;
         } else if meta.is_dir() {
-            // 目录：递归遍历，relative_path = 目录名/子路径
             let dir_name = path
                 .file_name()
                 .map(|n| n.to_string_lossy().into_owned())
@@ -351,7 +437,6 @@ fn prepare_sync(file_paths: Vec<String>) -> AppResult<PreparedTransfer> {
                     .map(|n| n.to_string_lossy().into_owned())
                     .unwrap_or_default();
 
-                // 计算相对路径：dir_name + 从目录根开始的子路径
                 let sub_path = pathdiff::diff_paths(entry_path, &path)
                     .unwrap_or_else(|| entry_path.to_path_buf());
                 let relative_path = format!(

@@ -52,7 +52,7 @@ pub struct FileInfo {
 
 /// 传输请求
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", tag = "type")]
+#[serde(rename_all = "camelCase", tag = "kind")]
 pub enum TransferRequest {
     /// 发送方向接收方提出文件传输请求
     Offer {
@@ -60,15 +60,24 @@ pub enum TransferRequest {
         files: Vec<FileInfo>,
         total_size: u64,
     },
-    // Phase 3 后续扩展：
-    // ChunkRequest { session_id: String, file_id: u32, chunk_index: u32 },
-    // Complete { session_id: String },
-    // Cancel { session_id: String, reason: String },
+    /// 接收方向发送方请求一个分块
+    ChunkRequest {
+        session_id: String,
+        file_id: u32,
+        chunk_index: u32,
+    },
+    /// 接收方通知发送方传输完成
+    Complete { session_id: String },
+    /// 任一方取消传输
+    Cancel {
+        session_id: String,
+        reason: String,
+    },
 }
 
 /// 传输响应
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", tag = "type")]
+#[serde(rename_all = "camelCase", tag = "kind")]
 pub enum TransferResponse {
     /// 接收方回复 Offer 请求
     OfferResult {
@@ -82,9 +91,18 @@ pub enum TransferResponse {
         /// 拒绝时的原因
         reason: Option<String>,
     },
-    // Phase 3 后续扩展：
-    // Chunk { session_id: String, file_id: u32, chunk_index: u32, data: Vec<u8> },
-    // Ack { session_id: String },
+    /// 发送方回复 ChunkRequest，返回加密后的分块数据
+    Chunk {
+        session_id: String,
+        file_id: u32,
+        chunk_index: u32,
+        /// 加密后的分块数据（CBOR bytes 优化）
+        #[serde(with = "serde_bytes")]
+        data: Vec<u8>,
+        is_last: bool,
+    },
+    /// 发送方确认传输完成
+    Ack { session_id: String },
 }
 
 /// 将 `Option<[u8; 32]>` 序列化为 bytes array（CBOR 友好）
