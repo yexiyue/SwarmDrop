@@ -9139,7 +9139,7 @@
                       "id": "ckffL",
                       "width": 18,
                       "height": 18,
-                      "iconFontName": "send",
+                      "iconFontName": "arrow-left-right",
                       "iconFontFamily": "lucide",
                       "fill": "$--sidebar-accent-foreground"
                     },
@@ -9148,45 +9148,10 @@
                       "id": "dqiHF",
                       "name": "navLabel2",
                       "fill": "$--sidebar-accent-foreground",
-                      "content": "发送文件",
+                      "content": "传输",
                       "fontFamily": "Inter",
                       "fontSize": 14,
                       "fontWeight": "500"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "JWRTc",
-                  "name": "Nav Item",
-                  "width": "fill_container",
-                  "cornerRadius": 6,
-                  "gap": 10,
-                  "padding": [
-                    8,
-                    10
-                  ],
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon_font",
-                      "id": "7Y3xc",
-                      "name": "recvIcon2",
-                      "width": 18,
-                      "height": 18,
-                      "iconFontName": "download",
-                      "iconFontFamily": "lucide",
-                      "fill": "$--sidebar-foreground"
-                    },
-                    {
-                      "type": "text",
-                      "id": "UAcNH",
-                      "name": "recvText2",
-                      "fill": "$--sidebar-foreground",
-                      "content": "接收文件",
-                      "fontFamily": "Inter",
-                      "fontSize": 14,
-                      "fontWeight": "normal"
                     }
                   ]
                 },
@@ -9340,37 +9305,118 @@
                   "id": "NL3Wp",
                   "name": "Drop Zone",
                   "width": "fill_container",
-                  "height": 120,
-                  "fill": "$--muted",
-                  "cornerRadius": 8,
+                  "height": 164,
+                  "fill": "#EFF6FF",
+                  "cornerRadius": 12,
                   "stroke": {
-                    "thickness": 2,
-                    "fill": "$--border"
+                    "thickness": 1.5,
+                    "fill": "#BFDBFE"
                   },
                   "layout": "vertical",
-                  "gap": 8,
+                  "gap": 14,
                   "justifyContent": "center",
                   "alignItems": "center",
                   "children": [
                     {
-                      "type": "icon_font",
-                      "id": "ytNwR",
-                      "name": "dropIcon",
-                      "width": 32,
-                      "height": 32,
-                      "iconFontName": "upload",
-                      "iconFontFamily": "lucide",
-                      "fill": "$--muted-foreground"
+                      "type": "frame",
+                      "id": "m4fBe",
+                      "name": "Icon Circle",
+                      "width": 48,
+                      "height": 48,
+                      "fill": "#DBEAFE",
+                      "cornerRadius": 24,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "ytNwR",
+                          "name": "dropIcon",
+                          "width": 22,
+                          "height": 22,
+                          "iconFontName": "cloud-upload",
+                          "iconFontFamily": "lucide",
+                          "fill": "#2563EB"
+                        }
+                      ]
                     },
                     {
                       "type": "text",
                       "id": "QXCBs",
                       "name": "dropText",
-                      "fill": "$--muted-foreground",
-                      "content": "拖放文件到此处，或点击选择",
+                      "fill": "#64748B",
+                      "content": "拖拽文件/文件夹到这里",
                       "fontFamily": "Inter",
-                      "fontSize": 14,
+                      "fontSize": 13,
                       "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ChkAT",
+                      "name": "Button Row",
+                      "gap": 10,
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "OBi2e",
+                          "name": "Select File Btn",
+                          "fill": "#2563EB",
+                          "cornerRadius": 8,
+                          "stroke": {
+                            "thickness": 0,
+                            "fill": "#2563EB"
+                          },
+                          "layout": "vertical",
+                          "padding": [
+                            8,
+                            20
+                          ],
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "jarkn",
+                              "name": "fileBtnText",
+                              "fill": "#FFFFFF",
+                              "content": "选择文件",
+                              "fontFamily": "Inter",
+                              "fontSize": 13,
+                              "fontWeight": "500"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "nG7YB",
+                          "name": "Select Folder Btn",
+                          "cornerRadius": 8,
+                          "stroke": {
+                            "thickness": 1.5,
+                            "fill": "#3B82F6"
+                          },
+                          "layout": "vertical",
+                          "padding": [
+                            8,
+                            20
+                          ],
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "BBKjc",
+                              "name": "folderBtnText",
+                              "fill": "#3B82F6",
+                              "content": "选择文件夹",
+                              "fontFamily": "Inter",
+                              "fontSize": 13,
+                              "fontWeight": "500"
+                            }
+                          ]
+                        }
+                      ]
                     }
                   ]
                 },
@@ -9396,7 +9442,7 @@
                           "id": "qs2QA",
                           "name": "fileTitle",
                           "fill": "$--foreground",
-                          "content": "待发送文件",
+                          "content": "已选文件",
                           "fontFamily": "Inter",
                           "fontSize": 14,
                           "fontWeight": "600"
@@ -9406,7 +9452,7 @@
                           "id": "QM4Ps",
                           "name": "fileStats",
                           "fill": "$--muted-foreground",
-                          "content": "3 个文件 · 15.2 MB",
+                          "content": "共 3 项 · 15.2 MB",
                           "fontFamily": "Inter",
                           "fontSize": 13,
                           "fontWeight": "normal"
@@ -9637,305 +9683,6 @@
                 },
                 {
                   "type": "frame",
-                  "id": "a8MYJ",
-                  "name": "Divider",
-                  "width": "fill_container",
-                  "height": 1,
-                  "fill": "$--border"
-                },
-                {
-                  "type": "frame",
-                  "id": "P7eYE",
-                  "name": "Device Section",
-                  "width": "fill_container",
-                  "layout": "vertical",
-                  "gap": 12,
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "vqTki",
-                      "name": "Device Header",
-                      "width": "fill_container",
-                      "justifyContent": "space_between",
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "xd0Ve",
-                          "name": "deviceTitle",
-                          "fill": "$--foreground",
-                          "content": "选择接收设备",
-                          "fontFamily": "Inter",
-                          "fontSize": 14,
-                          "fontWeight": "600"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "zmWFu",
-                      "name": "Device List",
-                      "width": "fill_container",
-                      "layout": "vertical",
-                      "gap": 6,
-                      "children": [
-                        {
-                          "type": "frame",
-                          "id": "1aCYF",
-                          "name": "Device Item",
-                          "width": "fill_container",
-                          "fill": "$--card",
-                          "cornerRadius": 6,
-                          "stroke": {
-                            "thickness": 1.5,
-                            "fill": "#2563EB"
-                          },
-                          "gap": 12,
-                          "padding": [
-                            10,
-                            12
-                          ],
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "frame",
-                              "id": "G17wY",
-                              "name": "Checkbox",
-                              "width": 18,
-                              "height": 18,
-                              "fill": "#2563EB",
-                              "cornerRadius": 4,
-                              "layout": "vertical",
-                              "justifyContent": "center",
-                              "alignItems": "center",
-                              "children": [
-                                {
-                                  "type": "icon_font",
-                                  "id": "NJq1t",
-                                  "name": "d1CheckIcon",
-                                  "width": 12,
-                                  "height": 12,
-                                  "iconFontName": "check",
-                                  "iconFontFamily": "lucide",
-                                  "fill": "#FFFFFF"
-                                }
-                              ]
-                            },
-                            {
-                              "type": "frame",
-                              "id": "7ISTt",
-                              "name": "d1Status",
-                              "width": 8,
-                              "height": 8,
-                              "fill": "#22C55E",
-                              "cornerRadius": 4
-                            },
-                            {
-                              "type": "text",
-                              "id": "JGTG6",
-                              "name": "d1Name",
-                              "fill": "$--foreground",
-                              "content": "张三的 iPhone",
-                              "fontFamily": "Inter",
-                              "fontSize": 13,
-                              "fontWeight": "normal"
-                            },
-                            {
-                              "type": "frame",
-                              "id": "9iYbV",
-                              "name": "d1Tag",
-                              "fill": "#DCFCE7",
-                              "cornerRadius": 10,
-                              "padding": [
-                                2,
-                                8
-                              ],
-                              "children": [
-                                {
-                                  "type": "text",
-                                  "id": "vyfyn",
-                                  "name": "d1TagText",
-                                  "fill": "#166534",
-                                  "content": "局域网",
-                                  "fontFamily": "Inter",
-                                  "fontSize": 11,
-                                  "fontWeight": "normal"
-                                }
-                              ]
-                            }
-                          ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "JtzmA",
-                          "name": "Device Item",
-                          "width": "fill_container",
-                          "fill": "$--card",
-                          "cornerRadius": 6,
-                          "stroke": {
-                            "thickness": 1.5,
-                            "fill": "#2563EB"
-                          },
-                          "gap": 12,
-                          "padding": [
-                            10,
-                            12
-                          ],
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "frame",
-                              "id": "coNJN",
-                              "name": "Checkbox",
-                              "width": 18,
-                              "height": 18,
-                              "fill": "#2563EB",
-                              "cornerRadius": 4,
-                              "layout": "vertical",
-                              "justifyContent": "center",
-                              "alignItems": "center",
-                              "children": [
-                                {
-                                  "type": "icon_font",
-                                  "id": "mUpfW",
-                                  "name": "d2CheckIcon",
-                                  "width": 12,
-                                  "height": 12,
-                                  "iconFontName": "check",
-                                  "iconFontFamily": "lucide",
-                                  "fill": "#FFFFFF"
-                                }
-                              ]
-                            },
-                            {
-                              "type": "frame",
-                              "id": "zxWrZ",
-                              "name": "d2Status",
-                              "width": 8,
-                              "height": 8,
-                              "fill": "#22C55E",
-                              "cornerRadius": 4
-                            },
-                            {
-                              "type": "text",
-                              "id": "JqajX",
-                              "name": "d2Name",
-                              "fill": "$--foreground",
-                              "content": "王五的 MacBook",
-                              "fontFamily": "Inter",
-                              "fontSize": 13,
-                              "fontWeight": "normal"
-                            },
-                            {
-                              "type": "frame",
-                              "id": "p4buF",
-                              "name": "d2Tag",
-                              "fill": "#FEF3C7",
-                              "cornerRadius": 10,
-                              "padding": [
-                                2,
-                                8
-                              ],
-                              "children": [
-                                {
-                                  "type": "text",
-                                  "id": "qvzap",
-                                  "name": "d2TagText",
-                                  "fill": "#92400E",
-                                  "content": "中继",
-                                  "fontFamily": "Inter",
-                                  "fontSize": 11,
-                                  "fontWeight": "normal"
-                                }
-                              ]
-                            }
-                          ]
-                        },
-                        {
-                          "type": "frame",
-                          "id": "An4M8",
-                          "name": "Device Item Disabled",
-                          "opacity": 0.6,
-                          "width": "fill_container",
-                          "fill": "$--muted",
-                          "cornerRadius": 6,
-                          "stroke": {
-                            "thickness": 1,
-                            "fill": "$--border"
-                          },
-                          "gap": 12,
-                          "padding": [
-                            10,
-                            12
-                          ],
-                          "alignItems": "center",
-                          "children": [
-                            {
-                              "type": "frame",
-                              "id": "WfiDz",
-                              "name": "Checkbox",
-                              "width": 18,
-                              "height": 18,
-                              "cornerRadius": 4,
-                              "stroke": {
-                                "thickness": 1.5,
-                                "fill": "$--muted-foreground"
-                              }
-                            },
-                            {
-                              "type": "frame",
-                              "id": "W57Wi",
-                              "name": "d3Status",
-                              "width": 8,
-                              "height": 8,
-                              "fill": "$--muted-foreground",
-                              "cornerRadius": 4
-                            },
-                            {
-                              "type": "text",
-                              "id": "66eO3",
-                              "name": "d3Name",
-                              "fill": "$--muted-foreground",
-                              "content": "李四的 iPad",
-                              "fontFamily": "Inter",
-                              "fontSize": 13,
-                              "fontWeight": "normal"
-                            },
-                            {
-                              "type": "frame",
-                              "id": "EmiT0",
-                              "name": "d3Tag",
-                              "fill": "$--background",
-                              "cornerRadius": 10,
-                              "stroke": {
-                                "thickness": 1,
-                                "fill": "$--border"
-                              },
-                              "padding": [
-                                2,
-                                8
-                              ],
-                              "children": [
-                                {
-                                  "type": "text",
-                                  "id": "FeCsD",
-                                  "name": "d3TagText",
-                                  "fill": "$--muted-foreground",
-                                  "content": "离线",
-                                  "fontFamily": "Inter",
-                                  "fontSize": 11,
-                                  "fontWeight": "normal"
-                                }
-                              ]
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
                   "id": "iBU66",
                   "name": "Action Bar",
                   "width": "fill_container",
@@ -9991,7 +9738,7 @@
                           "id": "uqLxr",
                           "name": "sendText",
                           "fill": "#FFFFFF",
-                          "content": "发送到 2 台设备",
+                          "content": "发送",
                           "fontFamily": "Inter",
                           "fontSize": 14,
                           "fontWeight": "500"
@@ -10158,7 +9905,7 @@
                       "id": "WE2UV",
                       "width": 18,
                       "height": 18,
-                      "iconFontName": "send",
+                      "iconFontName": "arrow-left-right",
                       "iconFontFamily": "lucide",
                       "fill": "$--sidebar-accent-foreground"
                     },
@@ -10167,45 +9914,10 @@
                       "id": "ZQJiP",
                       "name": "navLb2b",
                       "fill": "$--sidebar-accent-foreground",
-                      "content": "发送文件",
+                      "content": "传输",
                       "fontFamily": "Inter",
                       "fontSize": 14,
                       "fontWeight": "500"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "qFF4c",
-                  "name": "Nav Item",
-                  "width": "fill_container",
-                  "cornerRadius": 6,
-                  "gap": 10,
-                  "padding": [
-                    8,
-                    10
-                  ],
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon_font",
-                      "id": "387GG",
-                      "name": "recvIcon1",
-                      "width": 18,
-                      "height": 18,
-                      "iconFontName": "download",
-                      "iconFontFamily": "lucide",
-                      "fill": "$--sidebar-foreground"
-                    },
-                    {
-                      "type": "text",
-                      "id": "mx1S3",
-                      "name": "recvText1",
-                      "fill": "$--sidebar-foreground",
-                      "content": "接收文件",
-                      "fontFamily": "Inter",
-                      "fontSize": 14,
-                      "fontWeight": "normal"
                     }
                   ]
                 },
@@ -11018,7 +10730,7 @@
                       "id": "MxhGD",
                       "width": 18,
                       "height": 18,
-                      "iconFontName": "send",
+                      "iconFontName": "arrow-left-right",
                       "iconFontFamily": "lucide",
                       "fill": "$--sidebar-accent-foreground"
                     },
@@ -11027,45 +10739,10 @@
                       "id": "WHUuB",
                       "name": "navLb3b",
                       "fill": "$--sidebar-accent-foreground",
-                      "content": "发送文件",
+                      "content": "传输",
                       "fontFamily": "Inter",
                       "fontSize": 14,
                       "fontWeight": "500"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "xPdV7",
-                  "name": "Nav Item",
-                  "width": "fill_container",
-                  "cornerRadius": 6,
-                  "gap": 10,
-                  "padding": [
-                    8,
-                    10
-                  ],
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon_font",
-                      "id": "dW6EO",
-                      "name": "recvIcon5",
-                      "width": 18,
-                      "height": 18,
-                      "iconFontName": "download",
-                      "iconFontFamily": "lucide",
-                      "fill": "$--sidebar-foreground"
-                    },
-                    {
-                      "type": "text",
-                      "id": "pjTQE",
-                      "name": "recvText5",
-                      "fill": "$--sidebar-foreground",
-                      "content": "接收文件",
-                      "fontFamily": "Inter",
-                      "fontSize": 14,
-                      "fontWeight": "normal"
                     }
                   ]
                 },
@@ -12686,8 +12363,9 @@
                 {
                   "type": "frame",
                   "id": "dkxbX",
-                  "name": "Nav Item",
+                  "name": "Nav Item Active",
                   "width": "fill_container",
+                  "fill": "$--sidebar-accent",
                   "cornerRadius": 6,
                   "gap": 10,
                   "padding": [
@@ -12702,51 +12380,16 @@
                       "name": "sendIcon1",
                       "width": 18,
                       "height": 18,
-                      "iconFontName": "upload",
-                      "iconFontFamily": "lucide",
-                      "fill": "$--sidebar-foreground"
-                    },
-                    {
-                      "type": "text",
-                      "id": "ZekhB",
-                      "name": "sendText1",
-                      "fill": "$--sidebar-foreground",
-                      "content": "发送文件",
-                      "fontFamily": "Inter",
-                      "fontSize": 14,
-                      "fontWeight": "normal"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "tzQjf",
-                  "name": "navI2b",
-                  "width": "fill_container",
-                  "fill": "$--sidebar-accent",
-                  "cornerRadius": 6,
-                  "gap": 10,
-                  "padding": [
-                    8,
-                    10
-                  ],
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon_font",
-                      "id": "FbtYV",
-                      "width": 18,
-                      "height": 18,
-                      "iconFontName": "download",
+                      "iconFontName": "arrow-left-right",
                       "iconFontFamily": "lucide",
                       "fill": "$--sidebar-accent-foreground"
                     },
                     {
                       "type": "text",
-                      "id": "pduNG",
-                      "name": "navLb2b",
+                      "id": "ZekhB",
+                      "name": "sendText1",
                       "fill": "$--sidebar-accent-foreground",
-                      "content": "接收文件",
+                      "content": "传输",
                       "fontFamily": "Inter",
                       "fontSize": 14,
                       "fontWeight": "500"
@@ -13353,8 +12996,9 @@
                 {
                   "type": "frame",
                   "id": "FqFfz",
-                  "name": "Nav Item",
+                  "name": "Nav Item Active",
                   "width": "fill_container",
+                  "fill": "$--sidebar-accent",
                   "cornerRadius": 6,
                   "gap": 10,
                   "padding": [
@@ -13369,51 +13013,16 @@
                       "name": "sendIcon2",
                       "width": 18,
                       "height": 18,
-                      "iconFontName": "upload",
-                      "iconFontFamily": "lucide",
-                      "fill": "$--sidebar-foreground"
-                    },
-                    {
-                      "type": "text",
-                      "id": "PJBfc",
-                      "name": "sendText2",
-                      "fill": "$--sidebar-foreground",
-                      "content": "发送文件",
-                      "fontFamily": "Inter",
-                      "fontSize": 14,
-                      "fontWeight": "normal"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "L9gLh",
-                  "name": "navI3b",
-                  "width": "fill_container",
-                  "fill": "$--sidebar-accent",
-                  "cornerRadius": 6,
-                  "gap": 10,
-                  "padding": [
-                    8,
-                    10
-                  ],
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon_font",
-                      "id": "1cPaM",
-                      "width": 18,
-                      "height": 18,
-                      "iconFontName": "download",
+                      "iconFontName": "arrow-left-right",
                       "iconFontFamily": "lucide",
                       "fill": "$--sidebar-accent-foreground"
                     },
                     {
                       "type": "text",
-                      "id": "9T1Rf",
-                      "name": "navLb3b",
+                      "id": "PJBfc",
+                      "name": "sendText2",
                       "fill": "$--sidebar-accent-foreground",
-                      "content": "接收文件",
+                      "content": "传输",
                       "fontFamily": "Inter",
                       "fontSize": 14,
                       "fontWeight": "500"
@@ -13892,7 +13501,7 @@
                       "id": "IQi6F",
                       "width": 18,
                       "height": 18,
-                      "iconFontName": "send",
+                      "iconFontName": "arrow-left-right",
                       "iconFontFamily": "lucide",
                       "fill": "$--sidebar-accent-foreground"
                     },
@@ -13901,45 +13510,10 @@
                       "id": "6VwHm",
                       "name": "navLabel2",
                       "fill": "$--sidebar-accent-foreground",
-                      "content": "发送文件",
+                      "content": "传输",
                       "fontFamily": "Inter",
                       "fontSize": 14,
                       "fontWeight": "500"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "WDa7c",
-                  "name": "Nav Item",
-                  "width": "fill_container",
-                  "cornerRadius": 6,
-                  "gap": 10,
-                  "padding": [
-                    8,
-                    10
-                  ],
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon_font",
-                      "id": "ZuIlY",
-                      "name": "recvIcon3",
-                      "width": 18,
-                      "height": 18,
-                      "iconFontName": "download",
-                      "iconFontFamily": "lucide",
-                      "fill": "$--sidebar-foreground"
-                    },
-                    {
-                      "type": "text",
-                      "id": "qbjPC",
-                      "name": "recvText3",
-                      "fill": "$--sidebar-foreground",
-                      "content": "接收文件",
-                      "fontFamily": "Inter",
-                      "fontSize": 14,
-                      "fontWeight": "normal"
                     }
                   ]
                 },
@@ -14728,7 +14302,7 @@
                       "id": "gsJy2",
                       "width": 18,
                       "height": 18,
-                      "iconFontName": "send",
+                      "iconFontName": "arrow-left-right",
                       "iconFontFamily": "lucide",
                       "fill": "$--sidebar-accent-foreground"
                     },
@@ -14737,45 +14311,10 @@
                       "id": "d7vGR",
                       "name": "navLb3b",
                       "fill": "$--sidebar-accent-foreground",
-                      "content": "发送文件",
+                      "content": "传输",
                       "fontFamily": "Inter",
                       "fontSize": 14,
                       "fontWeight": "500"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "ecBvZ",
-                  "name": "Nav Item",
-                  "width": "fill_container",
-                  "cornerRadius": 6,
-                  "gap": 10,
-                  "padding": [
-                    8,
-                    10
-                  ],
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon_font",
-                      "id": "X9hw7",
-                      "name": "recvIcon5",
-                      "width": 18,
-                      "height": 18,
-                      "iconFontName": "download",
-                      "iconFontFamily": "lucide",
-                      "fill": "$--sidebar-foreground"
-                    },
-                    {
-                      "type": "text",
-                      "id": "ZvHCi",
-                      "name": "recvText5",
-                      "fill": "$--sidebar-foreground",
-                      "content": "接收文件",
-                      "fontFamily": "Inter",
-                      "fontSize": 14,
-                      "fontWeight": "normal"
                     }
                   ]
                 },
@@ -15373,7 +14912,7 @@
                           "name": "navTransferIcon",
                           "width": 18,
                           "height": 18,
-                          "iconFontName": "upload",
+                          "iconFontName": "arrow-left-right",
                           "iconFontFamily": "lucide",
                           "fill": "$--muted-foreground"
                         },
@@ -15382,42 +14921,7 @@
                           "id": "DAHBD",
                           "name": "navTransferText",
                           "fill": "$--sidebar-foreground",
-                          "content": "发送文件",
-                          "fontFamily": "Inter",
-                          "fontSize": 13,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "frame",
-                      "id": "6t7dF",
-                      "name": "Nav Item",
-                      "width": "fill_container",
-                      "cornerRadius": 6,
-                      "gap": 10,
-                      "padding": [
-                        8,
-                        10
-                      ],
-                      "alignItems": "center",
-                      "children": [
-                        {
-                          "type": "icon_font",
-                          "id": "RKQOW",
-                          "name": "recvIcon",
-                          "width": 18,
-                          "height": 18,
-                          "iconFontName": "download",
-                          "iconFontFamily": "lucide",
-                          "fill": "$--muted-foreground"
-                        },
-                        {
-                          "type": "text",
-                          "id": "rWdZg",
-                          "name": "recvText",
-                          "fill": "$--sidebar-foreground",
-                          "content": "接收文件",
+                          "content": "传输",
                           "fontFamily": "Inter",
                           "fontSize": 13,
                           "fontWeight": "normal"
@@ -16502,33 +16006,55 @@
                     },
                     {
                       "type": "frame",
-                      "id": "hka4x",
-                      "name": "Checkbox Row",
+                      "id": "t3Wja",
+                      "name": "Save Path Row",
                       "width": "fill_container",
                       "gap": 8,
                       "alignItems": "center",
                       "children": [
                         {
-                          "type": "frame",
-                          "id": "dwfY7",
-                          "name": "Checkbox",
-                          "width": 16,
-                          "height": 16,
-                          "cornerRadius": 4,
-                          "stroke": {
-                            "thickness": 1,
-                            "fill": "$--border"
-                          }
-                        },
-                        {
                           "type": "text",
-                          "id": "YYr1t",
-                          "name": "checkboxLabel",
-                          "fill": "$--foreground",
-                          "content": "始终接收来自此设备的文件",
+                          "id": "E3ZNv",
+                          "name": "saveLabel",
+                          "fill": "$--muted-foreground",
+                          "content": "保存到：",
                           "fontFamily": "Inter",
                           "fontSize": 13,
                           "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "jSSYP",
+                          "name": "Path Display",
+                          "width": "fill_container",
+                          "fill": "$--muted",
+                          "cornerRadius": 6,
+                          "padding": [
+                            4,
+                            10
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "LZBWR",
+                              "name": "savePathText",
+                              "fill": "$--foreground",
+                              "content": "~/Downloads/SwarmDrop",
+                              "fontFamily": "Inter",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "Og2Z5",
+                          "name": "changeBtn",
+                          "fill": "#2563EB",
+                          "content": "更改",
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "500"
                         }
                       ]
                     }
@@ -16742,8 +16268,9 @@
                 {
                   "type": "frame",
                   "id": "FZRDi",
-                  "name": "Nav Item",
+                  "name": "Nav Item Active",
                   "width": "fill_container",
+                  "fill": "$--sidebar-accent",
                   "cornerRadius": 6,
                   "gap": 10,
                   "padding": [
@@ -16758,51 +16285,16 @@
                       "name": "sendIcon3",
                       "width": 18,
                       "height": 18,
-                      "iconFontName": "upload",
-                      "iconFontFamily": "lucide",
-                      "fill": "$--sidebar-foreground"
-                    },
-                    {
-                      "type": "text",
-                      "id": "DEnpL",
-                      "name": "sendText3",
-                      "fill": "$--sidebar-foreground",
-                      "content": "发送文件",
-                      "fontFamily": "Inter",
-                      "fontSize": 14,
-                      "fontWeight": "normal"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "imjur",
-                  "name": "Nav Item Active",
-                  "width": "fill_container",
-                  "fill": "$--sidebar-accent",
-                  "cornerRadius": 6,
-                  "gap": 10,
-                  "padding": [
-                    8,
-                    10
-                  ],
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon_font",
-                      "id": "cp3Za",
-                      "width": 18,
-                      "height": 18,
-                      "iconFontName": "download",
+                      "iconFontName": "arrow-left-right",
                       "iconFontFamily": "lucide",
                       "fill": "$--sidebar-accent-foreground"
                     },
                     {
                       "type": "text",
-                      "id": "mel7U",
-                      "name": "navLabel2",
+                      "id": "DEnpL",
+                      "name": "sendText3",
                       "fill": "$--sidebar-accent-foreground",
-                      "content": "接收文件",
+                      "content": "传输",
                       "fontFamily": "Inter",
                       "fontSize": 14,
                       "fontWeight": "500"
@@ -17366,8 +16858,9 @@
                 {
                   "type": "frame",
                   "id": "04pc3",
-                  "name": "Nav Item",
+                  "name": "Nav Item Active",
                   "width": "fill_container",
+                  "fill": "$--sidebar-accent",
                   "cornerRadius": 6,
                   "gap": 10,
                   "padding": [
@@ -17382,51 +16875,16 @@
                       "name": "sendIcon4",
                       "width": 18,
                       "height": 18,
-                      "iconFontName": "upload",
-                      "iconFontFamily": "lucide",
-                      "fill": "$--sidebar-foreground"
-                    },
-                    {
-                      "type": "text",
-                      "id": "cYXx2",
-                      "name": "sendText4",
-                      "fill": "$--sidebar-foreground",
-                      "content": "发送文件",
-                      "fontFamily": "Inter",
-                      "fontSize": 14,
-                      "fontWeight": "normal"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "kK0JT",
-                  "name": "Nav Item Active",
-                  "width": "fill_container",
-                  "fill": "$--sidebar-accent",
-                  "cornerRadius": 6,
-                  "gap": 10,
-                  "padding": [
-                    8,
-                    10
-                  ],
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon_font",
-                      "id": "w2LqY",
-                      "width": 18,
-                      "height": 18,
-                      "iconFontName": "download",
+                      "iconFontName": "arrow-left-right",
                       "iconFontFamily": "lucide",
                       "fill": "$--sidebar-accent-foreground"
                     },
                     {
                       "type": "text",
-                      "id": "OzyPY",
-                      "name": "navLabel2",
+                      "id": "cYXx2",
+                      "name": "sendText4",
                       "fill": "$--sidebar-accent-foreground",
-                      "content": "接收文件",
+                      "content": "传输",
                       "fontFamily": "Inter",
                       "fontSize": 14,
                       "fontWeight": "500"
@@ -17790,6 +17248,60 @@
                 },
                 {
                   "type": "frame",
+                  "id": "ljZje",
+                  "name": "Save Path Row",
+                  "width": "fill_container",
+                  "gap": 8,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "kmEbn",
+                      "name": "saveLabel2",
+                      "fill": "$--muted-foreground",
+                      "content": "保存到：",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Aqttw",
+                      "name": "Path Display",
+                      "width": "fill_container",
+                      "fill": "$--muted",
+                      "cornerRadius": 6,
+                      "padding": [
+                        4,
+                        10
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "W3ooa",
+                          "name": "saveText2",
+                          "fill": "$--foreground",
+                          "content": "~/Downloads/SwarmDrop",
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "ATMKz",
+                      "name": "changeBtn2",
+                      "fill": "#2563EB",
+                      "content": "更改",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
                   "id": "nDvez",
                   "name": "Action Bar",
                   "width": "fill_container",
@@ -17865,7 +17377,7 @@
       "id": "sCAK0",
       "x": 3200,
       "y": 3600,
-      "name": "Desktop - Transfer History",
+      "name": "Desktop - Transfer List",
       "theme": {
         "Accent": "Blue",
         "Mode": "Light"
@@ -17997,8 +17509,9 @@
                 {
                   "type": "frame",
                   "id": "Z66PC",
-                  "name": "Nav Item",
+                  "name": "Nav Item Active",
                   "width": "fill_container",
+                  "fill": "$--sidebar-accent",
                   "cornerRadius": 6,
                   "gap": 10,
                   "padding": [
@@ -18013,87 +17526,16 @@
                       "name": "navSendIcon1",
                       "width": 18,
                       "height": 18,
-                      "iconFontName": "send",
-                      "iconFontFamily": "lucide",
-                      "fill": "$--sidebar-foreground"
-                    },
-                    {
-                      "type": "text",
-                      "id": "8ocuB",
-                      "name": "navSendText1",
-                      "fill": "$--sidebar-foreground",
-                      "content": "发送文件",
-                      "fontFamily": "Inter",
-                      "fontSize": 14,
-                      "fontWeight": "normal"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "3c9f5",
-                  "name": "Nav Item",
-                  "width": "fill_container",
-                  "cornerRadius": 6,
-                  "gap": 10,
-                  "padding": [
-                    8,
-                    10
-                  ],
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon_font",
-                      "id": "LGg7U",
-                      "name": "navRecvIcon1",
-                      "width": 18,
-                      "height": 18,
-                      "iconFontName": "download",
-                      "iconFontFamily": "lucide",
-                      "fill": "$--sidebar-foreground"
-                    },
-                    {
-                      "type": "text",
-                      "id": "eMzrx",
-                      "name": "navRecvText1",
-                      "fill": "$--sidebar-foreground",
-                      "content": "接收文件",
-                      "fontFamily": "Inter",
-                      "fontSize": 14,
-                      "fontWeight": "normal"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "mu8On",
-                  "name": "Nav Item Active",
-                  "width": "fill_container",
-                  "fill": "$--sidebar-accent",
-                  "cornerRadius": 6,
-                  "gap": 10,
-                  "padding": [
-                    8,
-                    10
-                  ],
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon_font",
-                      "id": "uWk4l",
-                      "name": "navHistIcon1",
-                      "width": 18,
-                      "height": 18,
-                      "iconFontName": "history",
+                      "iconFontName": "arrow-left-right",
                       "iconFontFamily": "lucide",
                       "fill": "$--sidebar-accent-foreground"
                     },
                     {
                       "type": "text",
-                      "id": "6ehLN",
-                      "name": "navHistText1",
+                      "id": "8ocuB",
+                      "name": "navSendText1",
                       "fill": "$--sidebar-accent-foreground",
-                      "content": "传输历史",
+                      "content": "传输",
                       "fontFamily": "Inter",
                       "fontSize": 14,
                       "fontWeight": "500"
@@ -18182,7 +17624,7 @@
                       "id": "uBcnn",
                       "name": "toolbarTitle1",
                       "fill": "$--foreground",
-                      "content": "传输历史",
+                      "content": "传输",
                       "fontFamily": "Inter",
                       "fontSize": 16,
                       "fontWeight": "600"
@@ -18196,6 +17638,41 @@
                   "gap": 8,
                   "alignItems": "center",
                   "children": [
+                    {
+                      "type": "frame",
+                      "id": "tvPKI",
+                      "name": "New Transfer Btn",
+                      "fill": "#2563EB",
+                      "cornerRadius": 6,
+                      "gap": 6,
+                      "padding": [
+                        6,
+                        12
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "s7ukj",
+                          "name": "newIcon",
+                          "width": 14,
+                          "height": 14,
+                          "iconFontName": "plus",
+                          "iconFontFamily": "lucide",
+                          "fill": "#FFFFFF"
+                        },
+                        {
+                          "type": "text",
+                          "id": "jXwmH",
+                          "name": "newText",
+                          "fill": "#FFFFFF",
+                          "content": "新建传输",
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "500"
+                        }
+                      ]
+                    },
                     {
                       "type": "frame",
                       "id": "96HIX",
@@ -19108,7 +18585,7 @@
                       "name": "nav2SendIcon",
                       "width": 18,
                       "height": 18,
-                      "iconFontName": "send",
+                      "iconFontName": "arrow-left-right",
                       "iconFontFamily": "lucide",
                       "fill": "$--sidebar-accent-foreground"
                     },
@@ -19117,80 +18594,10 @@
                       "id": "Ughgb",
                       "name": "nav2SendText",
                       "fill": "$--sidebar-accent-foreground",
-                      "content": "发送文件",
+                      "content": "传输",
                       "fontFamily": "Inter",
                       "fontSize": 14,
                       "fontWeight": "500"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "XFn7Y",
-                  "name": "Nav Item",
-                  "width": "fill_container",
-                  "cornerRadius": 6,
-                  "gap": 10,
-                  "padding": [
-                    8,
-                    10
-                  ],
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon_font",
-                      "id": "GtwO1",
-                      "name": "nav2RecvIcon",
-                      "width": 18,
-                      "height": 18,
-                      "iconFontName": "download",
-                      "iconFontFamily": "lucide",
-                      "fill": "$--sidebar-foreground"
-                    },
-                    {
-                      "type": "text",
-                      "id": "5yWvl",
-                      "name": "nav2RecvText",
-                      "fill": "$--sidebar-foreground",
-                      "content": "接收文件",
-                      "fontFamily": "Inter",
-                      "fontSize": 14,
-                      "fontWeight": "normal"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "NyWf3",
-                  "name": "Nav Item",
-                  "width": "fill_container",
-                  "cornerRadius": 6,
-                  "gap": 10,
-                  "padding": [
-                    8,
-                    10
-                  ],
-                  "alignItems": "center",
-                  "children": [
-                    {
-                      "type": "icon_font",
-                      "id": "gQ8Xz",
-                      "name": "nav2HistIcon",
-                      "width": 18,
-                      "height": 18,
-                      "iconFontName": "history",
-                      "iconFontFamily": "lucide",
-                      "fill": "$--sidebar-foreground"
-                    },
-                    {
-                      "type": "text",
-                      "id": "fgfDY",
-                      "name": "nav2HistText",
-                      "fill": "$--sidebar-foreground",
-                      "content": "传输历史",
-                      "fontFamily": "Inter",
-                      "fontSize": 14,
-                      "fontWeight": "normal"
                     }
                   ]
                 },
