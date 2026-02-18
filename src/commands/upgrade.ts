@@ -4,12 +4,15 @@
  */
 
 import { check, type Update } from "@tauri-apps/plugin-updater";
+import { fetch } from "@tauri-apps/plugin-http";
+import md5 from "js-md5";
+import dayjs from "dayjs";
 
 // 升级策略类型
 export type UpgradeType = "force" | "prompt" | "silent" | null;
 
-// 升级信息接口
-export interface UpdateInfo {
+// 升级信息接口（仅内部使用）
+interface UpdateInfo {
   upgradeType?: UpgradeType;
   rawJson?: {
     upgradeType?: number;
@@ -17,8 +20,8 @@ export interface UpdateInfo {
   };
 }
 
-// 升级信息接口
-export interface UpgradeCheckResult {
+// 更新检查结果
+interface UpgradeCheckResult {
   hasUpdate: boolean;
   update: UpdateInfo | null;
   version: string | null;
@@ -122,9 +125,11 @@ export async function executeDesktopUpdate(
   });
 }
 
+const UPGRADELINK_ENDPOINT = "https://api.upgrade.toolsetlink.com";
+
 /**
- * 检查 Android 更新
- * Android 使用 UpgradeLink SDK + AppUpdater
+ * 检查 APK 更新
+ * 直接调用 UpgradeLink REST API（浏览器兼容，不依赖 Node.js SDK）
  */
 export async function checkAndroidUpdate(
   currentVersionCode: number,
@@ -138,18 +143,8 @@ export async function checkAndroidUpdate(
   promptContent: string | null;
 }> {
   try {
-    // 动态导入 SDK（只在 Android 使用）
-    const { default: Client, Config, ApkUpgradeRequest } = await import(
-      "@toolsetlink/upgradelink-api-typescript"
-    );
-
-    const config = new Config({
-      accessKey: UPGRADELINK_ACCESS_KEY,
-      accessSecret: UPGRADELINK_ACCESS_SECRET,
-    });
-    const client = new Client(config);
-
-    const request = new ApkUpgradeRequest({
+    const uri = "/v1/apk/upgrade";
+    const body = JSON.stringify({
       apkKey: UPGRADELINK_APK_KEY,
       versionCode: currentVersionCode,
       appointVersionCode: 0,
@@ -157,9 +152,29 @@ export async function checkAndroidUpdate(
       devKey: deviceId || "",
     });
 
-    const response = await client.ApkUpgrade(request);
+    const timestamp = dayjs().format("YYYY-MM-DDTHH:mm:ssZ");
+    const nonce = generateNonce();
+    const signature = generateSignature(body, nonce, UPGRADELINK_ACCESS_SECRET, timestamp, uri);
 
-    if (response.code !== 200 || !response.data) {
+    const res = await fetch(`${UPGRADELINK_ENDPOINT}${uri}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-Timestamp": timestamp,
+        "x-Nonce": nonce,
+        "x-AccessKey": UPGRADELINK_ACCESS_KEY,
+        "x-Signature": signature,
+      },
+      body,
+    });
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+
+    const result = await res.json();
+
+    if (result.code !== 200 || !result.data) {
       return {
         hasUpdate: false,
         versionName: null,
@@ -170,27 +185,15 @@ export async function checkAndroidUpdate(
       };
     }
 
-    // 映射 upgradeType
-    let upgradeType: UpgradeType = "prompt";
-    switch (response.data.upgradeType) {
-      case 2:
-        upgradeType = "force";
-        break;
-      case 3:
-        upgradeType = "silent";
-        break;
-      case 1:
-      default:
-        upgradeType = "prompt";
-    }
+    const upgradeType = parseUpgradeType(result.data.upgradeType);
 
     return {
       hasUpdate: true,
-      versionName: response.data.versionName || null,
-      versionCode: response.data.versionCode || 0,
+      versionName: result.data.versionName || null,
+      versionCode: result.data.versionCode || 0,
       upgradeType,
-      downloadUrl: response.data.urlPath || null,
-      promptContent: response.data.promptUpgradeContent || null,
+      downloadUrl: result.data.urlPath || null,
+      promptContent: result.data.promptUpgradeContent || null,
     };
   } catch (error) {
     console.error("[upgrade] Failed to check Android update:", error);
@@ -205,6 +208,27 @@ export async function checkAndroidUpdate(
   }
 }
 
+
+/** 生成 16 位随机 hex nonce */
+function generateNonce(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(8));
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/** UpgradeLink 签名：MD5(body={body}&nonce={nonce}&secretKey={secret}&timestamp={ts}&url={uri}) */
+function generateSignature(
+  body: string,
+  nonce: string,
+  secretKey: string,
+  timestamp: string,
+  uri: string,
+): string {
+  const parts: string[] = [];
+  if (body !== "") parts.push(`body=${body}`);
+  parts.push(`nonce=${nonce}`, `secretKey=${secretKey}`, `timestamp=${timestamp}`, `url=${uri}`);
+  return md5(parts.join("&"));
+}
+
 /**
  * 语义化版本转数字版本码
  */
@@ -213,7 +237,7 @@ export function semverToVersionCode(version: string): number {
   const major = parseInt(parts[0] || "0", 10);
   const minor = parseInt(parts[1] || "0", 10);
   const patch = parseInt(parts[2] || "0", 10);
-  return major * 10000 + minor * 100 + patch;
+  return major * 10000 + minor * 1000 + patch;
 }
 
 /**
@@ -221,7 +245,7 @@ export function semverToVersionCode(version: string): number {
  */
 export function versionCodeToSemver(versionCode: number): string {
   const major = Math.floor(versionCode / 10000);
-  const minor = Math.floor((versionCode % 10000) / 100);
-  const patch = versionCode % 100;
+  const minor = Math.floor((versionCode % 10000) / 1000);
+  const patch = versionCode % 1000;
   return `${major}.${minor}.${patch}`;
 }

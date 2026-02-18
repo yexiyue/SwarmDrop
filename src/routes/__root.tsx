@@ -4,7 +4,7 @@
  */
 
 import { createRootRoute, Outlet } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { platform } from "@tauri-apps/plugin-os";
 import {
   ForceUpdateDialog,
@@ -18,8 +18,10 @@ export const Route = createRootRoute({
 });
 
 function RootLayout() {
-  const { status, checkForUpdate } = useUpgradeLinkStore();
+  const status = useUpgradeLinkStore((s) => s.status);
+  const checkForUpdate = useUpgradeLinkStore((s) => s.checkForUpdate);
   const [promptOpen, setPromptOpen] = useState(false);
+  const prevStatusRef = useRef(status);
 
   // 设置 Android 下载事件监听器
   useEffect(() => {
@@ -48,11 +50,12 @@ function RootLayout() {
     return () => clearTimeout(timer);
   }, [checkForUpdate]);
 
-  // 当有可用更新时显示提示弹窗
+  // 仅当 status 从其他状态变为 "available" 时打开提示弹窗
   useEffect(() => {
-    if (status === "available") {
+    if (prevStatusRef.current !== "available" && status === "available") {
       setPromptOpen(true);
     }
+    prevStatusRef.current = status;
   }, [status]);
 
   return (
