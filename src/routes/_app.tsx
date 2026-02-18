@@ -6,7 +6,13 @@
  * - mobile (<768px): 隐藏侧边栏，显示底部导航栏
  */
 
-import { createFileRoute, Outlet, redirect, useNavigate } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Outlet,
+  redirect,
+  useNavigate,
+  useLocation,
+} from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 import { useEffect } from "react";
 import { AppSidebar } from "@/components/layout/sidebar";
@@ -17,6 +23,11 @@ import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { ConnectionRequestDialog } from "@/components/pairing/connection-request-dialog";
 import { ForceUpdateDialog } from "@/components/ForceUpdateDialog";
 import { useUpdateStore } from "@/stores/update-store";
+import {
+  setupTransferListeners,
+  cleanupTransferListeners,
+  useTransferStore,
+} from "@/stores/transfer-store";
 
 export const Route = createFileRoute("/_app")({
   beforeLoad: () => {
@@ -48,14 +59,37 @@ function AppLayout() {
     return () => clearTimeout(timer);
   }, []);
 
+  // 传输事件监听
+  useEffect(() => {
+    setupTransferListeners();
+    return () => {
+      cleanupTransferListeners();
+    };
+  }, []);
+
+  // 收到传输提议时自动导航到 /receive
+  const navigate = useNavigate();
+  const location = useLocation();
+  const pendingOfferCount = useTransferStore((s) => s.pendingOffers.length);
+
+  useEffect(() => {
+    if (pendingOfferCount > 0 && location.pathname !== "/receive") {
+      void navigate({ to: "/receive" });
+    }
+  }, [pendingOfferCount, location.pathname, navigate]);
+
+  // send/receive 页面为独立全屏，不显示全局 header 和 bottom nav
+  const isFullScreenRoute =
+    location.pathname === "/send" || location.pathname === "/receive";
+
   if (isMobile) {
     return (
       <div className="flex h-svh flex-col">
-        <MobileHeader />
+        {!isFullScreenRoute && <MobileHeader />}
         <main className="flex-1 overflow-hidden">
           <Outlet />
         </main>
-        <BottomNav />
+        {!isFullScreenRoute && <BottomNav />}
         <ConnectionRequestDialog />
         <ForceUpdateDialog />
       </div>

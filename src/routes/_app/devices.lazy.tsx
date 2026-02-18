@@ -5,7 +5,7 @@
  */
 
 import { useMemo, useState } from "react";
-import { createLazyFileRoute } from "@tanstack/react-router";
+import { createLazyFileRoute, useNavigate } from "@tanstack/react-router";
 import { DeviceCard } from "@/components/devices/device-card";
 import type { Device } from "@/commands/network";
 import { Trans } from "@lingui/react/macro";
@@ -26,6 +26,7 @@ export const Route = createLazyFileRoute("/_app/devices")({
 function DevicesPage() {
   const breakpoint = useBreakpoint();
   const isMobile = breakpoint === "mobile";
+  const navigate = useNavigate();
 
   // 共享数据 hooks
   const devices = useNetworkStore((state) => state.devices);
@@ -63,8 +64,7 @@ function DevicesPage() {
   }, [devices]);
 
   const handleSend = (device: Device) => {
-    // TODO: Phase 3 文件传输
-    console.log("Send to device:", device);
+    void navigate({ to: "/send", search: { peerId: device.peerId } });
   };
 
   const handleConnect = (device: Device) => {
@@ -103,7 +103,6 @@ function DevicesPage() {
       {/* 节点控制弹窗 */}
       <StartNodeSheet open={startSheetOpen} onOpenChange={setStartSheetOpen} />
       <StopNodeSheet open={stopSheetOpen} onOpenChange={setStopSheetOpen} />
-
     </>
   );
 }

@@ -29,7 +29,7 @@
 | 触发方式 | 仅已配对设备 | Phase 2 已建立连接，无需新发现机制 |
 | 数据流方向 | 接收方拉取（ChunkRequest → Chunk） | 接收方控制并发度，利于断点续传扩展 |
 | 分块大小 | 256 KB | libp2p CBOR 响应限制 10MB，256KB 保守安全，重传成本低 |
-| E2E 加密 | XChaCha20-Poly1305 | 每次传输随机密钥，通过 Noise 通道安全传递 |
+| E2E 加密 | XChaCha20-Poly1305 | 接收方生成随机密钥，通过 Accept 回复传递（Noise 通道保护） |
 | 接收确认 | 始终需要确认 | 自动接收作为后续迭代 |
 | UI 入口 | 设备页 + 侧边栏传输 Tab | 从设备页发起，传输 Tab 展示进度 |
 
@@ -54,12 +54,13 @@ sequenceDiagram
     participant R as 接收方
 
     Note over S: 用户选择文件 + 目标设备
-    S->>R: TransferOffer { session_id, files, encryption_key }
+    S->>R: TransferOffer { session_id, files }
     Note over R: 弹窗显示文件列表
     R->>R: 用户确认接收 + 选择保存位置
 
     alt 接受
-        R->>S: TransferAccept { session_id }
+        Note over R: 生成 256-bit 对称密钥
+        R->>S: TransferAccept { session_id, encryption_key }
         loop 逐文件逐块拉取
             R->>S: ChunkRequest { session_id, file_id, chunk_index }
             S->>R: ChunkResponse { encrypted_data, is_last }
@@ -140,8 +141,6 @@ pub enum TransferRequest {
         session_id: String,
         files: Vec<FileInfo>,
         total_size: u64,
-        /// 对称加密密钥（通过 Noise 通道安全传递）
-        encryption_key: [u8; 32],
     },
 
     /// 接收方 → 发送方：请求一个分块
@@ -176,6 +175,8 @@ pub enum TransferResponse {
     OfferResult {
         session_id: String,
         accepted: bool,
+        /// 接收方生成的对称加密密钥（仅 accepted=true 时有值，通过 Noise 通道安全传递）
+        encryption_key: Option<[u8; 32]>,
         reason: Option<String>,
     },
 
@@ -295,7 +296,9 @@ impl FileAssembler {
 
 ### 方案
 
-每次传输生成一个随机 256-bit 对称密钥，通过 `TransferOffer` 消息明文传递给接收方。由于 libp2p 底层使用 Noise 协议加密所有传输层通信，密钥交换是安全的。
+每次传输由**接收方**生成一个随机 256-bit 对称密钥，通过 `TransferResponse::OfferResult` 回复传递给发送方。语义为「我接受你的文件，请用这个密钥加密后发给我」。由于 libp2p 底层使用 Noise 协议加密所有传输层通信，密钥交换是安全的。
+
+这种方式与 receiver-pull 模型天然契合——发送方本就是收到 ChunkRequest 后按需读取并加密，密钥晚一步获得不影响流程。
 
 ### 加密器
 
@@ -512,10 +515,12 @@ async fn prepare_send(
 
 /// 开始发送到指定已配对设备
 /// 发送 TransferOffer，等待接收方确认
+/// `selected_file_ids` 为用户最终选中的文件 ID（用户可在前端移除不需要的文件）
 #[tauri::command]
 async fn start_send(
     prepared_id: String,
     peer_id: String,
+    selected_file_ids: Vec<u32>,
     state: State<'_, NetManagerState>,
 ) -> Result<String, AppError>;  // 返回 session_id
 
@@ -748,7 +753,9 @@ src/routes/
 │                                                 │
 │  ┌─────────────────────────────────────────┐   │
 │  │                                         │   │
-│  │      拖拽文件到这里，或点击选择          │   │
+│  │      拖拽文件/文件夹到这里              │   │
+│  │                                         │   │
+│  │   [选择文件]    [选择文件夹]            │   │
 │  │                                         │   │
 │  └─────────────────────────────────────────┘   │
 │                                                 │
@@ -762,6 +769,16 @@ src/routes/
 │                                [发送]           │
 └─────────────────────────────────────────────────┘
 ```
+
+**文件选择方式**：
+
+Tauri dialog 的 `open()` API 不支持同时选择文件和文件夹（受操作系统限制），因此提供三种选择入口：
+
+1. **拖拽**：拖拽区域同时接受文件和文件夹，无系统限制
+2. **选择文件**：调用 `open({ multiple: true })`，打开文件选择对话框
+3. **选择文件夹**：调用 `open({ directory: true })`，打开文件夹选择对话框
+
+选择文件夹时，后端递归扫描目录，将所有文件展开为带 `relative_path` 的扁平列表。
 
 ### 接收确认弹窗
 
