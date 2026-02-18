@@ -57,15 +57,33 @@ export function useFileSelection(): FileSelection {
 
   const addPaths = useCallback(
     async (paths: string[]) => {
+      // 并行处理所有路径
+      type ListResult = { kind: "list"; path: string; result: Awaited<ReturnType<typeof listFiles>> };
+      type MetaResult = { kind: "meta"; path: string; metas: Awaited<ReturnType<typeof getFileMeta>> };
+
+      const results = await Promise.allSettled(
+        paths.map(async (path): Promise<ListResult | MetaResult> => {
+          try {
+            const result = await listFiles(path);
+            return { kind: "list", path, result };
+          } catch {
+            // 回退：尝试用 getFileMeta 获取单个文件信息
+            const metas = await getFileMeta([path]);
+            return { kind: "meta", path, metas };
+          }
+        }),
+      );
+
       const newEntries = new Map<string, FileMeta>();
       const newEntryPoints: EntryPoint[] = [];
 
-      for (const path of paths) {
-        try {
-          const result = await listFiles(path);
+      for (const settled of results) {
+        if (settled.status !== "fulfilled") continue;
+        const value = settled.value;
 
+        if (value.kind === "list") {
+          const { path, result } = value;
           if (result.isDirectory) {
-            // 目录
             newEntryPoints.push({ path, type: "folder" });
             for (const file of result.entries) {
               newEntries.set(file.path, {
@@ -75,7 +93,6 @@ export function useFileSelection(): FileSelection {
               });
             }
           } else {
-            // 单个文件
             const file = result.entries[0];
             newEntryPoints.push({ path, type: "file" });
             newEntries.set(file.path, {
@@ -84,28 +101,23 @@ export function useFileSelection(): FileSelection {
               size: file.size,
             });
           }
-        } catch {
-          // 回退：尝试用 getFileMeta 获取单个文件信息
-          try {
-            const metas = await getFileMeta([path]);
-            for (const meta of metas) {
-              newEntryPoints.push({ path, type: "file" });
-              newEntries.set(meta.path, {
-                absolutePath: meta.path,
-                name: meta.name,
-                size: meta.size,
-              });
-            }
-          } catch {
-            // 无法获取信息，跳过
+        } else {
+          // getFileMeta 回退结果
+          for (const meta of value.metas) {
+            newEntryPoints.push({ path: value.path, type: "file" });
+            newEntries.set(meta.path, {
+              absolutePath: meta.path,
+              name: meta.name,
+              size: meta.size,
+            });
           }
         }
       }
 
       setEntries((prev) => {
         const merged = new Map(prev);
-        for (const [key, value] of newEntries) {
-          merged.set(key, value);
+        for (const [key, val] of newEntries) {
+          merged.set(key, val);
         }
         return merged;
       });

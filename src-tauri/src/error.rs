@@ -47,6 +47,14 @@ pub enum AppError {
     /// 无效的配对码
     #[error("无效的配对码")]
     InvalidCode,
+
+    /// tokio 任务错误
+    #[error("Task join error: {0}")]
+    TaskJoin(#[from] tokio::task::JoinError),
+
+    /// 文件传输错误
+    #[error("Transfer error: {0}")]
+    Transfer(String),
 }
 
 /// 传递给前端的序列化错误格式
@@ -69,6 +77,8 @@ impl Serialize for AppError {
             AppError::NodeNotStarted => ("NodeNotStarted", self.to_string()),
             AppError::ExpiredCode => ("ExpiredCode", self.to_string()),
             AppError::InvalidCode => ("InvalidCode", self.to_string()),
+            AppError::TaskJoin(e) => ("TaskJoin", e.to_string()),
+            AppError::Transfer(msg) => ("Transfer", msg.clone()),
         };
 
         state.serialize_field("kind", kind)?;

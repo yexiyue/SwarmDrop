@@ -44,6 +44,9 @@ blake3 = "1.8.3"
 tauri-plugin-dialog = "2"
 walkdir = "2"
 tauri-plugin-http = "2.5.7"
+uuid = { version = "1.21.0", features = ["v4"] }
+path-slash = "0.2.1"
+pathdiff = "0.2.3"
 
 # 桌面端启用 DNS 解析（Android 上 /etc/resolv.conf 不存在，不启用）
 [target.'cfg(not(target_os = "android"))'.dependencies]

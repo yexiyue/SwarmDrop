@@ -211,6 +211,144 @@ export function buildTreeData(
 }
 
 /**
+ * 从 Offer 的文件列表构建 headless-tree 所需的 dataLoader
+ *
+ * 与 buildTreeData 不同，这里的输入已经包含 relativePath 和 fileId，
+ * 不需要 entryPoints 和 absolutePath。
+ *
+ * @param files Offer 中的文件信息列表
+ * @returns dataLoader + rootChildren
+ */
+export function buildTreeDataFromOffer(
+  files: { fileId: number; name: string; relativePath: string; size: number }[],
+): TreeData {
+  const nodeMap = new Map<string, TreeNodeData>();
+  const childrenMap = new Map<string, string[]>();
+
+  // 按 relativePath 排序
+  const sorted = [...files].sort((a, b) =>
+    a.relativePath.localeCompare(b.relativePath),
+  );
+
+  for (const file of sorted) {
+    const relativePath = file.relativePath;
+    const fileId = relativePath;
+
+    // 创建文件节点
+    nodeMap.set(fileId, {
+      id: fileId,
+      name: file.name,
+      type: "file",
+      path: relativePath,
+      size: file.size,
+      fileId: file.fileId,
+    });
+
+    // 创建中间目录节点
+    const parts = relativePath.split("/");
+    let currentPath = "";
+
+    for (let i = 0; i < parts.length - 1; i++) {
+      const parentPath = currentPath;
+      currentPath = currentPath ? `${currentPath}/${parts[i]}` : parts[i];
+      const dirId = `${currentPath}/`;
+
+      if (!nodeMap.has(dirId)) {
+        nodeMap.set(dirId, {
+          id: dirId,
+          name: parts[i],
+          type: "directory",
+          path: dirId,
+          size: 0,
+        });
+
+        const parentId = parentPath ? `${parentPath}/` : "root";
+        const siblings = childrenMap.get(parentId) ?? [];
+        siblings.push(dirId);
+        childrenMap.set(parentId, siblings);
+      }
+
+      // 累加目录大小
+      const dirNode = nodeMap.get(dirId)!;
+      dirNode.size += file.size;
+    }
+
+    // 将文件添加到父级
+    const parentDir =
+      parts.length > 1 ? `${parts.slice(0, -1).join("/")}/` : "root";
+    const siblings = childrenMap.get(parentDir) ?? [];
+    siblings.push(fileId);
+    childrenMap.set(parentDir, siblings);
+  }
+
+  // 排序每个目录的 children：目录在前、文件在后
+  for (const [, children] of childrenMap) {
+    children.sort((a, b) => {
+      const aIsDir = a.endsWith("/");
+      const bIsDir = b.endsWith("/");
+      if (aIsDir !== bIsDir) return aIsDir ? -1 : 1;
+      const aNode = nodeMap.get(a)!;
+      const bNode = nodeMap.get(b)!;
+      return aNode.name.localeCompare(bNode.name);
+    });
+  }
+
+  // 预计算每个目录的文件数量
+  function computeFileCount(nodeId: string): number {
+    const children = childrenMap.get(nodeId) ?? [];
+    let count = 0;
+    for (const childId of children) {
+      const child = nodeMap.get(childId);
+      if (child?.type === "directory") {
+        const childCount = computeFileCount(childId);
+        child.fileCount = childCount;
+        count += childCount;
+      } else {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  const rootChildren = childrenMap.get("root") ?? [];
+  for (const rootId of rootChildren) {
+    const node = nodeMap.get(rootId);
+    if (node?.type === "directory") {
+      node.fileCount = computeFileCount(rootId);
+    }
+  }
+
+  // 创建根节点
+  const totalSize = sorted.reduce((sum, f) => sum + f.size, 0);
+  nodeMap.set("root", {
+    id: "root",
+    name: "root",
+    type: "directory",
+    path: "",
+    size: totalSize,
+  });
+
+  const dataLoader: TreeDataLoader = {
+    getItem: (itemId: string) => {
+      const node = nodeMap.get(itemId);
+      if (!node) {
+        return {
+          id: itemId,
+          name: itemId,
+          type: "file" as const,
+          path: itemId,
+          size: 0,
+        };
+      }
+      return node;
+    },
+    getChildren: (itemId: string) => childrenMap.get(itemId) ?? [],
+  };
+
+  return { dataLoader, rootChildren };
+}
+
+/**
  * 计算文件的相对路径
  *
  * 规则：

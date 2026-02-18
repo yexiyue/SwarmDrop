@@ -6,7 +6,7 @@ use tracing::{info, warn};
 
 use super::manager::SharedNetRefs;
 use crate::device::DeviceFilter;
-use crate::protocol::{AppRequest, PairingRequest};
+use crate::protocol::{AppRequest, AppResponse, PairingRequest, TransferRequest, TransferResponse};
 use swarm_p2p_core::libp2p::PeerId;
 
 /// 配对请求事件 payload
@@ -17,6 +17,28 @@ struct PairingRequestPayload {
     pending_id: u64,
     #[serde(flatten)]
     request: PairingRequest,
+}
+
+/// 传输 Offer 事件 payload（推送给前端）
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct TransferOfferPayload {
+    session_id: String,
+    peer_id: String,
+    device_name: String,
+    files: Vec<TransferFilePayload>,
+    total_size: u64,
+}
+
+/// Offer 中的文件信息（前端展示用）
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct TransferFilePayload {
+    file_id: u32,
+    name: String,
+    relative_path: String,
+    size: u64,
+    is_directory: bool,
 }
 
 /// 当窗口未聚焦时发送系统通知
@@ -90,24 +112,97 @@ pub fn spawn_event_loop(
                 } => {
                     info!("Inbound request from {:?}: {:?}", peer_id, request);
 
-                    // AppRequest 目前仅有 Pairing 变体，后续 Phase 3 会增加 Transfer
-                    #[expect(irrefutable_let_patterns)]
-                    if let AppRequest::Pairing(req) = request {
-                        shared
-                            .pairing
-                            .cache_inbound_request(peer_id, pending_id, &req);
-                        notify_if_unfocused(
-                            &app,
-                            "配对请求",
-                            &format!("{} 请求与您配对", req.os_info.hostname),
-                        );
+                    match request {
+                        AppRequest::Pairing(req) => {
+                            shared
+                                .pairing
+                                .cache_inbound_request(peer_id, pending_id, &req);
+                            notify_if_unfocused(
+                                &app,
+                                "配对请求",
+                                &format!("{} 请求与您配对", req.os_info.hostname),
+                            );
 
-                        let payload = PairingRequestPayload {
-                            peer_id,
-                            pending_id,
-                            request: req,
-                        };
-                        let _ = app.emit("pairing-request-received", &payload);
+                            let payload = PairingRequestPayload {
+                                peer_id,
+                                pending_id,
+                                request: req,
+                            };
+                            let _ = app.emit("pairing-request-received", &payload);
+                        }
+
+                        AppRequest::Transfer(TransferRequest::Offer {
+                            session_id,
+                            files,
+                            total_size,
+                        }) => {
+                            // 仅接受已配对设备的 Offer
+                            if !shared.pairing.is_paired(&peer_id) {
+                                warn!(
+                                    "Rejecting transfer offer from unpaired peer: {}",
+                                    peer_id
+                                );
+                                let response = AppResponse::Transfer(
+                                    TransferResponse::OfferResult {
+                                        accepted: false,
+                                        key: None,
+                                        reason: Some("未配对设备".into()),
+                                    },
+                                );
+                                let client = shared.client.clone();
+                                tokio::spawn(async move {
+                                    if let Err(e) =
+                                        client.send_response(pending_id, response).await
+                                    {
+                                        warn!("Failed to reject offer: {}", e);
+                                    }
+                                });
+                                continue;
+                            }
+
+                            // 获取设备名
+                            let device_name = shared
+                                .pairing
+                                .get_paired_devices()
+                                .into_iter()
+                                .find(|d| d.peer_id == peer_id)
+                                .map(|d| d.os_info.hostname.clone())
+                                .unwrap_or_else(|| peer_id.to_string()[..8].to_string());
+
+                            // 缓存入站 Offer
+                            shared.offer.cache_inbound_offer(
+                                pending_id,
+                                peer_id,
+                                session_id.clone(),
+                                files.clone(),
+                                total_size,
+                            );
+
+                            // 通知前端
+                            let payload = TransferOfferPayload {
+                                session_id,
+                                peer_id: peer_id.to_string(),
+                                device_name: device_name.clone(),
+                                files: files
+                                    .into_iter()
+                                    .map(|f| TransferFilePayload {
+                                        file_id: f.file_id,
+                                        name: f.name,
+                                        relative_path: f.relative_path,
+                                        size: f.size,
+                                        is_directory: false,
+                                    })
+                                    .collect(),
+                                total_size,
+                            };
+                            let _ = app.emit("transfer-offer", &payload);
+
+                            notify_if_unfocused(
+                                &app,
+                                "收到文件传输请求",
+                                &format!("{} 想要向您发送文件", device_name),
+                            );
+                        }
                     }
                 }
 

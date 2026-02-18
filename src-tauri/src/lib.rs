@@ -64,6 +64,10 @@ pub fn run() {
             commands::install_update,
             commands::list_files,
             commands::get_file_meta,
+            commands::prepare_send,
+            commands::start_send,
+            commands::accept_receive,
+            commands::reject_receive,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

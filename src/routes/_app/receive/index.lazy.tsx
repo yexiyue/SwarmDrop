@@ -3,20 +3,21 @@
  * 接收文件页面 — 收到传输提议时自动导航到此页面
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createLazyFileRoute, useNavigate } from "@tanstack/react-router";
 import { open } from "@tauri-apps/plugin-dialog";
 import { downloadDir } from "@tauri-apps/api/path";
-import { File, Folder, FolderOpen, ArrowLeft } from "lucide-react";
+import { FolderOpen, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { Trans } from "@lingui/react/macro";
-import type { TransferOfferEvent, TransferFileInfo } from "@/commands/transfer";
+import type { TransferOfferEvent } from "@/commands/transfer";
 import { acceptReceive, rejectReceive } from "@/commands/transfer";
 import { useTransferStore } from "@/stores/transfer-store";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { getErrorMessage } from "@/lib/errors";
-import { formatFileSize } from "@/lib/format";
 import { Button } from "@/components/ui/button";
+import { buildTreeDataFromOffer } from "@/routes/_app/send/-file-tree";
+import { FileTree } from "@/routes/_app/send/-components/file-tree";
 
 export const Route = createLazyFileRoute("/_app/receive/")({
   component: ReceivePage,
@@ -172,30 +173,6 @@ interface ReceiveViewProps {
   onBack: () => void;
 }
 
-/* ─────────────────── 文件列表子组件 ─────────────────── */
-
-function OfferFileList({ files }: { files: TransferFileInfo[] }) {
-  return (
-    <div className="flex max-h-60 flex-col gap-1 overflow-auto rounded-lg border border-border p-2.5">
-      {files.map((file: TransferFileInfo) => (
-        <div key={file.fileId} className="flex items-center gap-2 py-1.5">
-          {file.isDirectory ? (
-            <Folder className="size-4 shrink-0 text-blue-500" />
-          ) : (
-            <File className="size-4 shrink-0 text-muted-foreground" />
-          )}
-          <span className="min-w-0 flex-1 truncate text-sm">
-            {file.name}
-          </span>
-          <span className="shrink-0 text-xs text-muted-foreground">
-            {formatFileSize(file.size)}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 /* ─────────────────── 保存路径选择 ─────────────────── */
 
 function SavePathPicker({
@@ -234,15 +211,20 @@ function ReceiveContent({
   processing,
   onChangePath,
 }: Pick<ReceiveViewProps, "offer" | "savePath" | "processing" | "onChangePath">) {
+  const treeData = useMemo(
+    () => buildTreeDataFromOffer(offer.files),
+    [offer.files],
+  );
+
   return (
     <>
-      <OfferFileList files={offer.files} />
-
-      <div className="text-xs text-muted-foreground">
-        <Trans>
-          共 {offer.files.length} 项 · {formatFileSize(offer.totalSize)}
-        </Trans>
-      </div>
+      <FileTree
+        mode="select"
+        dataLoader={treeData.dataLoader}
+        rootChildren={treeData.rootChildren}
+        totalCount={offer.files.length}
+        totalSize={offer.totalSize}
+      />
 
       <div className="flex flex-col gap-1.5">
         <span className="text-sm font-medium text-foreground">

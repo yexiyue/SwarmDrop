@@ -1,6 +1,6 @@
 /**
  * Transfer commands
- * 文件传输相关类型定义和命令（stub，后端未实现）
+ * 文件传输相关类型定义和命令
  */
 
 import { invoke } from "@tauri-apps/api/core";
@@ -129,27 +129,28 @@ export async function getFileMeta(paths: string[]): Promise<FileEntry[]> {
   return invoke("get_file_meta", { paths });
 }
 
-// === 命令函数（stub） ===
+// === 命令函数 ===
 
-/**
- * 准备发送：扫描文件、计算校验和
- * TODO: 后端实现后替换
- */
+/** 开始发送的结果 */
+export interface StartSendResult {
+  sessionId: string;
+  accepted: boolean;
+  reason: string | null;
+}
+
+/** 准备发送：扫描文件、计算校验和 */
 export async function prepareSend(
   filePaths: string[],
 ): Promise<PreparedTransfer> {
   return invoke("prepare_send", { filePaths });
 }
 
-/**
- * 开始发送到指定设备
- * 返回 session_id
- */
+/** 开始发送到指定设备，等待对方响应 */
 export async function startSend(
   preparedId: string,
   peerId: string,
   selectedFileIds: number[],
-): Promise<string> {
+): Promise<StartSendResult> {
   return invoke("start_send", { preparedId, peerId, selectedFileIds });
 }
 
