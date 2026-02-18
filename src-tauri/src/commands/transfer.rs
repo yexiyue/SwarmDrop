@@ -1,137 +1,124 @@
 //! 文件传输相关 Tauri 命令
 //!
-//! 第一层：文件选择阶段的文件系统操作命令。
+//! 薄层命令入口，所有业务逻辑委托给 [`transfer`](crate::transfer) 模块。
 
-use crate::AppError;
+use crate::network::NetManagerState;
+use crate::transfer::fs::{FileEntry, ListFilesResult};
+use crate::transfer::offer::StartSendResult;
 use serde::Serialize;
-use std::path::PathBuf;
-use walkdir::WalkDir;
+use tauri::State;
 
-/// 文件条目
+/// 准备好的文件信息（返回给前端）
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct FileEntry {
-    /// 绝对路径
-    pub path: String,
-    /// 文件名
+pub struct TransferFileResult {
+    pub file_id: u32,
     pub name: String,
-    /// 文件大小（字节）
+    pub relative_path: String,
     pub size: u64,
+    pub is_directory: bool,
 }
 
-/// `list_files` 的返回结果
+/// prepare_send 的返回类型
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ListFilesResult {
-    /// 输入路径是否为目录
-    pub is_directory: bool,
-    /// 所有文件条目（仅文件，不含目录）
-    pub entries: Vec<FileEntry>,
-    /// 文件总数
-    pub total_count: usize,
-    /// 文件总大小（字节）
+pub struct PreparedTransferResult {
+    pub prepared_id: String,
+    pub files: Vec<TransferFileResult>,
     pub total_size: u64,
 }
 
 /// 递归列举路径下的所有文件
-///
-/// - 如果 `path` 是文件，`is_directory = false`，`entries` 只含该文件
-/// - 如果 `path` 是目录，`is_directory = true`，递归列举所有文件
-/// - 跟随符号链接，自动跳过无权访问的条目
 #[tauri::command]
 pub async fn list_files(path: String) -> crate::AppResult<ListFilesResult> {
-    tokio::task::spawn_blocking(move || list_files_sync(&path))
-        .await
-        .map_err(|e| AppError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?
+    crate::transfer::fs::list_files(path).await
 }
 
 /// 批量获取文件元信息
-///
-/// 对每个路径调用 `fs::metadata`，返回基本信息。
-/// 跳过无法访问的路径（不报错）。
 #[tauri::command]
 pub async fn get_file_meta(paths: Vec<String>) -> crate::AppResult<Vec<FileEntry>> {
-    tokio::task::spawn_blocking(move || {
-        let mut entries = Vec::with_capacity(paths.len());
-        for p in &paths {
-            let path = PathBuf::from(p);
-            let Ok(meta) = std::fs::metadata(&path) else {
-                continue;
-            };
-            // 跳过目录
-            if meta.is_dir() {
-                continue;
-            }
-            entries.push(FileEntry {
-                path: p.clone(),
-                name: path
-                    .file_name()
-                    .map(|n| n.to_string_lossy().into_owned())
-                    .unwrap_or_default(),
-                size: meta.len(),
-            });
-        }
-        Ok(entries)
-    })
-    .await
-    .map_err(|e| AppError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?
+    crate::transfer::fs::get_file_meta(paths).await
 }
 
-fn list_files_sync(path: &str) -> crate::AppResult<ListFilesResult> {
-    let root = PathBuf::from(path);
-    let meta = std::fs::metadata(&root)?;
+/// 准备发送：扫描文件、计算 BLAKE3 校验和、分配 fileId
+#[tauri::command]
+pub async fn prepare_send(
+    net: State<'_, NetManagerState>,
+    file_paths: Vec<String>,
+) -> crate::AppResult<PreparedTransferResult> {
+    let offer = {
+        let guard = net.lock().await;
+        let manager = guard.as_ref().ok_or_else(super::not_started)?;
+        manager.offer_arc()
+    };
 
-    // 单个文件
-    if meta.is_file() {
-        let size = meta.len();
-        return Ok(ListFilesResult {
-            is_directory: false,
-            entries: vec![FileEntry {
-                path: path.to_owned(),
-                name: root
-                    .file_name()
-                    .map(|n| n.to_string_lossy().into_owned())
-                    .unwrap_or_default(),
-                size,
-            }],
-            total_count: 1,
-            total_size: size,
-        });
-    }
+    let prepared = offer.prepare(file_paths).await?;
 
-    // 目录：递归遍历，只返回文件
-    let mut entries = Vec::new();
-    let mut total_size: u64 = 0;
-
-    for entry in WalkDir::new(&root)
-        .follow_links(true)
-        .into_iter()
-        .filter_map(|e| e.ok())
-    {
-        if entry.file_type().is_dir() {
-            continue;
-        }
-
-        let entry_path = entry.path();
-        let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
-        total_size += size;
-
-        entries.push(FileEntry {
-            path: entry_path.to_string_lossy().into_owned(),
-            name: entry_path
-                .file_name()
-                .map(|n| n.to_string_lossy().into_owned())
-                .unwrap_or_default(),
-            size,
-        });
-    }
-
-    let total_count = entries.len();
-
-    Ok(ListFilesResult {
-        is_directory: true,
-        entries,
-        total_count,
-        total_size,
+    Ok(PreparedTransferResult {
+        prepared_id: prepared.prepared_id,
+        total_size: prepared.total_size,
+        files: prepared
+            .files
+            .iter()
+            .map(|f| TransferFileResult {
+                file_id: f.file_id,
+                name: f.name.clone(),
+                relative_path: f.relative_path.clone(),
+                size: f.size,
+                is_directory: false,
+            })
+            .collect(),
     })
+}
+
+/// 开始发送：构造 Offer，通过 libp2p 发送到目标 peer，等待 OfferResult
+#[tauri::command]
+pub async fn start_send(
+    net: State<'_, NetManagerState>,
+    prepared_id: String,
+    peer_id: String,
+    selected_file_ids: Vec<u32>,
+) -> crate::AppResult<StartSendResult> {
+    let offer = {
+        let guard = net.lock().await;
+        let manager = guard.as_ref().ok_or_else(super::not_started)?;
+        manager.offer_arc()
+    };
+
+    offer
+        .send_offer(&prepared_id, &peer_id, &selected_file_ids)
+        .await
+}
+
+/// 确认接收：生成密钥，回复 OfferResult
+#[tauri::command]
+pub async fn accept_receive(
+    net: State<'_, NetManagerState>,
+    session_id: String,
+    save_path: String,
+) -> crate::AppResult<()> {
+    let _ = save_path; // 后续分块传输阶段使用
+
+    let offer = {
+        let guard = net.lock().await;
+        let manager = guard.as_ref().ok_or_else(super::not_started)?;
+        manager.offer_arc()
+    };
+
+    offer.accept_and_respond(&session_id).await
+}
+
+/// 拒绝接收：回复拒绝的 OfferResult
+#[tauri::command]
+pub async fn reject_receive(
+    net: State<'_, NetManagerState>,
+    session_id: String,
+) -> crate::AppResult<()> {
+    let offer = {
+        let guard = net.lock().await;
+        let manager = guard.as_ref().ok_or_else(super::not_started)?;
+        manager.offer_arc()
+    };
+
+    offer.reject_and_respond(&session_id).await
 }

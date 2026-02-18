@@ -8,18 +8,18 @@ use super::{NatStatus, NetworkStatus, NodeStatus};
 use crate::device::{DeviceManager, PairedDeviceInfo};
 use crate::pairing::manager::PairingManager;
 use crate::protocol::AppNetClient;
+use crate::transfer::offer::OfferManager;
 
 /// 网络管理器
 ///
 /// 统一管理 [`AppNetClient`]、[`DeviceManager`] 和 [`PairingManager`]，
 /// 对 [`commands`](crate::commands) 层提供访问接口。
 pub struct NetManager {
-    // 保持 NetClient 所有权
-    #[expect(dead_code)]
     client: AppNetClient,
     peer_id: PeerId,
     pairing: Arc<PairingManager>,
     devices: Arc<DeviceManager>,
+    offer: Arc<OfferManager>,
     // 网络状态（Arc<RwLock> 供事件循环并发更新）
     listen_addrs: Arc<RwLock<Vec<Multiaddr>>>,
     nat_status: Arc<RwLock<NatStatus>>,
@@ -46,11 +46,13 @@ impl NetManager {
             paired_map.clone(),
         ));
         let devices = Arc::new(DeviceManager::new(paired_map));
+        let offer = Arc::new(OfferManager::new(client.clone()));
         Self {
             client,
             peer_id,
             pairing,
             devices,
+            offer,
             listen_addrs: Arc::new(RwLock::new(Vec::new())),
             nat_status: Arc::new(RwLock::new(NatStatus::Unknown)),
             public_addr: Arc::new(RwLock::new(None)),
@@ -65,6 +67,18 @@ impl NetManager {
         &self.devices
     }
 
+    pub fn offer(&self) -> &OfferManager {
+        &self.offer
+    }
+
+    pub fn offer_arc(&self) -> Arc<OfferManager> {
+        self.offer.clone()
+    }
+
+    pub fn client(&self) -> &AppNetClient {
+        &self.client
+    }
+
     /// 获取当前网络状态快照
     pub fn get_network_status(&self) -> NetworkStatus {
         self.shared_refs().build_network_status()
@@ -74,8 +88,10 @@ impl NetManager {
     pub(crate) fn shared_refs(&self) -> SharedNetRefs {
         SharedNetRefs {
             peer_id: self.peer_id,
+            client: self.client.clone(),
             devices: self.devices.clone(),
             pairing: self.pairing.clone(),
+            offer: self.offer.clone(),
             listen_addrs: self.listen_addrs.clone(),
             nat_status: self.nat_status.clone(),
             public_addr: self.public_addr.clone(),
@@ -89,8 +105,10 @@ impl NetManager {
 /// 供 [`spawn_event_loop`](super::spawn_event_loop) 在独立 tokio task 中更新网络状态。
 pub(crate) struct SharedNetRefs {
     pub peer_id: PeerId,
+    pub client: AppNetClient,
     pub devices: Arc<DeviceManager>,
     pub pairing: Arc<PairingManager>,
+    pub offer: Arc<OfferManager>,
     pub listen_addrs: Arc<RwLock<Vec<Multiaddr>>>,
     pub nat_status: Arc<RwLock<NatStatus>>,
     pub public_addr: Arc<RwLock<Option<Multiaddr>>>,

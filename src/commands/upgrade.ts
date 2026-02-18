@@ -6,7 +6,6 @@
 import { check, type Update } from "@tauri-apps/plugin-updater";
 import { fetch } from "@tauri-apps/plugin-http";
 import { md5 } from "js-md5";
-import dayjs from "dayjs";
 
 // 升级策略类型
 export type UpgradeType = "force" | "prompt" | "silent" | null;
@@ -152,7 +151,7 @@ export async function checkAndroidUpdate(
       devKey: deviceId || "",
     });
 
-    const timestamp = dayjs().format("YYYY-MM-DDTHH:mm:ssZ");
+    const timestamp = new Date().toISOString();
     const nonce = generateNonce();
     const signature = generateSignature(body, nonce, UPGRADELINK_ACCESS_SECRET, timestamp, uri);
 

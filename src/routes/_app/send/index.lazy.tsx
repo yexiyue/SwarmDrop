@@ -75,20 +75,25 @@ function SendPage() {
       const filePaths = fileSelection.getFilePaths();
       const prepared = await prepareSend(filePaths);
       const fileIds = prepared.files.map((f) => f.fileId);
-      const sessionId = await startSend(
+      const result = await startSend(
         prepared.preparedId,
         device.peerId,
         fileIds,
       );
 
+      if (!result.accepted) {
+        toast.error(result.reason ?? "对方拒绝了传输请求");
+        return;
+      }
+
       useTransferStore.getState().addSession({
-        sessionId,
+        sessionId: result.sessionId,
         direction: "send",
         peerId: device.peerId,
         deviceName: device.hostname,
         files: prepared.files,
         totalSize: prepared.totalSize,
-        status: "waiting_accept",
+        status: "transferring",
         progress: null,
         error: null,
         startedAt: Date.now(),

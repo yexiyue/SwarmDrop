@@ -40,7 +40,7 @@ impl TransferCrypto {
         plaintext: &[u8],
     ) -> aead::Result<Vec<u8>> {
         let nonce = derive_nonce(session_id, file_id, chunk_index);
-        Ok(self.cipher.encrypt(XNonce::from_slice(&nonce), plaintext)?)
+        self.cipher.encrypt(XNonce::from_slice(&nonce), plaintext)
     }
 
     /// 解密分块（接收方调用）
@@ -55,9 +55,8 @@ impl TransferCrypto {
         ciphertext: &[u8],
     ) -> aead::Result<Vec<u8>> {
         let nonce = derive_nonce(session_id, file_id, chunk_index);
-        Ok(self
-            .cipher
-            .decrypt(XNonce::from_slice(&nonce), ciphertext)?)
+        self.cipher
+            .decrypt(XNonce::from_slice(&nonce), ciphertext)
     }
 }
 
