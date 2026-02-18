@@ -14,6 +14,8 @@
   },
   "dependencies": {
     "@choochmeque/tauri-plugin-biometry-api": "^0.2.6",
+    "@headless-tree/core": "^1.6.3",
+    "@headless-tree/react": "^1.6.3",
     "@icons-pack/react-simple-icons": "^13.8.0",
     "@lingui/core": "^5.9.0",
     "@lingui/react": "^5.9.0",
@@ -28,6 +30,7 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-router": "^1.157.16",
+    "@tanstack/react-virtual": "^3.13.18",
     "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/plugin-dialog": "^2.6.0",
     "@tauri-apps/plugin-fs": "~2",

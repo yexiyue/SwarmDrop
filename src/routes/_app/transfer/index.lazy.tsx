@@ -9,10 +9,10 @@ import { ArrowLeftRight } from "lucide-react";
 import { Trans } from "@lingui/react/macro";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { useTransferStore } from "@/stores/transfer-store";
-import { TransferItem } from "@/components/transfer/transfer-item";
+import { TransferItem } from "./-transfer-item";
 import type { TransferSession } from "@/commands/transfer";
 
-export const Route = createLazyFileRoute("/_app/transfer")({
+export const Route = createLazyFileRoute("/_app/transfer/")({
   component: TransferPage,
 });
 

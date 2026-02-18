@@ -6,20 +6,20 @@
 
 import { useMemo, useState } from "react";
 import { createLazyFileRoute, useNavigate } from "@tanstack/react-router";
-import { DeviceCard } from "@/components/devices/device-card";
+import { DeviceCard } from "./-components/device-card";
 import type { Device } from "@/commands/network";
 import { Trans } from "@lingui/react/macro";
 import { useNetworkStore } from "@/stores/network-store";
 import { useSecretStore } from "@/stores/secret-store";
 import { usePairingStore } from "@/stores/pairing-store";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
-import { AddDeviceMenu } from "@/components/pairing/add-device-menu";
-import { NetworkStatusBar } from "@/components/network/network-status-bar";
-import { OfflineEmptyState } from "@/components/network/offline-empty-state";
+import { AddDeviceMenu } from "./-components/add-device-menu";
+import { NetworkStatusBar } from "./-components/network-status-bar";
+import { OfflineEmptyState } from "./-components/offline-empty-state";
 import { StartNodeSheet } from "@/components/network/start-node-sheet";
 import { StopNodeSheet } from "@/components/network/stop-node-sheet";
 
-export const Route = createLazyFileRoute("/_app/devices")({
+export const Route = createLazyFileRoute("/_app/devices/")({
   component: DevicesPage,
 });
 

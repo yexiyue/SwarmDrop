@@ -98,6 +98,33 @@ export interface TransferFailedEvent {
   error: string;
 }
 
+// === 文件信息查询 ===
+
+/** listFiles 返回的文件条目 */
+export interface FileEntry {
+  path: string;
+  name: string;
+  size: number;
+  isDirectory: boolean;
+}
+
+/**
+ * 递归枚举文件夹下的所有文件
+ * 如果传入文件路径，返回该文件本身
+ * TODO: 后端实现后替换为 invoke
+ */
+export async function listFiles(path: string): Promise<FileEntry[]> {
+  return invoke("list_files", { path });
+}
+
+/**
+ * 批量获取文件元信息
+ * TODO: 后端实现后替换为 invoke
+ */
+export async function getFileMeta(paths: string[]): Promise<FileEntry[]> {
+  return invoke("get_file_meta", { paths });
+}
+
 // === 命令函数（stub） ===
 
 /**

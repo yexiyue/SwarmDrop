@@ -112,39 +112,40 @@ export function FileDropZone({ onFilesSelected, disabled }: FileDropZoneProps) {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
       className={cn(
-        "flex flex-col items-center justify-center gap-3.5 rounded-xl border-[1.5px] border-dashed px-4 py-8 transition-colors",
+        "flex flex-col items-center justify-center gap-3.5 rounded-xl border-[1.5px] transition-colors",
         isDragging
           ? "border-blue-500 bg-blue-100"
-          : "border-blue-200 bg-blue-50",
+          : "border-blue-200 bg-[#EFF6FF]",
         disabled && "pointer-events-none opacity-50",
       )}
+      style={{ height: 164 }}
     >
       {/* 圆形图标容器 */}
       <div className="flex size-12 items-center justify-center rounded-full bg-blue-100">
-        <CloudUpload className="size-6 text-blue-600" />
+        <CloudUpload className="size-5.5 text-blue-600" />
       </div>
 
-      <span className="text-sm text-muted-foreground">
+      <span className="text-[13px] text-muted-foreground">
         <Trans>拖拽文件/文件夹到这里</Trans>
       </span>
 
-      <div className="flex items-center gap-2">
-        <Button
-          size="sm"
+      <div className="flex items-center gap-2.5">
+        <button
+          type="button"
           onClick={handleSelectFiles}
           disabled={disabled}
+          className="rounded-lg bg-blue-600 px-5 py-2 text-[13px] font-medium text-white hover:bg-blue-700 disabled:opacity-50"
         >
           <Trans>选择文件</Trans>
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
+        </button>
+        <button
+          type="button"
           onClick={handleSelectFolder}
           disabled={disabled}
-          className="border-blue-400 text-blue-600 hover:bg-blue-50"
+          className="rounded-lg border-[1.5px] border-blue-500 px-5 py-2 text-[13px] font-medium text-blue-500 hover:bg-blue-50 disabled:opacity-50"
         >
           <Trans>选择文件夹</Trans>
-        </Button>
+        </button>
       </div>
     </div>
   );

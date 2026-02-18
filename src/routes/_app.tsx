@@ -78,13 +78,15 @@ function AppLayout() {
     }
   }, [pendingOfferCount, location.pathname, navigate]);
 
-  // send/receive 页面为独立全屏，不显示全局 header 和 bottom nav
+  // send/receive/pairing 页面为独立全屏，不显示全局 header 和 bottom nav
   const isFullScreenRoute =
-    location.pathname === "/send" || location.pathname === "/receive";
+    location.pathname.startsWith("/send") ||
+    location.pathname.startsWith("/receive") ||
+    location.pathname.startsWith("/pairing");
 
   if (isMobile) {
     return (
-      <div className="flex h-svh flex-col">
+      <div className="flex h-svh flex-col pt-[env(safe-area-inset-top)]">
         {!isFullScreenRoute && <MobileHeader />}
         <main className="flex-1 overflow-hidden">
           <Outlet />
@@ -120,7 +122,7 @@ function MobileHeader() {
   const navigate = useNavigate();
 
   return (
-    <header className="flex items-center justify-between px-5 py-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
+    <header className="flex items-center justify-between px-5 py-2">
       <span className="text-2xl font-bold text-foreground">SwarmDrop</span>
       <button
         type="button"

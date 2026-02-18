@@ -3,7 +3,7 @@
  * 发送文件页面 — 从设备页面点击发送跳转至此
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   createLazyFileRoute,
   useNavigate,
@@ -18,17 +18,15 @@ import { useTransferStore } from "@/stores/transfer-store";
 import { useNetworkStore } from "@/stores/network-store";
 import { useSecretStore } from "@/stores/secret-store";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
+import { useFileSelection } from "./-use-file-selection";
 import { getErrorMessage } from "@/lib/errors";
 import { Button } from "@/components/ui/button";
-import { FileDropZone } from "@/components/transfer/file-drop-zone";
-import { FileList, type SelectedFile } from "@/components/transfer/file-list";
+import { FileDropZone } from "./-components/file-drop-zone";
+import { FileTree } from "./-components/file-tree";
 
-export const Route = createLazyFileRoute("/_app/send")({
+export const Route = createLazyFileRoute("/_app/send/")({
   component: SendPage,
 });
-
-/** 路径分隔符（Unix / Windows） */
-const PATH_SEPARATOR_RE = /[/\\]/;
 
 function SendPage() {
   const { peerId } = Route.useSearch();
@@ -37,7 +35,7 @@ function SendPage() {
   const breakpoint = useBreakpoint();
   const isMobile = breakpoint === "mobile";
 
-  const [files, setFiles] = useState<SelectedFile[]>([]);
+  const fileSelection = useFileSelection();
   const [sending, setSending] = useState(false);
 
   // 从 network-store / secret-store 查找目标设备
@@ -61,25 +59,21 @@ function SendPage() {
     };
   }, [onlineDevice, pairedDevices, peerId]);
 
-  const handleFilesSelected = useCallback((paths: string[]) => {
-    const newFiles: SelectedFile[] = paths.map((path) => {
-      const name = path.split(PATH_SEPARATOR_RE).pop() || path;
-      const isDirectory = !name.includes(".");
-      return { path, name, size: 0, isDirectory };
-    });
-    setFiles((prev) => [...prev, ...newFiles]);
-  }, []);
-
-  const handleRemove = useCallback((index: number) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
-  }, []);
+  const handleFilesSelected = async (paths: string[]) => {
+    try {
+      await fileSelection.addPaths(paths);
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    }
+  };
 
   const handleSend = async () => {
-    if (!device || files.length === 0) return;
+    if (!device || !fileSelection.hasFiles) return;
 
     setSending(true);
     try {
-      const prepared = await prepareSend(files.map((f) => f.path));
+      const filePaths = fileSelection.getFilePaths();
+      const prepared = await prepareSend(filePaths);
       const fileIds = prepared.files.map((f) => f.fileId);
       const sessionId = await startSend(
         prepared.preparedId,
@@ -134,10 +128,9 @@ function SendPage() {
     return (
       <MobileSendView
         device={device}
-        files={files}
+        fileSelection={fileSelection}
         sending={sending}
         onFilesSelected={handleFilesSelected}
-        onRemove={handleRemove}
         onSend={handleSend}
         onBack={handleBack}
       />
@@ -147,10 +140,9 @@ function SendPage() {
   return (
     <DesktopSendView
       device={device}
-      files={files}
+      fileSelection={fileSelection}
       sending={sending}
       onFilesSelected={handleFilesSelected}
-      onRemove={handleRemove}
       onSend={handleSend}
       onBack={handleBack}
     />
@@ -161,10 +153,9 @@ function SendPage() {
 
 interface SendViewProps {
   device: Device;
-  files: SelectedFile[];
+  fileSelection: ReturnType<typeof useFileSelection>;
   sending: boolean;
   onFilesSelected: (paths: string[]) => void;
-  onRemove: (index: number) => void;
   onSend: () => void;
   onBack: () => void;
 }
@@ -172,15 +163,23 @@ interface SendViewProps {
 /* ─────────────────── 共享内容区 ─────────────────── */
 
 function SendContent({
-  files,
+  fileSelection,
   sending,
   onFilesSelected,
-  onRemove,
-}: Pick<SendViewProps, "files" | "sending" | "onFilesSelected" | "onRemove">) {
+}: Pick<SendViewProps, "fileSelection" | "sending" | "onFilesSelected">) {
   return (
     <>
       <FileDropZone onFilesSelected={onFilesSelected} disabled={sending} />
-      {files.length > 0 && <FileList files={files} onRemove={onRemove} />}
+      {fileSelection.hasFiles && (
+        <FileTree
+          mode="select"
+          dataLoader={fileSelection.dataLoader}
+          rootChildren={fileSelection.rootChildren}
+          totalCount={fileSelection.totalCount}
+          totalSize={fileSelection.totalSize}
+          onRemoveFile={fileSelection.removePath}
+        />
+      )}
     </>
   );
 }
@@ -189,10 +188,9 @@ function SendContent({
 
 function MobileSendView({
   device,
-  files,
+  fileSelection,
   sending,
   onFilesSelected,
-  onRemove,
   onSend,
   onBack,
 }: SendViewProps) {
@@ -221,10 +219,9 @@ function MobileSendView({
       <div className="flex-1 overflow-auto px-4 pb-4">
         <div className="flex flex-col gap-4">
           <SendContent
-            files={files}
+            fileSelection={fileSelection}
             sending={sending}
             onFilesSelected={onFilesSelected}
-            onRemove={onRemove}
           />
         </div>
       </div>
@@ -235,7 +232,7 @@ function MobileSendView({
           className="w-full"
           size="lg"
           onClick={onSend}
-          disabled={files.length === 0 || sending}
+          disabled={!fileSelection.hasFiles || sending}
         >
           {sending ? <Trans>发送中...</Trans> : <Trans>发送</Trans>}
         </Button>
@@ -248,10 +245,9 @@ function MobileSendView({
 
 function DesktopSendView({
   device,
-  files,
+  fileSelection,
   sending,
   onFilesSelected,
-  onRemove,
   onSend,
   onBack,
 }: SendViewProps) {
@@ -272,26 +268,33 @@ function DesktopSendView({
       </header>
 
       {/* Content */}
-      <div className="flex-1 overflow-auto p-5 lg:p-6">
-        <div className="mx-auto flex max-w-lg flex-col gap-5">
-          <SendContent
-            files={files}
-            sending={sending}
-            onFilesSelected={onFilesSelected}
-            onRemove={onRemove}
-          />
+      <div className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-5 overflow-hidden p-5 lg:p-6">
+        {/* 可滚动区域：拖放区 + 文件树 */}
+        <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-auto">
+          <FileDropZone onFilesSelected={onFilesSelected} disabled={sending} />
+          {fileSelection.hasFiles && (
+            <FileTree
+              mode="select"
+              dataLoader={fileSelection.dataLoader}
+              rootChildren={fileSelection.rootChildren}
+              totalCount={fileSelection.totalCount}
+              totalSize={fileSelection.totalSize}
+              onRemoveFile={fileSelection.removePath}
+            />
+          )}
+        </div>
 
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={onBack} disabled={sending}>
-              <Trans>取消</Trans>
-            </Button>
-            <Button
-              onClick={onSend}
-              disabled={files.length === 0 || sending}
-            >
-              {sending ? <Trans>发送中...</Trans> : <Trans>发送</Trans>}
-            </Button>
-          </div>
+        {/* 操作栏：固定在底部 */}
+        <div className="flex shrink-0 justify-end gap-3">
+          <Button variant="outline" onClick={onBack} disabled={sending}>
+            <Trans>取消</Trans>
+          </Button>
+          <Button
+            onClick={onSend}
+            disabled={!fileSelection.hasFiles || sending}
+          >
+            {sending ? <Trans>发送中...</Trans> : <Trans>发送</Trans>}
+          </Button>
         </div>
       </div>
     </main>

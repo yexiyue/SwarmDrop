@@ -18,9 +18,18 @@ msgstr ""
 msgid "{0}"
 msgstr "{0}"
 
+#. placeholder {0}: progress?.completedFiles ?? 0
+#: src/components/transfer/file-tree.tsx
+msgid "{0}/{totalCount}"
+msgstr "{0}/{totalCount}"
+
 #: src/components/network/stop-node-sheet.tsx
 msgid "{connectedCount} 台"
 msgstr "{connectedCount} 台"
+
+#: src/components/transfer/folder-row.tsx
+msgid "{fileCount} 项"
+msgstr "{fileCount} 項"
 
 #: src/routes/_app/pairing/-device-found-view.tsx
 msgid "CPU 架构"
@@ -145,6 +154,11 @@ msgstr "停止節點"
 #: src/routes/_app/receive.lazy.tsx
 msgid "共 {0} 项 · {1}"
 msgstr "共 {0} 項 · {1}"
+
+#. placeholder {0}: formatFileSize(totalSize)
+#: src/components/transfer/file-tree.tsx
+msgid "共 {totalCount} 项 · {0}"
+msgstr "共 {totalCount} 項 · {0}"
 
 #: src/components/settings/AboutSection.tsx
 msgid "关于"
@@ -319,6 +333,10 @@ msgstr "複製配對碼"
 msgid "外观"
 msgstr "外觀"
 
+#: src/components/transfer/file-tree-item.tsx
+msgid "失败"
+msgstr "失敗"
+
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "安全、快速的跨网络文件传输"
 msgstr "安全、快速的跨網路檔案傳輸"
@@ -385,6 +403,7 @@ msgid "已连接设备"
 msgstr "已連線裝置"
 
 #: src/components/transfer/file-list.tsx
+#: src/components/transfer/file-tree.tsx
 msgid "已选文件"
 msgstr "已選檔案"
 
@@ -464,6 +483,10 @@ msgstr "作業系統"
 #: src/routes/_app/receive.lazy.tsx
 msgid "收到文件"
 msgstr "收到檔案"
+
+#: src/components/transfer/file-tree.tsx
+msgid "文件"
+msgstr "檔案"
 
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "文件传输全程加密保护"
