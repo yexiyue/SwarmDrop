@@ -7,8 +7,7 @@ import { create } from "zustand";
 import { getVersion } from "@tauri-apps/api/app";
 import { platform } from "@tauri-apps/plugin-os";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { invoke } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { invoke, addPluginListener, type PluginListener } from "@tauri-apps/api/core";
 import {
   checkForUpdate,
   checkAndroidUpdate,
@@ -122,16 +121,13 @@ export const useUpgradeLinkStore = create<UpgradeLinkState>()((set, get) => ({
       }
 
       try {
-        // 调用 Android 更新命令
+        // 调用 Android 更新插件
         await invoke("install_update", {
           url: downloadUrl,
           isForce: upgradeType === "force",
         });
 
-        // 不设置 downloading 状态，避免显示进度条
-        // AppUpdater 在系统通知栏显示进度，用户可继续使用应用
-        // 可选：这里可以关闭弹窗或显示 Toast "后台下载中，请查看通知栏"
-        // 下载状态通过事件监听器更新（apk-download-done/error/cancel）
+        set({ status: "downloading" });
       } catch (err) {
         console.error("[upgrade] Android update failed:", err);
         set({
@@ -216,48 +212,69 @@ export const useUpgradeLinkStore = create<UpgradeLinkState>()((set, get) => ({
 
   /**
    * 设置 Android 下载事件监听器
-   * AppUpdater 使用系统通知栏展示进度，前端只需监听完成/错误事件
+   * 使用 Tauri Plugin Listener（官方方案）
    */
   async setupAndroidListeners() {
     if (_androidUnlisten) {
       _androidUnlisten();
     }
 
-    const unlisteners: UnlistenFn[] = [];
+    const listeners: PluginListener[] = [];
 
-    // AppUpdater 在通知栏显示进度，前端无需处理进度事件
+    const PLUGIN_NAME = "android-updater";
+
+    // 监听下载进度
+    listeners.push(
+      await addPluginListener(PLUGIN_NAME, "download-progress", (payload: { max: number; progress: number }) => {
+        const percent = payload.max > 0 ? Math.round((payload.progress / payload.max) * 100) : 0;
+        set({
+          status: "downloading",
+          progress: {
+            downloaded: payload.progress,
+            total: payload.max,
+            speed: 0,
+            percent,
+          },
+        });
+      }),
+    );
 
     // 监听下载完成
-    unlisteners.push(
-      await listen("apk-download-done", () => {
+    listeners.push(
+      await addPluginListener(PLUGIN_NAME, "download-done", () => {
         set({ status: "ready" });
-        // AppUpdater 已自动触发安装
       }),
     );
 
     // 监听下载取消
-    unlisteners.push(
-      await listen("apk-download-cancel", () => {
+    listeners.push(
+      await addPluginListener(PLUGIN_NAME, "download-cancel", () => {
         set({ status: "idle" });
       }),
     );
 
     // 监听下载错误
-    unlisteners.push(
-      await listen("apk-download-error", (e) => {
-        const { error } = e.payload as { error: string };
-        set({ status: "error", error });
+    listeners.push(
+      await addPluginListener(PLUGIN_NAME, "download-error", (payload: { error: string }) => {
+        set({ status: "error", error: payload.error });
       }),
     );
 
     // 监听权限授予
-    unlisteners.push(
-      await listen("apk-install-permission-granted", () => {
+    listeners.push(
+      await addPluginListener(PLUGIN_NAME, "install-permission-granted", () => {
         console.log("[upgrade] Install permission granted");
       }),
     );
 
-    _androidUnlisten = () => unlisteners.forEach((fn) => fn());
+    // 监听权限拒绝
+    listeners.push(
+      await addPluginListener(PLUGIN_NAME, "install-permission-denied", () => {
+        console.warn("[upgrade] Install permission denied");
+      }),
+    );
+
+    _androidUnlisten = () => listeners.forEach((l) => l.unregister());
     return _androidUnlisten;
   },
 }));
