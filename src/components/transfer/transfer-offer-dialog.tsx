@@ -20,7 +20,7 @@ import { acceptReceive, rejectReceive } from "@/commands/transfer";
 import { FileTree } from "@/routes/_app/send/-components/file-tree";
 import { buildTreeDataFromOffer } from "@/routes/_app/send/-file-tree";
 import { open } from "@tauri-apps/plugin-dialog";
-import { downloadDir } from "@tauri-apps/api/path";
+import { downloadDir, join } from "@tauri-apps/api/path";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
@@ -43,9 +43,10 @@ export function TransferOfferDialog() {
   // 初始化默认保存路径
   useEffect(() => {
     let cancelled = false;
-    downloadDir().then((dir) => {
-      if (!cancelled) {
-        setSavePath(`${dir}${DEFAULT_SAVE_PATH_SUFFIX}`);
+    downloadDir().then(async (dir) => {
+      if (!cancelled && dir) {
+        const path = await join(dir, DEFAULT_SAVE_PATH_SUFFIX);
+        setSavePath(path);
       }
     });
     return () => {
