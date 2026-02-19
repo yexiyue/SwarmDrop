@@ -10,22 +10,12 @@ import {
   Hash,
   Link as LinkIcon,
   Loader2,
-  Laptop,
-  Monitor,
-  Smartphone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getDeviceIcon } from "@/components/pairing/device-icon";
 import { Trans } from "@lingui/react/macro";
 import type { DeviceInfo } from "@/commands/pairing";
 import { usePairingStore } from "@/stores/pairing-store";
-
-/** 根据平台名称返回对应的设备图标 */
-function getDeviceIcon(platform: string): React.ComponentType<{ className?: string }> {
-  const p = platform.toLowerCase();
-  if (p === "ios" || p === "android") return Smartphone;
-  if (p === "macos" || p === "darwin") return Laptop;
-  return Monitor;
-}
 
 function formatPlatformDisplay(platform: string): string {
   const map: Record<string, string> = {

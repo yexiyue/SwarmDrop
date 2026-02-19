@@ -16,6 +16,7 @@ import {
   InputOTPSeparator,
 } from "@/components/ui/input-otp";
 import { Trans } from "@lingui/react/macro";
+import { useShallow } from "zustand/react/shallow";
 import { usePairingStore } from "@/stores/pairing-store";
 import {
   DesktopDeviceFoundContent,
@@ -29,11 +30,16 @@ export const Route = createLazyFileRoute("/_app/pairing/input")({
 function PairingInputPage() {
   const navigate = useNavigate();
 
-  const current = usePairingStore((s) => s.current);
-  const searchDevice = usePairingStore((s) => s.searchDevice);
-  const sendPairingRequest = usePairingStore((s) => s.sendPairingRequest);
-  const openInput = usePairingStore((s) => s.openInput);
-  const reset = usePairingStore((s) => s.reset);
+  const { current, searchDevice, sendPairingRequest, openInput, reset } =
+    usePairingStore(
+      useShallow((state) => ({
+        current: state.current,
+        searchDevice: state.searchDevice,
+        sendPairingRequest: state.sendPairingRequest,
+        openInput: state.openInput,
+        reset: state.reset,
+      }))
+    );
 
   const [code, setCode] = useState("");
 
@@ -45,8 +51,7 @@ function PairingInputPage() {
     return () => {
       usePairingStore.getState().reset();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [openInput]);
 
   // 配对成功后自动返回
   useEffect(() => {

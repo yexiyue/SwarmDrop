@@ -60,19 +60,19 @@ const statusConfig: Record<
 };
 
 export function StopNodeSheet({ open, onOpenChange }: StopNodeSheetProps) {
-  const { stopNetwork, status, networkStatus, getConnectedCount, getDiscoveredCount, startedAt } =
+  const { stopNetwork, status, networkStatus, startedAt } =
     useNetworkStore(
       useShallow((s) => ({
         stopNetwork: s.stopNetwork,
         status: s.status,
         networkStatus: s.networkStatus,
-        getConnectedCount: s.getConnectedCount,
-        getDiscoveredCount: s.getDiscoveredCount,
         startedAt: s.startedAt,
       })),
     );
 
   const listenAddrs = networkStatus?.listenAddrs ?? [];
+  const connectedCount = networkStatus?.connectedPeers ?? 0;
+  const discoveredCount = networkStatus?.discoveredPeers ?? 0;
 
   const deviceId = useSecretStore((s) => s.deviceId);
 
@@ -89,8 +89,8 @@ export function StopNodeSheet({ open, onOpenChange }: StopNodeSheetProps) {
           onCancel={() => onOpenChange(false)}
           status={status}
           listenAddrs={listenAddrs}
-          connectedCount={getConnectedCount()}
-          discoveredCount={getDiscoveredCount()}
+          connectedCount={connectedCount}
+          discoveredCount={discoveredCount}
           startedAt={startedAt}
           peerId={deviceId}
         />

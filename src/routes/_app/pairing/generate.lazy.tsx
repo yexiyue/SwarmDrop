@@ -10,6 +10,7 @@ import { ArrowLeft, Link, Copy, Check, Clock, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Trans } from "@lingui/react/macro";
+import { useShallow } from "zustand/react/shallow";
 import { usePairingStore } from "@/stores/pairing-store";
 
 export const Route = createLazyFileRoute("/_app/pairing/generate")({
@@ -19,9 +20,13 @@ export const Route = createLazyFileRoute("/_app/pairing/generate")({
 function PairingGeneratePage() {
   const navigate = useNavigate();
 
-  const current = usePairingStore((s) => s.current);
-  const generateCode = usePairingStore((s) => s.generateCode);
-  const regenerateCode = usePairingStore((s) => s.regenerateCode);
+  const { current, generateCode, regenerateCode } = usePairingStore(
+    useShallow((state) => ({
+      current: state.current,
+      generateCode: state.generateCode,
+      regenerateCode: state.regenerateCode,
+    }))
+  );
 
   const codeInfo = current.phase === "generating" ? current.codeInfo : null;
 
@@ -34,8 +39,7 @@ function PairingGeneratePage() {
     return () => {
       usePairingStore.getState().reset();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [generateCode]);
 
   // 配对成功后自动返回
   useEffect(() => {

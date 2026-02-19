@@ -14,13 +14,18 @@ import {
   ResponsiveDialogDescription,
 } from "@/components/responsive-dialog";
 import { Trans } from "@lingui/react/macro";
+import { useShallow } from "zustand/react/shallow";
 import { usePairingStore } from "@/stores/pairing-store";
 import { getDeviceIcon } from "@/components/pairing/device-icon";
 
 export function ConnectionRequestDialog() {
-  const incomingRequest = usePairingStore((s) => s.incomingRequest);
-  const acceptRequest = usePairingStore((s) => s.acceptRequest);
-  const rejectRequest = usePairingStore((s) => s.rejectRequest);
+  const { incomingRequest, acceptRequest, rejectRequest } = usePairingStore(
+    useShallow((state) => ({
+      incomingRequest: state.incomingRequest,
+      acceptRequest: state.acceptRequest,
+      rejectRequest: state.rejectRequest,
+    }))
+  );
 
   const isOpen = incomingRequest !== null;
 
