@@ -149,25 +149,28 @@ export function TransferOfferDialog() {
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
-        {/* 文件树预览 - 移动端添加水平 padding */}
-        <div className="max-h-[300px] overflow-auto px-4 sm:px-0">
-          <FileTree
-            mode="select"
-            dataLoader={treeData.dataLoader}
-            rootChildren={treeData.rootChildren}
-            totalCount={currentOffer.files.length}
-            totalSize={currentOffer.totalSize}
-            showHeader={false}
-          />
-        </div>
+        {/* 中间内容区域 - 可滚动 */}
+        <div className="flex-1 overflow-y-auto px-4 sm:px-0">
+          {/* 文件树预览 */}
+          <div className="max-h-[40vh] min-h-[120px]">
+            <FileTree
+              mode="select"
+              dataLoader={treeData.dataLoader}
+              rootChildren={treeData.rootChildren}
+              totalCount={currentOffer.files.length}
+              totalSize={currentOffer.totalSize}
+              showHeader={false}
+            />
+          </div>
 
-        {/* 保存路径 - 移动端添加水平 padding */}
-        <div className="px-4 sm:px-0">
-          <SavePathSelector
-            savePath={savePath}
-            onChangePath={handleChangePath}
-            disabled={processing}
-          />
+          {/* 保存路径 */}
+          <div className="mt-4">
+            <SavePathSelector
+              savePath={savePath}
+              onChangePath={handleChangePath}
+              disabled={processing}
+            />
+          </div>
         </div>
 
         <ResponsiveDialogFooter className="flex-row justify-center gap-3 sm:justify-center">
