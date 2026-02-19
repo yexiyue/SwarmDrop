@@ -36,6 +36,8 @@ interface FileTreeProps {
   onRemoveFile?: (absolutePath: string) => void;
   /** 重试文件回调（transfer 模式） */
   onRetryFile?: (fileId: number) => void;
+  /** 是否显示头部（默认 true） */
+  showHeader?: boolean;
 }
 
 /** 行高（px） */
@@ -54,6 +56,7 @@ export function FileTree({
   errorFileIds,
   onRemoveFile,
   onRetryFile,
+  showHeader = true,
 }: FileTreeProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -96,26 +99,28 @@ export function FileTree({
   return (
     <div className="flex flex-col gap-2 md:min-h-0 md:flex-1">
       {/* 头部 */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-foreground">
-          {mode === "select" ? (
-            <Trans>已选文件</Trans>
-          ) : (
-            <Trans>文件</Trans>
-          )}
-        </h3>
-        <span className="text-xs text-muted-foreground">
-          {mode === "select" ? (
-            <Trans>
-              共 {totalCount} 项 · {formatFileSize(totalSize)}
-            </Trans>
-          ) : (
-            <Trans>
-              {progress?.completedFiles ?? 0}/{totalCount}
-            </Trans>
-          )}
-        </span>
-      </div>
+      {showHeader && (
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-medium text-foreground">
+            {mode === "select" ? (
+              <Trans>已选文件</Trans>
+            ) : (
+              <Trans>文件</Trans>
+            )}
+          </h3>
+          <span className="text-xs text-muted-foreground">
+            {mode === "select" ? (
+              <Trans>
+                共 {totalCount} 项 · {formatFileSize(totalSize)}
+              </Trans>
+            ) : (
+              <Trans>
+                {progress?.completedFiles ?? 0}/{totalCount}
+              </Trans>
+            )}
+          </span>
+        </div>
+      )}
 
       {/* 树列表（虚拟滚动） */}
       <div

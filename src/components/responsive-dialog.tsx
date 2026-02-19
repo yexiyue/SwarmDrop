@@ -37,15 +37,19 @@ interface ResponsiveDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   children: React.ReactNode;
+  /** 强制使用 Dialog，即使在移动端（不显示 Drawer） */
+  forceDialog?: boolean;
 }
 
 function ResponsiveDialog({
   open,
   onOpenChange,
   children,
+  forceDialog = false,
 }: ResponsiveDialogProps) {
   const breakpoint = useBreakpoint();
-  const isMobile = breakpoint === "mobile";
+  const isMobileViewport = breakpoint === "mobile";
+  const isMobile = isMobileViewport && !forceDialog;
 
   const contextValue = React.useMemo(() => ({ isMobile }), [isMobile]);
 
