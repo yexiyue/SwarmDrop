@@ -7,6 +7,7 @@
   ],
   "permissions": [
     "core:default",
+    "android-fs:default",
     "opener:default",
     {
       "identifier": "opener:allow-open-path",

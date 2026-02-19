@@ -2,15 +2,16 @@
  * FileDropZone
  * 文件拖放区 — 拖拽文件/文件夹，或通过按钮选择
  * 移动端：隐藏拖拽提示，突出按钮操作
+ * Android：使用 tauri-plugin-android-fs 原生文件选择器
  */
 
 import { useCallback, useState } from "react";
-import { open } from "@tauri-apps/plugin-dialog";
 import { CloudUpload, FilePlus, FolderPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Trans } from "@lingui/react/macro";
 import { cn } from "@/lib/utils";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
+import { pickFiles, pickFolder } from "@/hooks/use-android-fs";
 
 interface FileDropZoneProps {
   onFilesSelected: (paths: string[]) => void;
@@ -56,21 +57,16 @@ export function FileDropZone({ onFilesSelected, disabled }: FileDropZoneProps) {
   );
 
   const handleSelectFiles = async () => {
-    const selected = await open({
-      multiple: true,
-    });
-    if (selected) {
-      const paths = Array.isArray(selected) ? selected : [selected];
+    const paths = await pickFiles(true);
+    if (paths.length > 0) {
       onFilesSelected(paths);
     }
   };
 
   const handleSelectFolder = async () => {
-    const selected = await open({
-      directory: true,
-    });
-    if (selected) {
-      onFilesSelected([selected]);
+    const path = await pickFolder();
+    if (path) {
+      onFilesSelected([path]);
     }
   };
 

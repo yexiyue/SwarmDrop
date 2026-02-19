@@ -137,6 +137,9 @@ importers:
       tailwindcss:
         specifier: ^4.1.18
         version: 4.1.18
+      tauri-plugin-android-fs-api:
+        specifier: 25.1.2
+        version: 25.1.2
       tw-animate-css:
         specifier: ^1.4.0
         version: 1.4.0
@@ -2809,6 +2812,9 @@ packages:
   tapable@2.3.0:
     resolution: {integrity: sha512-g9ljZiwki/LfxmQADO3dEY1CbpmXT5Hm2fJ+QaGKwSXUylMybePR7/67YW7jOrrvjEgL1Fmz5kzyAjWVWLlucg==}
     engines: {node: '>=6'}
+
+  tauri-plugin-android-fs-api@25.1.2:
+    resolution: {integrity: sha512-QIrZ242GNQAukg7expziBntLAonult1i8EfNPwbvF4xLki9guJ631THD89Mxdkrd/ZQZ1ga+4XTCoGxq8K41Vw==}
 
   threads@1.7.0:
     resolution: {integrity: sha512-Mx5NBSHX3sQYR6iI9VYbgHKBLisyB+xROCBGjjWm1O9wb9vfLxdaGtmT/KCjUqMsSNW6nERzCW3T6H43LqjDZQ==}
@@ -5520,6 +5526,10 @@ snapshots:
   tailwindcss@4.1.18: {}
 
   tapable@2.3.0: {}
+
+  tauri-plugin-android-fs-api@25.1.2:
+    dependencies:
+      '@tauri-apps/api': 2.10.1
 
   threads@1.7.0:
     dependencies:
