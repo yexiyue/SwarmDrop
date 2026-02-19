@@ -22,7 +22,8 @@ import { useTransferStore } from "@/stores/transfer-store";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { formatFileSize, formatSpeed, formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { openPath } from "@tauri-apps/plugin-opener";
+import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
+import { join } from "@tauri-apps/api/path";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
 import { cancelSend, cancelReceive } from "@/commands/transfer";
@@ -287,11 +288,24 @@ const TransferActions = memo(function TransferActions({
     }
   }, [isSend, session.sessionId]);
 
-  const handleOpenFolder = useCallback(() => {
-    if (session.savePath) {
-      void openPath(session.savePath);
+  const handleOpenFolder = useCallback(async () => {
+    if (!session.savePath) return;
+
+    try {
+      // 如果只有一个文件，在文件夹中显示并选中该文件
+      if (session.files.length === 1) {
+        const file = session.files[0];
+        // 使用 Tauri API 正确拼接路径
+        const filePath = await join(session.savePath, file.relativePath);
+        await revealItemInDir(filePath);
+      } else {
+        // 多个文件时，直接打开文件夹
+        await openPath(session.savePath);
+      }
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     }
-  }, [session.savePath]);
+  }, [session.savePath, session.files]);
 
   if (isActive) {
     return (
