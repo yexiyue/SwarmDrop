@@ -3,8 +3,11 @@ pub mod device;
 pub mod error;
 pub(crate) mod network;
 pub(crate) mod pairing;
+pub(crate) mod transfer;
 pub mod protocol;
 pub use error::{AppError, AppResult};
+
+mod mobile;
 
 use tauri::Manager;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
@@ -30,7 +33,10 @@ pub fn run() {
         .plugin(tauri_plugin_biometry::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_process::init())
+        .plugin(mobile::init())
         .setup(|app| {
             // updater 在 setup 中注册，移动端不支持时容错跳过
             if let Err(e) = app
@@ -55,6 +61,15 @@ pub fn run() {
             commands::respond_pairing_request,
             commands::list_devices,
             commands::get_network_status,
+            commands::install_update,
+            commands::list_files,
+            commands::get_file_meta,
+            commands::prepare_send,
+            commands::start_send,
+            commands::accept_receive,
+            commands::reject_receive,
+            commands::cancel_send,
+            commands::cancel_receive,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

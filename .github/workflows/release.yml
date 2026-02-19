@@ -9,7 +9,7 @@ on:
       min_version:
         description: '强制更新最低版本号 (如 0.2.0)，留空则不设置'
         required: false
-        default: ''
+        default: '0.1.2'
 
 concurrency:
   group: release-${{ github.ref }}
@@ -19,6 +19,8 @@ jobs:
   build-tauri:
     permissions:
       contents: write
+    outputs:
+      appVersion: ${{ steps.tauri-action.outputs.appVersion }}
     strategy:
       fail-fast: false
       matrix:
@@ -70,10 +72,14 @@ jobs:
 
       - name: Build and publish
         uses: tauri-apps/tauri-action@v0
+        id: tauri-action
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          VITE_UPGRADE_LINK_ACCESS_KEY: ${{ secrets.UPGRADE_LINK_ACCESS_KEY }}
+          VITE_UPGRADE_LINK_ACCESS_SECRET: ${{ secrets.UPGRADE_LINK_ACCESS_SECRET }}
+          VITE_UPGRADE_LINK_APK_KEY: ${{ secrets.UPGRADE_LINK_APK_KEY }}
         with:
           tagName: v__VERSION__
           releaseName: 'SwarmDrop v__VERSION__'
@@ -144,6 +150,9 @@ jobs:
           ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_LATEST_HOME }}
           ANDROID_NDK_ROOT: ${{ env.ANDROID_NDK_LATEST_HOME }}
           SODIUM_LIB_DIR: ${{ github.workspace }}/src-tauri/vendor/prebuilt/android-aarch64
+          VITE_UPGRADE_LINK_ACCESS_KEY: ${{ secrets.UPGRADE_LINK_ACCESS_KEY }}
+          VITE_UPGRADE_LINK_ACCESS_SECRET: ${{ secrets.UPGRADE_LINK_ACCESS_SECRET }}
+          VITE_UPGRADE_LINK_APK_KEY: ${{ secrets.UPGRADE_LINK_APK_KEY }}
         run: pnpm tauri android build --target aarch64
 
       - name: Get version
@@ -239,3 +248,92 @@ jobs:
           gh release upload "${{ steps.tag.outputs.tag }}" \
             latest.json \
             --clobber
+
+  # 发布 Release（将草稿转为正式发布）
+  # 必须在所有构建和 latest.json 更新完成后执行，
+  # 这样 UpgradeLink 才能通过公开 URL 访问 release 资产
+  publish-release:
+    needs: [build-tauri, build-android, update-latest-json]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get release tag
+        id: tag
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else
+            VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
+            echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "${{ steps.tag.outputs.tag }}" --draft=false
+
+  # === UpgradeLink Sync Jobs ===
+  # 参考: http://upgrade.toolsetlink.com/upgrade/example/tauri/tauri-action-example.html
+  #
+  # 需要配置的 GitHub Secrets:
+  # - UPGRADE_LINK_ACCESS_KEY
+  # - UPGRADE_LINK_ACCESS_SECRET
+  # - UPGRADE_LINK_TAURI_KEY
+  # - UPGRADE_LINK_APK_KEY
+
+  upgradeLink-upload:
+    name: Sync to UpgradeLink
+    needs: [publish-release]
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get release info
+        id: release
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            TAG="${{ github.ref_name }}"
+          else
+            VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
+            TAG="v${VERSION}"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      # 同步 Tauri 桌面端 (统一 endpoint，支持 Win/Mac/Linux)
+      # 参考: http://upgrade.toolsetlink.com/upgrade/example/tauri/tauri-action-example.html
+      - name: Sync Tauri to UpgradeLink
+        uses: toolsetlink/upgradelink-action@3.0.2
+        with:
+          access_key: ${{ secrets.UPGRADE_LINK_ACCESS_KEY }}
+          access_secret: ${{ secrets.UPGRADE_LINK_ACCESS_SECRET }}
+          config: |
+            {
+              "app_type": "tauri",
+              "request": {
+                "app_key": "${{ secrets.UPGRADE_LINK_TAURI_KEY }}",
+                "latest_json_url": "https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.tag }}/latest.json"
+              }
+            }
+
+      # 同步 Android APK
+      - name: Sync Android to UpgradeLink
+        uses: toolsetlink/upgradelink-action@3.0.2
+        with:
+          access_key: ${{ secrets.UPGRADE_LINK_ACCESS_KEY }}
+          access_secret: ${{ secrets.UPGRADE_LINK_ACCESS_SECRET }}
+          config: |
+            {
+              "app_type": "apk",
+              "request": {
+                "app_key": "${{ secrets.UPGRADE_LINK_APK_KEY }}",
+                "version": "${{ steps.release.outputs.version }}",
+                "url": "https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.tag }}/swarmdrop_${{ steps.release.outputs.version }}_aarch64.apk",
+                "prompt_upgrade_content": "SwarmDrop ${{ steps.release.outputs.version }} 已发布"
+              }
+            }

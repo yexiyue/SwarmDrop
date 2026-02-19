@@ -6,11 +6,13 @@
 
 mod identity;
 mod pairing;
+mod transfer;
 
 // glob re-export：Tauri 的 #[tauri::command] 宏会生成 __cmd__* 隐藏符号，
 // generate_handler! 需要通过模块路径访问这些符号，显式导出无法覆盖。
 pub use identity::*;
 pub use pairing::*;
+pub use transfer::*;
 
 use crate::device::{DeviceFilter, DeviceListResult, PairedDeviceInfo};
 use crate::network::{NetManager, NetManagerState, NetworkStatus};
@@ -108,5 +110,25 @@ pub async fn get_network_status(
     match guard.as_ref() {
         Some(manager) => Ok(manager.get_network_status()),
         None => Ok(NetworkStatus::default()),
+    }
+}
+
+/// Android APK 下载安装（仅 Android 平台可用）
+#[tauri::command]
+pub async fn install_update(app: AppHandle, url: String, is_force: bool) -> crate::AppResult<()> {
+    #[cfg(target_os = "android")]
+    {
+        let updater = app.state::<crate::mobile::UpdaterPlugin<tauri::Wry>>();
+        updater.install_update(url, is_force)?;
+        return Ok(());
+    }
+
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = (app, url, is_force);
+        Err(crate::AppError::Io(std::io::Error::new(
+            std::io::ErrorKind::Unsupported,
+            "install_update is only supported on Android",
+        )))
     }
 }

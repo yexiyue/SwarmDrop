@@ -4,6 +4,13 @@
  */
 
 import { createRootRoute, Outlet } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
+import { platform } from "@tauri-apps/plugin-os";
+import {
+  ForceUpdateDialog,
+  PromptUpdateDialog,
+} from "@/components/upgrade";
+import { useUpgradeLinkStore } from "@/stores/upgrade-link-store";
 // import { TanStackRouterDevtools } from "@tanstack/router-devtools";
 
 export const Route = createRootRoute({
@@ -11,9 +18,51 @@ export const Route = createRootRoute({
 });
 
 function RootLayout() {
+  const status = useUpgradeLinkStore((s) => s.status);
+  const checkForUpdate = useUpgradeLinkStore((s) => s.checkForUpdate);
+  const [promptOpen, setPromptOpen] = useState(false);
+  const prevStatusRef = useRef(status);
+
+  // 设置 Android 下载事件监听器
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+
+    const setup = async () => {
+      const currentPlatform = await platform();
+      if (currentPlatform === "android") {
+        unlisten = await useUpgradeLinkStore.getState().setupAndroidListeners();
+      }
+    };
+
+    void setup();
+
+    return () => {
+      unlisten?.();
+    };
+  }, []);
+
+  // 应用启动时检查更新
+  useEffect(() => {
+    // 延迟检查，避免影响启动速度
+    const timer = setTimeout(() => {
+      void checkForUpdate();
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [checkForUpdate]);
+
+  // 仅当 status 从其他状态变为 "available" 时打开提示弹窗
+  useEffect(() => {
+    if (prevStatusRef.current !== "available" && status === "available") {
+      setPromptOpen(true);
+    }
+    prevStatusRef.current = status;
+  }, [status]);
+
   return (
     <>
       <Outlet />
+      <ForceUpdateDialog />
+      <PromptUpdateDialog open={promptOpen} onOpenChange={setPromptOpen} />
       {/* {import.meta.env.DEV && <TanStackRouterDevtools />} */}
     </>
   );
