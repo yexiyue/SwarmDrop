@@ -4,9 +4,8 @@
  * 使用 tauri-plugin-store 持久化到应用配置目录，无需加密保护
  */
 
-import { createWithEqualityFn } from "zustand/traditional";
+import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { shallow } from "zustand/shallow";
 import { createTauriStorage } from "@/lib/tauri-store";
 import { dynamicActivate, defaultLocale, type LocaleKey } from "@/lib/i18n";
 
@@ -38,7 +37,7 @@ export function waitForPreferencesHydration(): Promise<void> {
   });
 }
 
-export const usePreferencesStore = createWithEqualityFn<PreferencesState>()(
+export const usePreferencesStore = create<PreferencesState>()(
   persist(
     (set) => ({
       locale: defaultLocale,
@@ -69,6 +68,5 @@ export const usePreferencesStore = createWithEqualityFn<PreferencesState>()(
         };
       },
     }
-  ),
-  shallow
+  )
 );

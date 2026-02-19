@@ -11,6 +11,7 @@ import { createLazyFileRoute, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, X } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Trans } from "@lingui/react/macro";
+import { useShallow } from "zustand/react/shallow";
 import { usePairingStore } from "@/stores/pairing-store";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { MobileGenerateCodeView } from "./-components/mobile-generate-code-view";
@@ -28,11 +29,16 @@ function MobilePairingPage() {
   const navigate = useNavigate();
   const breakpoint = useBreakpoint();
 
-  const current = usePairingStore((s) => s.current);
-  const generateCode = usePairingStore((s) => s.generateCode);
-  const openInput = usePairingStore((s) => s.openInput);
-  const sendPairingRequest = usePairingStore((s) => s.sendPairingRequest);
-  const reset = usePairingStore((s) => s.reset);
+  const { current, generateCode, openInput, sendPairingRequest, reset } =
+    usePairingStore(
+      useShallow((state) => ({
+        current: state.current,
+        generateCode: state.generateCode,
+        openInput: state.openInput,
+        sendPairingRequest: state.sendPairingRequest,
+        reset: state.reset,
+      }))
+    );
 
   const { showDeviceFound, deviceInfo, isRequesting } = useDeviceFoundState();
 
@@ -51,8 +57,7 @@ function MobilePairingPage() {
     return () => {
       usePairingStore.getState().reset();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [generateCode]);
 
   // 配对成功后自动返回
   useEffect(() => {
