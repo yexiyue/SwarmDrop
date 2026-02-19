@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { useUpgradeLinkStore } from "@/stores/upgrade-link-store";
+import { useShallow } from "zustand/react/shallow";
 import { Trans } from "@lingui/react/macro";
 
 export function ForceUpdateDialog() {
@@ -24,7 +25,16 @@ export function ForceUpdateDialog() {
     promptContent,
     progress,
     executeUpdate,
-  } = useUpgradeLinkStore();
+  } = useUpgradeLinkStore(
+    useShallow((s) => ({
+      status: s.status,
+      latestVersion: s.latestVersion,
+      currentVersion: s.currentVersion,
+      promptContent: s.promptContent,
+      progress: s.progress,
+      executeUpdate: s.executeUpdate,
+    })),
+  );
 
   const isDownloading = status === "downloading";
   const isReady = status === "ready";

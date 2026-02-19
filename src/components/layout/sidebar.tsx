@@ -22,7 +22,7 @@ import {
   SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { desktopNavItems } from "@/components/layout/nav-items";
+import { navItems } from "@/components/layout/nav-items";
 import { msg } from "@lingui/core/macro";
 import type { MessageDescriptor } from "@lingui/core";
 
@@ -116,7 +116,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="gap-0.5">
-              {desktopNavItems.map((item) => {
+              {navItems.map((item) => {
                 const isActive =
                   currentPath === item.href ||
                   (item.href === "/devices" && currentPath.startsWith("/pairing")) ||
