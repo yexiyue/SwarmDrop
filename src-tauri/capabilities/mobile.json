@@ -1,0 +1,18 @@
+{
+  "identifier": "mobile-capability",
+  "platforms": [
+    "android"
+  ],
+  "windows": [
+    "main"
+  ],
+  "permissions": [
+    "android-fs:default",
+    {
+      "identifier": "android-fs:scope",
+      "allow": [
+        "**"
+      ]
+    }
+  ]
+}
