@@ -12727,8 +12727,8 @@
     {
       "type": "frame",
       "id": "sCAK0",
-      "x": 3200,
-      "y": 3600,
+      "x": 100,
+      "y": 13077,
       "name": "Desktop - Transfer List",
       "theme": {
         "Accent": "Blue",
@@ -13786,8 +13786,8 @@
     {
       "type": "frame",
       "id": "sZcMq",
-      "x": 4300,
-      "y": 3600,
+      "x": 1200,
+      "y": 13077,
       "name": "Desktop - Resume Transfer",
       "theme": {
         "Accent": "Blue",
@@ -15451,8 +15451,8 @@
     {
       "type": "text",
       "id": "kOIDO",
-      "x": 3200,
-      "y": 3580,
+      "x": 100,
+      "y": 13058,
       "name": "rowHistory",
       "fill": "#CBD5E1",
       "content": "传输 · 其他",
