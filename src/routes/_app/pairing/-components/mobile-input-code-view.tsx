@@ -13,11 +13,16 @@ import {
   InputOTPSeparator,
 } from "@/components/ui/input-otp";
 import { Trans } from "@lingui/react/macro";
+import { useShallow } from "zustand/react/shallow";
 import { usePairingStore } from "@/stores/pairing-store";
 
 export function MobileInputCodeView() {
-  const current = usePairingStore((s) => s.current);
-  const searchDevice = usePairingStore((s) => s.searchDevice);
+  const { current, searchDevice } = usePairingStore(
+    useShallow((state) => ({
+      current: state.current,
+      searchDevice: state.searchDevice,
+    }))
+  );
 
   const [code, setCode] = useState("");
 

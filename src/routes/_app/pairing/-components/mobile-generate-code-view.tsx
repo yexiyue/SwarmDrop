@@ -7,11 +7,16 @@ import { useEffect, useState } from "react";
 import { Link, Clock, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Trans } from "@lingui/react/macro";
+import { useShallow } from "zustand/react/shallow";
 import { usePairingStore } from "@/stores/pairing-store";
 
 export function MobileGenerateCodeView() {
-  const current = usePairingStore((s) => s.current);
-  const regenerateCode = usePairingStore((s) => s.regenerateCode);
+  const { current, regenerateCode } = usePairingStore(
+    useShallow((state) => ({
+      current: state.current,
+      regenerateCode: state.regenerateCode,
+    }))
+  );
 
   const codeInfo = current.phase === "generating" ? current.codeInfo : null;
 

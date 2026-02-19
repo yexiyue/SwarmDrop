@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { type } from "@tauri-apps/plugin-os";
 import { getVersion } from "@tauri-apps/api/app";
+import { useShallow } from "zustand/react/shallow";
 import {
   useUpgradeLinkStore,
   type UpgradeLinkStatus,
@@ -30,9 +31,28 @@ function formatBytes(bytes: number): string {
 }
 
 export function AboutSection() {
-  const status = useUpgradeLinkStore((s) => s.status);
-  const storeVersion = useUpgradeLinkStore((s) => s.currentVersion);
-  const latestVersion = useUpgradeLinkStore((s) => s.latestVersion);
+  // 使用 useShallow 优化选择多个值的性能
+  const {
+    status,
+    currentVersion: storeVersion,
+    latestVersion,
+    promptContent,
+    progress,
+    checkForUpdate,
+    executeUpdate,
+    openDownloadPage,
+  } = useUpgradeLinkStore(
+    useShallow((s) => ({
+      status: s.status,
+      currentVersion: s.currentVersion,
+      latestVersion: s.latestVersion,
+      promptContent: s.promptContent,
+      progress: s.progress,
+      checkForUpdate: s.checkForUpdate,
+      executeUpdate: s.executeUpdate,
+      openDownloadPage: s.openDownloadPage,
+    })),
+  );
 
   // 独立获取版本号，不依赖更新检查
   const [appVersion, setAppVersion] = useState<string | null>(null);
@@ -41,11 +61,6 @@ export function AboutSection() {
   }, []);
 
   const currentVersion = storeVersion ?? appVersion;
-  const promptContent = useUpgradeLinkStore((s) => s.promptContent);
-  const progress = useUpgradeLinkStore((s) => s.progress);
-  const checkForUpdate = useUpgradeLinkStore((s) => s.checkForUpdate);
-  const executeUpdate = useUpgradeLinkStore((s) => s.executeUpdate);
-  const openDownloadPage = useUpgradeLinkStore((s) => s.openDownloadPage);
 
   const isMobile = type() === "android" || type() === "ios";
 
