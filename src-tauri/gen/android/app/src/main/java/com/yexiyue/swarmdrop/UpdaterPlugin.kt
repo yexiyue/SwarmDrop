@@ -26,10 +26,6 @@ class InstallUpdateArgs {
 
 @TauriPlugin
 class UpdaterPlugin(private val activity: android.app.Activity) : Plugin(activity) {
-    // 缓存待下载参数，权限授予后自动重试
-    private var pendingUrl: String? = null
-    private var pendingForce: Boolean = false
-    private var pendingInvoke: Invoke? = null
 
     override fun load(webView: android.webkit.WebView) {
         // 请求通知权限（Android 13+）
@@ -52,10 +48,10 @@ class UpdaterPlugin(private val activity: android.app.Activity) : Plugin(activit
 
         activity.runOnUiThread {
             if (!canInstallApk()) {
-                pendingUrl = args.url
-                pendingForce = args.isForce
-                pendingInvoke = invoke
-                requestInstallPermission()
+                // 打开安装权限设置页，reject 让前端知道需要重试
+                openInstallPermissionSetting()
+                trigger("install-permission-required", JSObject())
+                invoke.reject("Install permission required. Please grant permission and retry.")
                 return@runOnUiThread
             }
 
@@ -107,39 +103,17 @@ class UpdaterPlugin(private val activity: android.app.Activity) : Plugin(activit
         }
     }
 
-    private fun requestInstallPermission() {
+    private fun openInstallPermissionSetting() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val intent = Intent(
                 Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
                 Uri.parse("package:${activity.packageName}")
             )
-            activity.startActivityForResult(intent, REQUEST_CODE_INSTALL)
-        }
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQUEST_CODE_INSTALL) {
-            if (canInstallApk()) {
-                trigger("install-permission-granted", JSObject())
-                val url = pendingUrl
-                val invoke = pendingInvoke
-                if (url != null) {
-                    startDownload(url, pendingForce)
-                    invoke?.resolve(JSObject().apply { put("success", true) })
-                }
-            } else {
-                trigger("install-permission-denied", JSObject())
-                pendingInvoke?.reject("Install permission denied")
-            }
-            pendingUrl = null
-            pendingForce = false
-            pendingInvoke = null
+            activity.startActivity(intent)
         }
     }
 
     companion object {
-        private const val REQUEST_CODE_INSTALL = 1001
         private const val REQUEST_CODE_NOTIFICATION = 1002
     }
 }

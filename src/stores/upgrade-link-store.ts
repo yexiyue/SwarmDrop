@@ -129,11 +129,14 @@ export const useUpgradeLinkStore = create<UpgradeLinkState>()((set, get) => ({
 
         set({ status: "downloading" });
       } catch (err) {
-        console.error("[upgrade] Android update failed:", err);
-        set({
-          status: "error",
-          error: err instanceof Error ? err.message : String(err),
-        });
+        const msg = err instanceof Error ? err.message : String(err);
+        // 权限不足时保持 available 状态，用户授权后可重试
+        if (msg.includes("permission")) {
+          console.warn("[upgrade] Install permission required, waiting for user");
+        } else {
+          console.error("[upgrade] Android update failed:", err);
+          set({ status: "error", error: msg });
+        }
       }
       return;
     }
@@ -260,17 +263,10 @@ export const useUpgradeLinkStore = create<UpgradeLinkState>()((set, get) => ({
       }),
     );
 
-    // 监听权限授予
+    // 监听需要安装权限（已打开设置页，用户返回后可重试）
     listeners.push(
-      await addPluginListener(PLUGIN_NAME, "install-permission-granted", () => {
-        console.log("[upgrade] Install permission granted");
-      }),
-    );
-
-    // 监听权限拒绝
-    listeners.push(
-      await addPluginListener(PLUGIN_NAME, "install-permission-denied", () => {
-        console.warn("[upgrade] Install permission denied");
+      await addPluginListener(PLUGIN_NAME, "install-permission-required", () => {
+        console.warn("[upgrade] Install permission required, user redirected to settings");
       }),
     );
 
