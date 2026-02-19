@@ -31,3 +31,4 @@ dist-ssr
 
 # Signing keys
 keys/
+keystore.properties

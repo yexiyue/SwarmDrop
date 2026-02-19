@@ -110,3 +110,23 @@ pub async fn get_network_status(
         None => Ok(NetworkStatus::default()),
     }
 }
+
+/// Android APK 下载安装（仅 Android 平台可用）
+#[tauri::command]
+pub async fn install_update(app: AppHandle, url: String, is_force: bool) -> crate::AppResult<()> {
+    #[cfg(target_os = "android")]
+    {
+        let updater = app.state::<crate::mobile::UpdaterPlugin<tauri::Wry>>();
+        updater.install_update(url, is_force)?;
+        return Ok(());
+    }
+
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = (app, url, is_force);
+        Err(crate::AppError::Io(std::io::Error::new(
+            std::io::ErrorKind::Unsupported,
+            "install_update is only supported on Android",
+        )))
+    }
+}
