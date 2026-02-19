@@ -24,6 +24,7 @@ pub struct NetManager {
     listen_addrs: Arc<RwLock<Vec<Multiaddr>>>,
     nat_status: Arc<RwLock<NatStatus>>,
     public_addr: Arc<RwLock<Option<Multiaddr>>>,
+    relay_ready: Arc<RwLock<bool>>,
 }
 
 impl NetManager {
@@ -56,6 +57,7 @@ impl NetManager {
             listen_addrs: Arc::new(RwLock::new(Vec::new())),
             nat_status: Arc::new(RwLock::new(NatStatus::Unknown)),
             public_addr: Arc::new(RwLock::new(None)),
+            relay_ready: Arc::new(RwLock::new(false)),
         }
     }
 
@@ -95,6 +97,7 @@ impl NetManager {
             listen_addrs: self.listen_addrs.clone(),
             nat_status: self.nat_status.clone(),
             public_addr: self.public_addr.clone(),
+            relay_ready: self.relay_ready.clone(),
         }
     }
 }
@@ -112,6 +115,7 @@ pub(crate) struct SharedNetRefs {
     pub listen_addrs: Arc<RwLock<Vec<Multiaddr>>>,
     pub nat_status: Arc<RwLock<NatStatus>>,
     pub public_addr: Arc<RwLock<Option<Multiaddr>>>,
+    pub relay_ready: Arc<RwLock<bool>>,
 }
 
 impl SharedNetRefs {
@@ -125,6 +129,7 @@ impl SharedNetRefs {
             public_addr: self.public_addr.read().ok().and_then(|g| g.clone()),
             connected_peers: self.devices.connected_count(),
             discovered_peers: self.devices.discovered_count(),
+            relay_ready: read_or(&self.relay_ready, false),
         }
     }
 }

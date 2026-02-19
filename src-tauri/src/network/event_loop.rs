@@ -91,6 +91,13 @@ pub fn spawn_event_loop(
                     let net_status = shared.build_network_status();
                     let _ = app.emit("network-status-changed", &net_status);
                 }
+                NodeEvent::RelayReservationAccepted { .. } => {
+                    if let Ok(mut rr) = shared.relay_ready.write() {
+                        *rr = true;
+                    }
+                    let net_status = shared.build_network_status();
+                    let _ = app.emit("network-status-changed", &net_status);
+                }
 
                 // === 设备事件（handle_event 已在上方处理） ===
                 NodeEvent::PeersDiscovered { .. }
