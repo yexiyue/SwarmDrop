@@ -148,7 +148,7 @@ swarm-p2p-core = { path = "../libs/core", features = ["dns"] }
 - **Path alias:** `@/` maps to `./src/` in both TypeScript (`tsconfig.json`) and Vite (`vite.config.ts`).
 - **shadcn/ui config:** `components.json` uses `new-york` style, `rsc: false`, `neutral` base color, Lucide icons. Also registers `@aceternity` registry.
 - **Diagrams:** Always use Mermaid in markdown. No ASCII art.
-- **App identifier:** `com.gy.swarmdrop`
+- **App identifier:** `com.yexiyue.swarmdrop`
 
 ## Key File Locations
 
