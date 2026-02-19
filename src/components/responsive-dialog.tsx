@@ -84,7 +84,7 @@ function ResponsiveDialogContent({
 
   if (isMobile) {
     return (
-      <DrawerContent className={cn(className)} {...props}>
+      <DrawerContent className={cn("overflow-auto", className)} {...props}>
         {children}
       </DrawerContent>
     );
