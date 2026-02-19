@@ -131,7 +131,7 @@ export function TransferOfferDialog() {
   if (!currentOffer || !treeData) return null;
 
   return (
-    <ResponsiveDialog open={true} onOpenChange={handleOpenChange}>
+    <ResponsiveDialog open={true} onOpenChange={handleOpenChange} forceDialog>
       <ResponsiveDialogContent
         className="sm:max-w-lg"
         showCloseButton={false}
@@ -149,23 +149,26 @@ export function TransferOfferDialog() {
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
-        {/* 文件树预览 */}
-        <div className="max-h-[300px] overflow-auto">
+        {/* 文件树预览 - 移动端添加水平 padding */}
+        <div className="max-h-[300px] overflow-auto px-4 sm:px-0">
           <FileTree
             mode="select"
             dataLoader={treeData.dataLoader}
             rootChildren={treeData.rootChildren}
             totalCount={currentOffer.files.length}
             totalSize={currentOffer.totalSize}
+            showHeader={false}
           />
         </div>
 
-        {/* 保存路径 */}
-        <SavePathSelector
-          savePath={savePath}
-          onChangePath={handleChangePath}
-          disabled={processing}
-        />
+        {/* 保存路径 - 移动端添加水平 padding */}
+        <div className="px-4 sm:px-0">
+          <SavePathSelector
+            savePath={savePath}
+            onChangePath={handleChangePath}
+            disabled={processing}
+          />
+        </div>
 
         <ResponsiveDialogFooter className="flex-row justify-center gap-3 sm:justify-center">
           <Button

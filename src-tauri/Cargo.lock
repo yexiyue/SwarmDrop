@@ -6204,7 +6204,7 @@ dependencies = [
 
 [[package]]
 name = "swarmdrop"
-version = "0.2.10"
+version = "0.2.11"
 dependencies = [
  "blake3",
  "chacha20poly1305",
