@@ -5,6 +5,7 @@
 
 import { Trans } from "@lingui/react/macro";
 import { t } from "@lingui/core/macro";
+import { useEffect, useState } from "react";
 import {
   Download,
   ExternalLink,
@@ -14,8 +15,12 @@ import {
   Zap,
 } from "lucide-react";
 import { type } from "@tauri-apps/plugin-os";
-import { useUpdateStore, type UpdateStatus } from "@/stores/update-store";
+import { getVersion } from "@tauri-apps/api/app";
 import { useShallow } from "zustand/react/shallow";
+import {
+  useUpgradeLinkStore,
+  type UpgradeLinkStatus,
+} from "@/stores/upgrade-link-store";
 import { Progress } from "@/components/ui/progress";
 
 /** 格式化字节数为人类可读 */
@@ -26,27 +31,36 @@ function formatBytes(bytes: number): string {
 }
 
 export function AboutSection() {
+  // 使用 useShallow 优化选择多个值的性能
   const {
     status,
-    currentVersion,
+    currentVersion: storeVersion,
     latestVersion,
-    releaseNotes,
+    promptContent,
     progress,
     checkForUpdate,
-    downloadAndInstall,
+    executeUpdate,
     openDownloadPage,
-  } = useUpdateStore(
+  } = useUpgradeLinkStore(
     useShallow((s) => ({
       status: s.status,
       currentVersion: s.currentVersion,
       latestVersion: s.latestVersion,
-      releaseNotes: s.releaseNotes,
+      promptContent: s.promptContent,
       progress: s.progress,
       checkForUpdate: s.checkForUpdate,
-      downloadAndInstall: s.downloadAndInstall,
+      executeUpdate: s.executeUpdate,
       openDownloadPage: s.openDownloadPage,
     })),
   );
+
+  // 独立获取版本号，不依赖更新检查
+  const [appVersion, setAppVersion] = useState<string | null>(null);
+  useEffect(() => {
+    getVersion().then(setAppVersion);
+  }, []);
+
+  const currentVersion = storeVersion ?? appVersion;
 
   const isMobile = type() === "android" || type() === "ios";
 
@@ -94,17 +108,17 @@ export function AboutSection() {
                 status={status}
                 latestVersion={latestVersion}
                 onCheck={checkForUpdate}
-                onDownload={downloadAndInstall}
+                onDownload={executeUpdate}
               />
             </div>
           )}
         </div>
 
         {/* Update Banner / Progress */}
-        {status === "available" && releaseNotes && (
+        {status === "available" && promptContent && (
           <UpdateBanner
             latestVersion={latestVersion}
-            releaseNotes={releaseNotes}
+            releaseNotes={promptContent}
           />
         )}
         {status === "downloading" && progress && (
@@ -123,7 +137,7 @@ function VersionDescription({
   status,
   currentVersion,
 }: {
-  status: UpdateStatus;
+  status: UpgradeLinkStatus;
   currentVersion: string | null;
 }) {
   const ver = currentVersion ? `v${currentVersion}` : "";
@@ -163,7 +177,7 @@ function DesktopUpdateButton({
   onCheck,
   onDownload,
 }: {
-  status: UpdateStatus;
+  status: UpgradeLinkStatus;
   latestVersion: string | null;
   onCheck: () => void;
   onDownload: () => void;
@@ -226,7 +240,7 @@ function MobileUpdateButton({
   onCheck,
   onOpenPage,
 }: {
-  status: UpdateStatus;
+  status: UpgradeLinkStatus;
   latestVersion: string | null;
   onCheck: () => void;
   onOpenPage: () => void;

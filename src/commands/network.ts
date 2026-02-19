@@ -52,6 +52,8 @@ export interface NetworkStatus {
   publicAddr: string | null;
   connectedPeers: number;
   discoveredPeers: number;
+  /** Relay 中继是否就绪（已获得 reservation） */
+  relayReady: boolean;
 }
 
 /**

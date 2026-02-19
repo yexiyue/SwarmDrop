@@ -1,6 +1,6 @@
 [package]
 name = "swarmdrop"
-version = "0.1.2"
+version = "0.2.9"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -39,6 +39,16 @@ rand = "0.10.0"
 chrono = "0.4.43"
 sha2 = "0.10.9"
 dashmap = "6.1.0"
+chacha20poly1305 = "0.10.1"
+blake3 = "1.8.3"
+tauri-plugin-dialog = "2"
+walkdir = "2"
+tauri-plugin-http = "2.5.7"
+uuid = { version = "1.21.0", features = ["v4"] }
+path-slash = "0.2.1"
+pathdiff = "0.2.3"
+serde_bytes = "0.11"
+tokio-util = "0.7"
 
 # 桌面端启用 DNS 解析（Android 上 /etc/resolv.conf 不存在，不启用）
 [target.'cfg(not(target_os = "android"))'.dependencies]

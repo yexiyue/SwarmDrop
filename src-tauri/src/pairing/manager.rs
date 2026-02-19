@@ -200,6 +200,9 @@ impl PairingManager {
                 Ok((PairingResponse::Success, Some(info)))
             }
             AppResponse::Pairing(resp) => Ok((resp, None)),
+            other => Err(crate::AppError::Network(format!(
+                "意外的响应类型: {other:?}"
+            ))),
         }
     }
 

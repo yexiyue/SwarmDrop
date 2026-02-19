@@ -5,28 +5,29 @@
  */
 
 import { useMemo, useState } from "react";
-import { createLazyFileRoute } from "@tanstack/react-router";
+import { createLazyFileRoute, useNavigate } from "@tanstack/react-router";
 import { useShallow } from "zustand/react/shallow";
-import { DeviceCard } from "@/components/devices/device-card";
+import { DeviceCard } from "./-components/device-card";
 import type { Device } from "@/commands/network";
 import { Trans } from "@lingui/react/macro";
 import { useNetworkStore } from "@/stores/network-store";
 import { useSecretStore } from "@/stores/secret-store";
 import { usePairingStore } from "@/stores/pairing-store";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
-import { AddDeviceMenu } from "@/components/pairing/add-device-menu";
-import { NetworkStatusBar } from "@/components/network/network-status-bar";
-import { OfflineEmptyState } from "@/components/network/offline-empty-state";
+import { AddDeviceMenu } from "./-components/add-device-menu";
+import { NetworkStatusBar } from "./-components/network-status-bar";
+import { OfflineEmptyState } from "./-components/offline-empty-state";
 import { StartNodeSheet } from "@/components/network/start-node-sheet";
 import { StopNodeSheet } from "@/components/network/stop-node-sheet";
 
-export const Route = createLazyFileRoute("/_app/devices")({
+export const Route = createLazyFileRoute("/_app/devices/")({
   component: DevicesPage,
 });
 
 function DevicesPage() {
   const breakpoint = useBreakpoint();
   const isMobile = breakpoint === "mobile";
+  const navigate = useNavigate();
 
   // 共享数据 hooks - 使用 useShallow 优化选择多个值的性能
   const { devices, status } = useNetworkStore(
@@ -65,8 +66,7 @@ function DevicesPage() {
   }, [devices]);
 
   const handleSend = (device: Device) => {
-    // TODO: Phase 3 文件传输
-    console.log("Send to device:", device);
+    void navigate({ to: "/send", search: { peerId: device.peerId } });
   };
 
   const handleConnect = (device: Device) => {
@@ -105,7 +105,6 @@ function DevicesPage() {
       {/* 节点控制弹窗 */}
       <StartNodeSheet open={startSheetOpen} onOpenChange={setStartSheetOpen} />
       <StopNodeSheet open={stopSheetOpen} onOpenChange={setStopSheetOpen} />
-
     </>
   );
 }

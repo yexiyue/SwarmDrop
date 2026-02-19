@@ -28,6 +28,7 @@ pnpm tauri build        # Full app
 # Rust (run from src-tauri/)
 cargo build
 cargo test
+cargo test test_name    # Run a single test
 cargo clippy
 cargo fmt
 
@@ -44,6 +45,8 @@ pnpm build
 ```
 
 **Package manager:** pnpm only (not npm or yarn).
+
+**Git submodule:** After cloning, run `git submodule update --init --recursive` to fetch the P2P library in `libs/`.
 
 ## Tech Stack
 
@@ -83,16 +86,18 @@ When adding a new Tauri command, use the `/edgemind-tauri-command` skill.
 - `_auth.tsx` — unauthenticated layout (Aurora background). Guards redirect to `/devices` if already unlocked.
 - `_auth/welcome.lazy.tsx`, `setup-password.lazy.tsx`, `unlock.lazy.tsx`, `enable-biometric.lazy.tsx`
 - `_app.tsx` — authenticated layout (sidebar/bottom-nav). Guards redirect to `/welcome` or `/unlock` if not ready.
-- `_app/devices.lazy.tsx`, `settings.lazy.tsx`
+- `_app/devices.lazy.tsx`, `settings.lazy.tsx`, `pairing.tsx` + `pairing/*.lazy.tsx`
 - `index.tsx` — redirects to `/devices`
 
 Route guards use `beforeLoad` + `useAuthStore.getState()` to check auth state synchronously.
 
-**State Management** — 4 Zustand stores with different persistence backends:
+**State Management** — Zustand stores with different persistence backends:
 - `auth-store` — auth flow state. Persisted to `localStorage` (only `isSetupComplete` + `biometricEnabled`).
 - `preferences-store` — theme, language, device name. Persisted to `tauri-plugin-store`. Uses `onRehydrateStorage` to apply theme/language immediately, preventing flash.
 - `secret-store` — Ed25519 keypair. Persisted to Stronghold encrypted vault via `src/lib/stronghold.ts`.
 - `network-store` — runtime-only. Manages P2P node status, peer map (`Map<PeerId, PeerInfo>`), listen addresses, NAT status. Handles `NodeEvent` from Rust via Tauri Channel.
+- `pairing-store` — runtime-only. Manages pairing code and pairing flow state.
+- `update-store` / `upgrade-link-store` — app update checking via Tauri updater and UpgradeLink.
 
 **Responsive Design** — 3 breakpoints via `use-breakpoint` hook:
 - mobile (<768px): bottom navigation
@@ -106,17 +111,33 @@ Route guards use `beforeLoad` + `useAuthStore.getState()` to check auth state sy
 ```
 src-tauri/src/
 ├── lib.rs              # Tauri setup, plugin registration, command handler
+├── main.rs             # Binary entry point
+├── mobile.rs           # Mobile entry point (cfg(mobile))
 ├── commands/
-│   ├── mod.rs          # start/shutdown, NetManager, bootstrap nodes
+│   ├── mod.rs          # start/shutdown, command exports
 │   ├── identity.rs     # generate_keypair, register_keypair
 │   └── pairing.rs      # generate_pairing_code, get_device_info, request/respond_pairing
+├── network/
+│   ├── mod.rs          # Module exports
+│   ├── config.rs       # NodeConfig builder (mDNS, relay, DCUtR, autonat, bootstrap)
+│   ├── manager.rs      # NetManager — wraps NetClient + PairingManager
+│   └── event_loop.rs   # NodeEvent forwarding to frontend via Tauri Channel
 ├── pairing/
-│   ├── code.rs         # 6-digit share code generation, SHA256→DHT key
+│   ├── mod.rs          # Module exports
+│   ├── code.rs         # 6-digit share code generation
+│   ├── dht_key.rs      # SHA256→DHT key derivation
 │   └── manager.rs      # PairingManager — DHT publish/query, online/offline announce
-├── device.rs           # OsInfo — hostname, platform, agent_version string
+├── device/
+│   ├── mod.rs          # Module exports
+│   ├── manager.rs      # Device list management
+│   └── utils.rs        # OsInfo — hostname, platform, agent_version string
 ├── protocol.rs         # AppRequest/AppResponse — CBOR over libp2p Request-Response
 └── error.rs            # AppError (thiserror), AppResult
 ```
+
+**Plugin initialization order** (in `lib.rs`):
+1. Plugins registered in `Builder::default()`: store, os, fs, biometry, notification, opener, process, mobile
+2. In `setup()`: updater (with mobile fallback — silently skips if unsupported), then Stronghold (needs `salt_path` from app data dir)
 
 **Network startup flow:**
 1. `commands::start()` creates `NodeConfig` with mDNS, relay, DCUtR, autonat, bootstrap peers
@@ -124,13 +145,15 @@ src-tauri/src/
 3. Spawns tokio tasks for DHT bootstrap and event forwarding to frontend via Channel
 4. Creates `NetManager` (wraps `NetClient` + `PairingManager`), stores in Tauri state
 
+**Tracing/Logging:** Uses `tracing` + `tracing-subscriber` with `EnvFilter`. Default filter: `swarmdrop=debug,swarm_p2p_core=debug`. Override with `RUST_LOG` env var.
+
 **Bootstrap node:** One self-hosted node at `47.115.172.218:4001` (TCP + QUIC).
 
 **Share code system:** 6-digit numeric codes. DHT key = SHA256(code). Records contain OS info + timestamp. Default TTL 300s.
 
 ### P2P Library (libs/)
 
-Git submodule containing `swarm-p2p-core` crate. Workspace at `libs/Cargo.toml`, core code at `libs/core/`.
+Git submodule containing `swarm-p2p-core` crate. Workspace at `libs/Cargo.toml`, core code at `libs/core/`. Uses **Rust 2024 edition** (different from the main app's 2021 edition).
 
 Key exports: `NetClient`, `NodeConfig`, `NodeEvent`, `start()`, re-exported `libp2p`.
 
@@ -140,21 +163,42 @@ Android-specific: DNS feature is disabled (`/etc/resolv.conf` doesn't exist on A
 swarm-p2p-core = { path = "../libs/core", features = ["dns"] }
 ```
 
+### Auto-Update System
+
+Dual-endpoint update checking:
+1. **UpgradeLink** — `https://api.upgrade.toolsetlink.com/v1/tauri/upgrade?tauriKey=...` (primary)
+2. **GitHub Releases** — `https://github.com/yexiyue/SwarmDrop/releases/latest/download/latest.json` (fallback)
+
+The `latest.json` is patched in CI to include Android APK info (`mobile.android` field) and optional `min_version` for forced updates. Windows uses passive install mode.
+
+### Release Process
+
+Triggered by pushing a `v*` tag. GitHub Actions workflow (`.github/workflows/release.yml`):
+1. **build-tauri** — Builds desktop apps (macOS aarch64/x86_64, Ubuntu, Windows) via `tauri-action`, creates draft release
+2. **build-android** — Builds Android APK (aarch64), uploads to the draft release
+3. **update-latest-json** — Patches `latest.json` with Android download URL and optional `min_version`
+4. **publish-release** — Converts draft to published release (required for UpgradeLink to access assets)
+5. **upgradeLink-upload** — Syncs desktop and Android builds to UpgradeLink service
+
 ## Important Conventions
 
 - **Rust library naming:** The lib is named `swarmdrop_lib` (not `swarmdrop`) to avoid a Windows cargo naming conflict between lib and bin targets.
-- **Dev profile optimization:** Crypto dependencies (`tauri-plugin-stronghold`, etc.) are compiled with `opt-level = 3` even in dev mode, otherwise they're 10–100x slower.
+- **Dev profile optimization:** All dependencies compiled with `opt-level = 3` even in dev mode. Crypto dependencies (`tauri-plugin-stronghold`, etc.) are 10–100x slower without this.
 - **Vite port:** Fixed at 1420 (Tauri requirement). HMR on 1421.
 - **Path alias:** `@/` maps to `./src/` in both TypeScript (`tsconfig.json`) and Vite (`vite.config.ts`).
 - **shadcn/ui config:** `components.json` uses `new-york` style, `rsc: false`, `neutral` base color, Lucide icons. Also registers `@aceternity` registry.
 - **Diagrams:** Always use Mermaid in markdown. No ASCII art.
 - **App identifier:** `com.yexiyue.swarmdrop`
+- **Version management:** Frontend version in `package.json`, Rust version in `src-tauri/Cargo.toml`, app version in `src-tauri/tauri.conf.json`. The `tauri.conf.json` version is the release version used in CI.
 
 ## Key File Locations
 
 | Purpose | Path |
 |---------|------|
 | Tauri commands | `src-tauri/src/commands/` |
+| Network module | `src-tauri/src/network/` |
+| Pairing module | `src-tauri/src/pairing/` |
+| Device module | `src-tauri/src/device/` |
 | Frontend command wrappers | `src/commands/` |
 | Zustand stores | `src/stores/` |
 | Route pages | `src/routes/` |
@@ -167,6 +211,7 @@ swarm-p2p-core = { path = "../libs/core", features = ["dns"] }
 | UI design file | `dev-notes/design/design.pen` |
 | P2P core library | `libs/core/` |
 | Tauri capabilities | `src-tauri/capabilities/default.json` |
+| Release CI workflow | `.github/workflows/release.yml` |
 
 ## Development Phases
 

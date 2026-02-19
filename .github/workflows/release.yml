@@ -77,6 +77,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          VITE_UPGRADE_LINK_ACCESS_KEY: ${{ secrets.UPGRADE_LINK_ACCESS_KEY }}
+          VITE_UPGRADE_LINK_ACCESS_SECRET: ${{ secrets.UPGRADE_LINK_ACCESS_SECRET }}
+          VITE_UPGRADE_LINK_APK_KEY: ${{ secrets.UPGRADE_LINK_APK_KEY }}
         with:
           tagName: v__VERSION__
           releaseName: 'SwarmDrop v__VERSION__'
@@ -147,6 +150,9 @@ jobs:
           ANDROID_NDK_HOME: ${{ env.ANDROID_NDK_LATEST_HOME }}
           ANDROID_NDK_ROOT: ${{ env.ANDROID_NDK_LATEST_HOME }}
           SODIUM_LIB_DIR: ${{ github.workspace }}/src-tauri/vendor/prebuilt/android-aarch64
+          VITE_UPGRADE_LINK_ACCESS_KEY: ${{ secrets.UPGRADE_LINK_ACCESS_KEY }}
+          VITE_UPGRADE_LINK_ACCESS_SECRET: ${{ secrets.UPGRADE_LINK_ACCESS_SECRET }}
+          VITE_UPGRADE_LINK_APK_KEY: ${{ secrets.UPGRADE_LINK_APK_KEY }}
         run: pnpm tauri android build --target aarch64
 
       - name: Get version

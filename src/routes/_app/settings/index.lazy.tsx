@@ -21,9 +21,9 @@ import {
 import { useShallow } from "zustand/react/shallow";
 import { usePreferencesStore } from "@/stores/preferences-store";
 import { locales, type LocaleKey } from "@/lib/i18n";
-import { AboutSection } from "@/components/settings/AboutSection";
+import { AboutSection } from "./-about-section";
 
-export const Route = createLazyFileRoute("/_app/settings")({
+export const Route = createLazyFileRoute("/_app/settings/")({
   component: SettingsPage,
 });
 

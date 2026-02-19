@@ -5,6 +5,7 @@
  */
 
 import * as React from "react";
+import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import {
   Dialog,
@@ -38,7 +39,11 @@ interface ResponsiveDialogProps {
   children: React.ReactNode;
 }
 
-function ResponsiveDialog({ open, onOpenChange, children }: ResponsiveDialogProps) {
+function ResponsiveDialog({
+  open,
+  onOpenChange,
+  children,
+}: ResponsiveDialogProps) {
   const breakpoint = useBreakpoint();
   const isMobile = breakpoint === "mobile";
 
@@ -59,30 +64,43 @@ function ResponsiveDialog({ open, onOpenChange, children }: ResponsiveDialogProp
   );
 }
 
+type ResponsiveDialogContentProps = React.ComponentProps<
+  typeof DialogPrimitive.Content
+> & {
+  showCloseButton?: boolean;
+};
+
 function ResponsiveDialogContent({
   className,
   children,
+  showCloseButton,
   ...props
-}: React.ComponentProps<"div"> & { showCloseButton?: boolean }) {
+}: ResponsiveDialogContentProps) {
   const { isMobile } = useResponsiveDialog();
-  const { showCloseButton, ...rest } = props;
 
   if (isMobile) {
     return (
-      <DrawerContent className={cn(className)} {...rest}>
+      <DrawerContent className={cn(className)} {...props}>
         {children}
       </DrawerContent>
     );
   }
 
   return (
-    <DialogContent className={cn(className)} showCloseButton={showCloseButton} {...rest}>
+    <DialogContent
+      className={cn(className)}
+      showCloseButton={showCloseButton}
+      {...props}
+    >
       {children}
     </DialogContent>
   );
 }
 
-function ResponsiveDialogHeader({ className, ...props }: React.ComponentProps<"div">) {
+function ResponsiveDialogHeader({
+  className,
+  ...props
+}: React.ComponentProps<"div">) {
   const { isMobile } = useResponsiveDialog();
 
   if (isMobile) {
@@ -92,7 +110,10 @@ function ResponsiveDialogHeader({ className, ...props }: React.ComponentProps<"d
   return <DialogHeader className={cn(className)} {...props} />;
 }
 
-function ResponsiveDialogFooter({ className, ...props }: React.ComponentProps<"div">) {
+function ResponsiveDialogFooter({
+  className,
+  ...props
+}: React.ComponentProps<"div">) {
   const { isMobile } = useResponsiveDialog();
 
   if (isMobile) {

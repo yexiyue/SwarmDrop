@@ -1,16 +1,14 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { getDeviceIcon } from "@/components/pairing/device-icon";
 import {
   Link,
-  Monitor,
   MoreHorizontal,
   RadioTower,
   Send,
-  Smartphone,
   Unlink,
   Wifi,
   Zap,
-  Laptop,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,15 +32,6 @@ import type { MessageDescriptor } from "@lingui/core";
 import { useLingui } from "@lingui/react/macro";
 import { Trans } from "@lingui/react/macro";
 import type { Device, ConnectionType } from "@/commands/network";
-
-/** 根据 OS 名称返回对应的设备图标 */
-function getDeviceIcon(os: string): React.ComponentType<{ className?: string }> {
-  const osLower = os.toLowerCase();
-  if (osLower === "ios") return Smartphone;
-  if (osLower === "android") return Smartphone;
-  if (osLower === "macos" || osLower === "darwin") return Laptop;
-  return Monitor;
-}
 
 const connectionConfig: Record<
   ConnectionType,

@@ -14,8 +14,8 @@ import { Trans } from "@lingui/react/macro";
 import { useShallow } from "zustand/react/shallow";
 import { usePairingStore } from "@/stores/pairing-store";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
-import { MobileGenerateCodeView } from "@/components/pairing/mobile-generate-code-view";
-import { MobileInputCodeView } from "@/components/pairing/mobile-input-code-view";
+import { MobileGenerateCodeView } from "./-components/mobile-generate-code-view";
+import { MobileInputCodeView } from "./-components/mobile-input-code-view";
 import {
   MobileDeviceFoundView,
   useDeviceFoundState,
