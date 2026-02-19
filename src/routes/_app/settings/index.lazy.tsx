@@ -22,6 +22,7 @@ import { useShallow } from "zustand/react/shallow";
 import { usePreferencesStore } from "@/stores/preferences-store";
 import { locales, type LocaleKey } from "@/lib/i18n";
 import { AboutSection } from "./-about-section";
+import { TransferSettingsSection } from "./-transfer-settings-section";
 
 export const Route = createLazyFileRoute("/_app/settings/")({
   component: SettingsPage,
@@ -67,6 +68,9 @@ function SettingsPage() {
         <div className="mx-auto flex max-w-2xl flex-col gap-6">
           {/* 关于 & 更新 */}
           <AboutSection />
+
+          {/* 文件传输设置 */}
+          <TransferSettingsSection />
 
           {/* 设备信息 */}
           <section className="flex flex-col gap-3">
