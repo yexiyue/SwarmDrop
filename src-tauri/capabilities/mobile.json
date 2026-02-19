@@ -7,12 +7,6 @@
     "main"
   ],
   "permissions": [
-    "android-fs:default",
-    {
-      "identifier": "android-fs:scope",
-      "allow": [
-        "**"
-      ]
-    }
+    "android-fs:default"
   ]
 }
