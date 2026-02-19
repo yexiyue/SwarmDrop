@@ -44,6 +44,12 @@ function TransferPage() {
   if (isMobile) {
     return (
       <main className="flex h-full flex-1 flex-col bg-background">
+        {/* Mobile Header */}
+        <header className="flex h-13 items-center justify-between border-b border-border px-4">
+          <h1 className="text-[15px] font-medium text-foreground">
+            <Trans>传输</Trans>
+          </h1>
+        </header>
         <div className="flex-1 overflow-auto px-4 py-4">{content}</div>
       </main>
     );

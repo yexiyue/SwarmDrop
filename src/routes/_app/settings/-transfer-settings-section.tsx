@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { useShallow } from "zustand/react/shallow";
 import { usePreferencesStore } from "@/stores/preferences-store";
 import { open } from "@tauri-apps/plugin-dialog";
-import { downloadDir } from "@tauri-apps/api/path";
+import { downloadDir, homeDir, join } from "@tauri-apps/api/path";
 
 export function TransferSettingsSection() {
   const { savePath, autoAccept, setTransferSavePath, setTransferAutoAccept } =
@@ -28,30 +28,27 @@ export function TransferSettingsSection() {
   // 初始化默认保存路径
   useEffect(() => {
     if (!savePath) {
-      downloadDir().then((dir) => {
+      downloadDir().then(async (dir) => {
         if (dir) {
-          const defaultPath = `${dir}/SwarmDrop`;
+          const defaultPath = await join(dir, "SwarmDrop");
           setTransferSavePath(defaultPath);
         }
       });
     }
   }, [savePath, setTransferSavePath]);
 
-  // 更新显示路径
+  // 更新显示路径（使用 homeDir API 简化路径显示）
   useEffect(() => {
     if (savePath) {
-      // 简化显示：如果是用户目录，显示为 ~/xxx
-      const homeMatch = savePath.match(/^\/home\/[^\/]+(\/.+)$/);
-      if (homeMatch) {
-        setDisplayPath(`~${homeMatch[1]}`);
-      } else {
-        const winMatch = savePath.match(/^C:\\Users\\[^\\]+\\(.+)$/);
-        if (winMatch) {
-          setDisplayPath(`~\\${winMatch[1]}`);
+      homeDir().then((home) => {
+        if (home && savePath.startsWith(home)) {
+          // 将用户目录前缀替换为 ~
+          const relative = savePath.slice(home.length).replace(/\\/g, "/");
+          setDisplayPath(`~${relative}`);
         } else {
           setDisplayPath(savePath);
         }
-      }
+      });
     }
   }, [savePath]);
 
