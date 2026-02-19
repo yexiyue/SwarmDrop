@@ -9,9 +9,6 @@ pub use error::{AppError, AppResult};
 
 mod mobile;
 
-#[cfg(target_os = "android")]
-mod android;
-
 use tauri::Manager;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
