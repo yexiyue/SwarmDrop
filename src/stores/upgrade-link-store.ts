@@ -48,6 +48,8 @@ interface UpgradeLinkState {
   downloadUrl: string | null;
   progress: DownloadProgress | null;
   error: string | null;
+  /** 是否已经检查过更新（避免重复检查） */
+  hasChecked: boolean;
 
   // Actions
   checkForUpdate: () => Promise<void>;
@@ -79,9 +81,12 @@ export const useUpgradeLinkStore = create<UpgradeLinkState>()((set, get) => ({
   downloadUrl: null,
   progress: null,
   error: null,
+  hasChecked: false,
 
-  async checkForUpdate() {
-    const { status } = get();
+  async checkForUpdate(force = false) {
+    const { status, hasChecked } = get();
+    // 如果已经检查过且不是强制检查，则跳过
+    if (!force && hasChecked) return;
     if (status === "checking" || status === "downloading") return;
 
     set({ status: "checking", error: null });
@@ -107,6 +112,8 @@ export const useUpgradeLinkStore = create<UpgradeLinkState>()((set, get) => ({
         status: "error",
         error: err instanceof Error ? err.message : String(err),
       });
+    } finally {
+      set({ hasChecked: true });
     }
   },
 
@@ -214,6 +221,7 @@ export const useUpgradeLinkStore = create<UpgradeLinkState>()((set, get) => ({
       downloadUrl: null,
       progress: null,
       error: null,
+      hasChecked: false,
     });
   },
 

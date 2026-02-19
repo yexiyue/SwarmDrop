@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/select";
 import { useShallow } from "zustand/react/shallow";
 import { usePreferencesStore } from "@/stores/preferences-store";
-import { useUpgradeLinkStore } from "@/stores/upgrade-link-store";
 import { locales, type LocaleKey } from "@/lib/i18n";
 import { AboutSection } from "./-about-section";
 import { TransferSettingsSection } from "./-transfer-settings-section";
@@ -49,14 +48,6 @@ function SettingsPage() {
 
   useEffect(() => {
     hostname().then((name) => setSystemHostname(name ?? ""));
-  }, []);
-
-  // 进入设置页面时自动检查更新（只执行一次）
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      void useUpgradeLinkStore.getState().checkForUpdate();
-    }, 500);
-    return () => clearTimeout(timer);
   }, []);
 
   const displayName = deviceName || systemHostname || "SwarmDrop";
