@@ -9,8 +9,8 @@ import { FolderOpen } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useShallow } from "zustand/react/shallow";
 import { usePreferencesStore } from "@/stores/preferences-store";
-import { open } from "@tauri-apps/plugin-dialog";
 import { downloadDir, homeDir, join } from "@tauri-apps/api/path";
+import { pickFolderWithDefault } from "@/hooks/use-android-fs";
 
 export function TransferSettingsSection() {
   const { savePath, autoAccept, setTransferSavePath, setTransferAutoAccept } =
@@ -53,7 +53,7 @@ export function TransferSettingsSection() {
   }, [savePath]);
 
   const handleChangePath = useCallback(async () => {
-    const selected = await open({ directory: true, defaultPath: savePath });
+    const selected = await pickFolderWithDefault(savePath);
     if (selected) {
       setTransferSavePath(selected);
     }

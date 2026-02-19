@@ -6204,7 +6204,7 @@ dependencies = [
 
 [[package]]
 name = "swarmdrop"
-version = "0.2.11"
+version = "0.2.12"
 dependencies = [
  "blake3",
  "chacha20poly1305",
@@ -6220,6 +6220,7 @@ dependencies = [
  "swarm-p2p-core",
  "tauri",
  "tauri-build",
+ "tauri-plugin-android-fs",
  "tauri-plugin-biometry",
  "tauri-plugin-dialog",
  "tauri-plugin-fs",
@@ -6550,6 +6551,20 @@ dependencies = [
  "tauri-utils",
  "toml 0.9.12+spec-1.1.0",
  "walkdir",
+]
+
+[[package]]
+name = "tauri-plugin-android-fs"
+version = "2.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b32de3840d40ed36ff3582be57aef79f70e8466a842c98fb8be0109ee5cbf796"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
+ "tauri-plugin-fs",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

@@ -9,6 +9,9 @@ pub use error::{AppError, AppResult};
 
 mod mobile;
 
+#[cfg(target_os = "android")]
+mod android;
+
 use tauri::Manager;
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
@@ -26,7 +29,7 @@ fn init_tracing() {
 pub fn run() {
     init_tracing();
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_fs::init())
@@ -36,7 +39,13 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_process::init())
-        .plugin(mobile::init())
+        .plugin(mobile::init());
+
+    // Android 文件选择插件
+    #[cfg(target_os = "android")]
+    let builder = builder.plugin(tauri_plugin_android_fs::init());
+
+    builder
         .setup(|app| {
             // updater 在 setup 中注册，移动端不支持时容错跳过
             if let Err(e) = app
