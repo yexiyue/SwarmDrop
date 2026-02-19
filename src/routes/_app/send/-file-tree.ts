@@ -383,3 +383,17 @@ export function computeRelativePath(
   const parts = normalizedPath.split("/");
   return parts[parts.length - 1];
 }
+
+/**
+ * 从 Session 的文件列表构建 headless-tree 所需的 dataLoader
+ *
+ * 与 buildTreeDataFromOffer 类似，但输入来自 TransferSession
+ *
+ * @param session TransferSession 对象
+ * @returns dataLoader + rootChildren
+ */
+export function buildTreeDataFromSession(session: {
+  files: { fileId: number; name: string; relativePath: string; size: number }[];
+}): TreeData {
+  return buildTreeDataFromOffer(session.files);
+}

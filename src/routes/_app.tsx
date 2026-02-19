@@ -21,10 +21,10 @@ import { BottomNav } from "@/components/layout/bottom-nav";
 import { useAuthStore } from "@/stores/auth-store";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { ConnectionRequestDialog } from "@/components/pairing/connection-request-dialog";
+import { TransferOfferDialog } from "@/components/transfer/transfer-offer-dialog";
 import {
   setupTransferListeners,
   cleanupTransferListeners,
-  useTransferStore,
 } from "@/stores/transfer-store";
 
 export const Route = createFileRoute("/_app")({
@@ -57,18 +57,8 @@ function AppLayout() {
     };
   }, []);
 
-  // 收到传输提议时自动导航到 /receive
-  const navigate = useNavigate();
-  const location = useLocation();
-  const pendingOfferCount = useTransferStore((s) => s.pendingOffers.length);
-
-  useEffect(() => {
-    if (pendingOfferCount > 0 && location.pathname !== "/receive") {
-      void navigate({ to: "/receive" });
-    }
-  }, [pendingOfferCount, location.pathname, navigate]);
-
   // send/receive/pairing 页面为独立全屏，不显示全局 header 和 bottom nav
+  const location = useLocation();
   const isFullScreenRoute =
     location.pathname.startsWith("/send") ||
     location.pathname.startsWith("/receive") ||
@@ -83,6 +73,7 @@ function AppLayout() {
         </main>
         {!isFullScreenRoute && <BottomNav />}
         <ConnectionRequestDialog />
+        <TransferOfferDialog />
       </div>
     );
   }
@@ -102,6 +93,7 @@ function AppLayout() {
         <Outlet />
       </SidebarInset>
       <ConnectionRequestDialog />
+      <TransferOfferDialog />
     </SidebarProvider>
   );
 }

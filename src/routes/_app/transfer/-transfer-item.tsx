@@ -15,26 +15,41 @@ import {
 import { Trans } from "@lingui/react/macro";
 import type { TransferSession } from "@/commands/transfer";
 import { cancelSend, cancelReceive } from "@/commands/transfer";
-import { formatFileSize, formatSpeed, formatDuration, formatRelativeTime } from "@/lib/format";
+import {
+  formatFileSize,
+  formatSpeed,
+  formatDuration,
+  formatRelativeTime,
+} from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
 import { openPath } from "@tauri-apps/plugin-opener";
+import { useNavigate } from "@tanstack/react-router";
 
 interface TransferItemProps {
   session: TransferSession;
 }
 
 export function TransferItem({ session }: TransferItemProps) {
+  const navigate = useNavigate();
   const isSend = session.direction === "send";
   const isActive =
     session.status === "pending" ||
     session.status === "waiting_accept" ||
     session.status === "transferring";
 
-  const handleCancel = async () => {
+  const handleClick = () => {
+    void navigate({
+      to: "/transfer/$sessionId",
+      params: { sessionId: session.sessionId },
+    });
+  };
+
+  const handleCancel = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     try {
       if (isSend) {
         await cancelSend(session.sessionId);
@@ -46,7 +61,8 @@ export function TransferItem({ session }: TransferItemProps) {
     }
   };
 
-  const handleOpenFolder = () => {
+  const handleOpenFolder = (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (session.savePath) {
       void openPath(session.savePath);
     }
@@ -59,7 +75,17 @@ export function TransferItem({ session }: TransferItemProps) {
     : 0;
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3.5">
+    <div
+      className="flex cursor-pointer flex-col gap-2 rounded-lg border border-border bg-card p-3.5 hover:bg-accent/50"
+      onClick={handleClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          handleClick();
+        }
+      }}
+    >
       {/* 头部：方向 + 设备名 + 状态/操作 */}
       <div className="flex items-center gap-2">
         {/* 方向图标 */}
@@ -129,7 +155,10 @@ export function TransferItem({ session }: TransferItemProps) {
             <span>
               {progressPercent}%
               {session.progress.eta != null && (
-                <> · <Trans>剩余 {formatDuration(session.progress.eta)}</Trans></>
+                <>
+                  {" "}
+                  · <Trans>剩余 {formatDuration(session.progress.eta)}</Trans>
+                </>
               )}
             </span>
           </div>
