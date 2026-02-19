@@ -43,6 +43,8 @@ interface UpgradeLinkState {
   latestVersion: string | null;
   currentVersion: string | null;
   promptContent: string | null;
+  /** 更新日志 */
+  releaseNotes: string | null;
   downloadUrl: string | null;
   progress: DownloadProgress | null;
   error: string | null;
@@ -73,6 +75,7 @@ export const useUpgradeLinkStore = create<UpgradeLinkState>()((set, get) => ({
   latestVersion: null,
   currentVersion: null,
   promptContent: null,
+  releaseNotes: null,
   downloadUrl: null,
   progress: null,
   error: null,
@@ -207,6 +210,7 @@ export const useUpgradeLinkStore = create<UpgradeLinkState>()((set, get) => ({
       latestVersion: null,
       currentVersion: null,
       promptContent: null,
+      releaseNotes: null,
       downloadUrl: null,
       progress: null,
       error: null,
@@ -296,6 +300,7 @@ async function checkDesktop(
   set({
     latestVersion: desktopUpdate.version,
     upgradeType: result.upgradeType,
+    releaseNotes: desktopUpdate.body ?? null,
   });
 
   // 根据策略设置状态
@@ -325,6 +330,7 @@ async function checkAndroid(
     upgradeType: result.upgradeType,
     downloadUrl: result.downloadUrl,
     promptContent: result.promptContent,
+    releaseNotes: result.promptContent,
   });
 
   if (result.upgradeType === "force") {
