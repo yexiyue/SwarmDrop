@@ -26,7 +26,7 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
-import { openPath } from "@tauri-apps/plugin-opener";
+import { openFolder } from "@/lib/file-picker";
 import { useNavigate } from "@tanstack/react-router";
 
 interface TransferItemProps {
@@ -64,7 +64,7 @@ export function TransferItem({ session }: TransferItemProps) {
   const handleOpenFolder = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (session.savePath) {
-      void openPath(session.savePath);
+      void openFolder(session.savePath);
     }
   };
 
