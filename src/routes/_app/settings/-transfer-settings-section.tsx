@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { useShallow } from "zustand/react/shallow";
 import { usePreferencesStore } from "@/stores/preferences-store";
 import { downloadDir, homeDir, join } from "@tauri-apps/api/path";
-import { pickFolderWithDefault } from "@/hooks/use-android-fs";
+import { pickFolder } from "@/lib/file-picker";
 import { toast } from "sonner";
 
 export function TransferSettingsSection() {
@@ -55,7 +55,7 @@ export function TransferSettingsSection() {
 
   const handleChangePath = useCallback(async () => {
     try {
-      const selected = await pickFolderWithDefault(savePath);
+      const selected = await pickFolder(savePath);
       if (selected) {
         setTransferSavePath(selected);
       }

@@ -19,7 +19,7 @@ import { useTransferStore } from "@/stores/transfer-store";
 import { acceptReceive, rejectReceive } from "@/commands/transfer";
 import { FileTree } from "@/routes/_app/send/-components/file-tree";
 import { buildTreeDataFromOffer } from "@/routes/_app/send/-file-tree";
-import { open } from "@tauri-apps/plugin-dialog";
+import { pickFolder } from "@/lib/file-picker";
 import { downloadDir, join } from "@tauri-apps/api/path";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -68,7 +68,7 @@ export function TransferOfferDialog() {
   }, [currentOffer]);
 
   const handleChangePath = useCallback(async () => {
-    const selected = await open({ directory: true });
+    const selected = await pickFolder();
     if (selected) {
       setSavePath(selected);
     }

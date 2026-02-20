@@ -56,7 +56,7 @@ swarm-p2p-core = { path = "../libs/core", features = ["dns"] }
 
 # Android 文件选择插件
 [target.'cfg(target_os = "android")'.dependencies]
-tauri-plugin-android-fs = "2"
+tauri-plugin-android-fs = { version = "=25.1.2", features = ["legacy_storage_permission"] }
 
 # 在 dev 模式下为依赖开启优化（加密运算必须）
 # 否则 Stronghold 等加密库会慢 10-100 倍
