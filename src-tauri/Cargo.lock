@@ -6275,6 +6275,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sync_async"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b815ef8e053247ad785b136d233ee9c9872eeda5319f2719d57cac88270c3dd9"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.114",
+]
+
+[[package]]
 name = "sync_wrapper"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6555,12 +6566,17 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-android-fs"
-version = "2.0.1"
+version = "25.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b32de3840d40ed36ff3582be57aef79f70e8466a842c98fb8be0109ee5cbf796"
+checksum = "f62ba8f6da844b05e18b2e327eb39bedd28855ef44c1c8f9477a15962589a22b"
 dependencies = [
+ "base64 0.22.1",
+ "glob",
+ "percent-encoding",
+ "schemars 0.8.22",
  "serde",
  "serde_json",
+ "sync_async",
  "tauri",
  "tauri-plugin",
  "tauri-plugin-fs",

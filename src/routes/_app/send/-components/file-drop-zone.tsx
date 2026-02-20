@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Trans } from "@lingui/react/macro";
 import { cn } from "@/lib/utils";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
-import { pickFiles, pickFolder } from "@/hooks/use-android-fs";
+import { pickFiles, pickFolder } from "@/lib/file-picker";
 
 interface FileDropZoneProps {
   onFilesSelected: (paths: string[]) => void;

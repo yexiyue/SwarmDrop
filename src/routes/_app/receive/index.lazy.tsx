@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createLazyFileRoute, useNavigate } from "@tanstack/react-router";
-import { open } from "@tauri-apps/plugin-dialog";
+import { pickFolder } from "@/lib/file-picker";
 import { downloadDir } from "@tauri-apps/api/path";
 import { FolderOpen, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
@@ -67,7 +67,7 @@ function ReceivePage() {
   }, [currentOffer, pendingCount, navigate]);
 
   const handleChangePath = async () => {
-    const selected = await open({ directory: true });
+    const selected = await pickFolder();
     if (selected) {
       setSavePath(selected);
     }
