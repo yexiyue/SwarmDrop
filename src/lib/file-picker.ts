@@ -44,8 +44,8 @@ export async function getDefaultSavePath(): Promise<string> {
  * 选择文件
  * @param multiple 是否允许多选
  *
- * Android：使用 AndroidFs.showOpenFilePicker + getFsPath 获取文件系统路径，
- * Rust std::fs 可直接读取。
+ * Android：使用 AndroidFs 原生选择器，选中后复制到应用缓存目录，
+ * 因为 SAF content:// URI 和 dialog 返回的虚拟路径都无法被 Rust std::fs 读取。
  * 桌面端：使用标准 Tauri dialog。
  */
 export async function pickFiles(multiple = true): Promise<string[]> {
@@ -57,10 +57,17 @@ export async function pickFiles(multiple = true): Promise<string[]> {
     });
     if (uris.length === 0) return [];
 
+    const { appCacheDir } = await import("@tauri-apps/api/path");
+    const cacheBase = await appCacheDir();
+    const batchId = Date.now();
+
     const paths: string[] = [];
-    for (const uri of uris) {
-      const fsPath = await AndroidFs.getFsPath(uri);
-      paths.push(fsPathToString(fsPath));
+    for (let i = 0; i < uris.length; i++) {
+      const uri = uris[i];
+      const name = await AndroidFs.getName(uri);
+      const destPath = await join(cacheBase, `send_${batchId}_${i}_${name}`);
+      await AndroidFs.copyFile(uri, destPath);
+      paths.push(destPath);
     }
     return paths;
   }
@@ -195,11 +202,11 @@ function toAndroidPath(path: string): string | { uri: string; documentTopTreeUri
 
 /**
  * 跨平台列举文件
- * Android：使用 AndroidFs API 获取元信息
- * 桌面端：委托 Rust list_files 命令
+ * Android content:// URI：使用 AndroidFs API
+ * 其他：委托 Rust list_files 命令
  */
 export async function listFiles(path: string): Promise<ListFilesInfo> {
-  if (isAndroid()) {
+  if (isAndroid() && path.startsWith("content://")) {
     const AndroidFs = await getAndroidFs();
     const arg = toAndroidPath(path);
     const meta = await AndroidFs.getMetadata(arg);
@@ -234,14 +241,18 @@ export async function listFiles(path: string): Promise<ListFilesInfo> {
 
 /**
  * 跨平台获取文件元信息
- * Android：使用 AndroidFs.getMetadata
- * 桌面端：委托 Rust get_file_meta 命令
+ * Android content:// URI：使用 AndroidFs.getMetadata
+ * 其他：委托 Rust get_file_meta 命令
  */
 export async function getFileMeta(paths: string[]): Promise<FileEntryInfo[]> {
-  if (isAndroid()) {
+  const contentPaths = paths.filter((p) => p.startsWith("content://"));
+  const regularPaths = paths.filter((p) => !p.startsWith("content://"));
+
+  const entries: FileEntryInfo[] = [];
+
+  if (contentPaths.length > 0) {
     const AndroidFs = await getAndroidFs();
-    const entries: FileEntryInfo[] = [];
-    for (const p of paths) {
+    for (const p of contentPaths) {
       try {
         const arg = toAndroidPath(p);
         const meta = await AndroidFs.getMetadata(arg);
@@ -252,9 +263,13 @@ export async function getFileMeta(paths: string[]): Promise<FileEntryInfo[]> {
         // 跳过无法访问的路径
       }
     }
-    return entries;
   }
 
-  const { getFileMeta: rustGetFileMeta } = await import("@/commands/transfer");
-  return rustGetFileMeta(paths);
+  if (regularPaths.length > 0) {
+    const { getFileMeta: rustGetFileMeta } = await import("@/commands/transfer");
+    const rustEntries = await rustGetFileMeta(regularPaths);
+    entries.push(...rustEntries);
+  }
+
+  return entries;
 }
