@@ -5,8 +5,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createLazyFileRoute, useNavigate } from "@tanstack/react-router";
-import { pickFolder } from "@/lib/file-picker";
-import { downloadDir } from "@tauri-apps/api/path";
+import { pickFolder, getDefaultSavePath } from "@/lib/file-picker";
 import { FolderOpen, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { Trans } from "@lingui/react/macro";
@@ -39,9 +38,7 @@ function ReceivePage() {
 
   // 初始化默认保存路径
   useEffect(() => {
-    downloadDir().then((dir) => {
-      setSavePath(`${dir}SwarmDrop`);
-    });
+    getDefaultSavePath().then(setSavePath);
   }, []);
 
   // 从队列取出第一个 offer
