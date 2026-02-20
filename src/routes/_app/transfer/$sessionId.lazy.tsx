@@ -22,9 +22,8 @@ import { useTransferStore } from "@/stores/transfer-store";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { formatFileSize, formatSpeed, formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener";
+import { openFolder, revealFile } from "@/lib/file-picker";
 import { join } from "@tauri-apps/api/path";
-import { type } from "@tauri-apps/plugin-os";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
 import { cancelSend, cancelReceive } from "@/commands/transfer";
@@ -293,19 +292,13 @@ const TransferActions = memo(function TransferActions({
     if (!session.savePath) return;
 
     try {
-      const platform = type();
-      const isMobile = platform === "android" || platform === "ios";
-
-      // 移动端 revealItemInDir 不支持，统一使用 openPath 打开文件夹
-      if (isMobile || session.files.length !== 1) {
-        await openPath(session.savePath);
-        return;
+      if (session.files.length === 1) {
+        const file = session.files[0];
+        const filePath = await join(session.savePath, file.relativePath);
+        await revealFile(filePath, session.savePath);
+      } else {
+        await openFolder(session.savePath);
       }
-
-      // 桌面端单文件：在文件夹中显示并选中该文件
-      const file = session.files[0];
-      const filePath = await join(session.savePath, file.relativePath);
-      await revealItemInDir(filePath);
     } catch (err) {
       toast.error(getErrorMessage(err));
     }

@@ -11,7 +11,7 @@ import type {
   EntryPoint,
   TreeDataLoader,
 } from "./-file-tree";
-import { listFiles, getFileMeta } from "@/commands/transfer";
+import { listFiles, getFileMeta } from "@/lib/file-picker";
 
 export interface FileSelection {
   /** headless-tree 数据加载器 */
