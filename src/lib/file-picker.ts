@@ -31,53 +31,11 @@ export function isAndroid(): boolean {
 
 const SAVE_DIR_NAME = "SwarmDrop";
 
-/** 缓存 Android 公共 Download 目录路径（运行时动态发现） */
-let androidPublicDownloadDir: string | null = null;
-
-/**
- * 动态发现 Android 公共 Download 目录的实际路径
- * 通过创建临时文件获取 fs path，再提取目录部分
- */
-async function resolveAndroidPublicDownloadDir(): Promise<string> {
-  if (androidPublicDownloadDir) return androidPublicDownloadDir;
-
-  const [AndroidFs, { AndroidPublicGeneralPurposeDir }] = await Promise.all([
-    getAndroidFs(),
-    import("tauri-plugin-android-fs-api"),
-  ]);
-
-  const tempName = `.swarmdrop_probe_${Date.now()}`;
-  const uri = await AndroidFs.createNewPublicFile(
-    AndroidPublicGeneralPurposeDir.Download,
-    tempName,
-    "application/octet-stream",
-  );
-
-  try {
-    const fsPath = await AndroidFs.getFsPath(uri);
-    const pathStr = fsPathToString(fsPath);
-    const lastSlash = pathStr.lastIndexOf("/");
-    androidPublicDownloadDir = lastSlash > 0 ? pathStr.substring(0, lastSlash) : pathStr;
-  } catch {
-    // getFsPath 失败时回退到标准路径
-    androidPublicDownloadDir = "/storage/emulated/0/Download";
-  } finally {
-    await AndroidFs.removeFile(uri).catch(() => {});
-  }
-
-  return androidPublicDownloadDir;
-}
-
 /**
  * 获取默认保存路径
- * Android：公共 Download 目录（外部文件管理器可访问）
- * 桌面端：系统下载目录
+ * 所有平台统一使用 downloadDir()，Android 上是应用私有目录，Rust 可直接读写
  */
 export async function getDefaultSavePath(): Promise<string> {
-  if (isAndroid()) {
-    const dir = await resolveAndroidPublicDownloadDir();
-    return `${dir}/${SAVE_DIR_NAME}`;
-  }
   const dir = await downloadDir();
   return join(dir, SAVE_DIR_NAME);
 }
@@ -149,20 +107,28 @@ export async function pickFolder(
 
 /**
  * 打开文件夹（在系统文件管理器中显示）
- * Android：使用 AndroidFs.showViewDirDialog 打开系统文件管理器
+ * Android：应用私有目录无法被外部文件管理器访问，跳过
  * 桌面端：使用 opener 插件
  */
 export async function openFolder(path: string): Promise<void> {
+  if (isAndroid()) return;
+
+  const { openPath } = await import("@tauri-apps/plugin-opener");
+  await openPath(path);
+}
+
+/**
+ * 用系统默认应用打开文件
+ * Android：使用 AndroidFs.showViewFileDialog（通过 Intent 调起系统应用）
+ * 桌面端：使用 opener 插件
+ */
+export async function openFile(path: string): Promise<void> {
   if (isAndroid()) {
-    try {
-      const AndroidFs = await getAndroidFs();
-      await AndroidFs.showViewDirDialog({
-        uri: `file://${path}`,
-        documentTopTreeUri: null,
-      });
-    } catch {
-      // 部分设备不支持 file:// scheme，静默忽略
-    }
+    const AndroidFs = await getAndroidFs();
+    await AndroidFs.showViewFileDialog({
+      uri: `file://${path}`,
+      documentTopTreeUri: null,
+    });
     return;
   }
 
@@ -172,11 +138,12 @@ export async function openFolder(path: string): Promise<void> {
 
 /**
  * 在文件管理器中显示并选中文件
- * 仅桌面端支持，移动端回退到打开所在文件夹
+ * Android：直接打开文件（无法定位到文件管理器）
+ * 桌面端：在文件管理器中高亮显示
  */
-export async function revealFile(filePath: string, folderPath: string): Promise<void> {
+export async function revealFile(filePath: string, _folderPath: string): Promise<void> {
   if (isAndroid()) {
-    await openFolder(folderPath);
+    await openFile(filePath);
     return;
   }
 

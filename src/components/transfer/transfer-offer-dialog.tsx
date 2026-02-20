@@ -19,7 +19,7 @@ import { useTransferStore } from "@/stores/transfer-store";
 import { acceptReceive, rejectReceive } from "@/commands/transfer";
 import { FileTree } from "@/routes/_app/send/-components/file-tree";
 import { buildTreeDataFromOffer } from "@/routes/_app/send/-file-tree";
-import { pickFolder, getDefaultSavePath } from "@/lib/file-picker";
+import { pickFolder, getDefaultSavePath, isAndroid } from "@/lib/file-picker";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
@@ -157,14 +157,16 @@ export function TransferOfferDialog() {
             />
           </div>
 
-          {/* 保存路径 */}
-          <div className="mt-4">
-            <SavePathSelector
-              savePath={savePath}
-              onChangePath={handleChangePath}
-              disabled={processing}
-            />
-          </div>
+          {/* 保存路径（移动端不允许更改） */}
+          {!isAndroid() && (
+            <div className="mt-4">
+              <SavePathSelector
+                savePath={savePath}
+                onChangePath={handleChangePath}
+                disabled={processing}
+              />
+            </div>
+          )}
         </div>
 
         <ResponsiveDialogFooter className="flex-row justify-center gap-3 sm:justify-center">

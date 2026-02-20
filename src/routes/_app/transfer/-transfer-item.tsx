@@ -26,7 +26,7 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
-import { openFolder } from "@/lib/file-picker";
+import { openFolder, openFile, isAndroid } from "@/lib/file-picker";
 import { useNavigate } from "@tanstack/react-router";
 
 interface TransferItemProps {
@@ -61,9 +61,17 @@ export function TransferItem({ session }: TransferItemProps) {
     }
   };
 
-  const handleOpenFolder = (e: React.MouseEvent) => {
+  const handleOpenFolder = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (session.savePath) {
+    if (!session.savePath) return;
+    if (isAndroid()) {
+      const file = session.files[0];
+      if (file) {
+        const { join } = await import("@tauri-apps/api/path");
+        const filePath = await join(session.savePath, file.relativePath);
+        await openFile(filePath);
+      }
+    } else {
       void openFolder(session.savePath);
     }
   };
@@ -185,7 +193,7 @@ export function TransferItem({ session }: TransferItemProps) {
               onClick={handleOpenFolder}
             >
               <FolderOpen className="size-3" />
-              <Trans>打开文件夹</Trans>
+              {isAndroid() ? <Trans>查看文件</Trans> : <Trans>打开文件夹</Trans>}
             </Button>
           )}
         </div>
