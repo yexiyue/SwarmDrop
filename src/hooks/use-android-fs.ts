@@ -105,6 +105,15 @@ export async function pickFolderWithDefault(
   if (isAndroid()) {
     try {
       const AndroidFs = await getAndroidFs();
+      // Android 13+ 需要存储权限，先检查
+      const hasPermission = await AndroidFs.hasPublicFilesPermission();
+      if (!hasPermission) {
+        const granted = await AndroidFs.requestPublicFilesPermission();
+        if (!granted) {
+          console.warn("Storage permission denied");
+          return null;
+        }
+      }
       const uri = await AndroidFs.showOpenDirPicker({});
       if (!uri) return null;
 
@@ -116,7 +125,7 @@ export async function pickFolderWithDefault(
       }
     } catch (err) {
       console.error("Failed to pick folder on Android:", err);
-      return null;
+      throw err; // 抛出错误让调用者处理
     }
   }
 

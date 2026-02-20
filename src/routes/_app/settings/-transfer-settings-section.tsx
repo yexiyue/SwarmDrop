@@ -11,6 +11,7 @@ import { useShallow } from "zustand/react/shallow";
 import { usePreferencesStore } from "@/stores/preferences-store";
 import { downloadDir, homeDir, join } from "@tauri-apps/api/path";
 import { pickFolderWithDefault } from "@/hooks/use-android-fs";
+import { toast } from "sonner";
 
 export function TransferSettingsSection() {
   const { savePath, autoAccept, setTransferSavePath, setTransferAutoAccept } =
@@ -53,9 +54,14 @@ export function TransferSettingsSection() {
   }, [savePath]);
 
   const handleChangePath = useCallback(async () => {
-    const selected = await pickFolderWithDefault(savePath);
-    if (selected) {
-      setTransferSavePath(selected);
+    try {
+      const selected = await pickFolderWithDefault(savePath);
+      if (selected) {
+        setTransferSavePath(selected);
+      }
+    } catch (err) {
+      console.error("Failed to pick folder:", err);
+      toast.error("无法打开文件夹选择器，请检查存储权限");
     }
   }, [savePath, setTransferSavePath]);
 
