@@ -5,7 +5,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createLazyFileRoute, useNavigate } from "@tanstack/react-router";
-import { pickFolder, getDefaultSavePath } from "@/lib/file-picker";
+import { pickFolder, getDefaultSavePath, isAndroid } from "@/lib/file-picker";
 import { FolderOpen, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { Trans } from "@lingui/react/macro";
@@ -223,16 +223,18 @@ function ReceiveContent({
         totalSize={offer.totalSize}
       />
 
-      <div className="flex flex-col gap-1.5">
-        <span className="text-sm font-medium text-foreground">
-          <Trans>保存到</Trans>
-        </span>
-        <SavePathPicker
-          savePath={savePath}
-          onChangePath={onChangePath}
-          disabled={processing}
-        />
-      </div>
+      {!isAndroid() && (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-foreground">
+            <Trans>保存到</Trans>
+          </span>
+          <SavePathPicker
+            savePath={savePath}
+            onChangePath={onChangePath}
+            disabled={processing}
+          />
+        </div>
+      )}
     </>
   );
 }
