@@ -1,8 +1,7 @@
 /**
  * FileDropZone
  * 文件拖放区 — 拖拽文件/文件夹，或通过按钮选择
- * 移动端：隐藏拖拽提示，突出按钮操作
- * Android：使用 tauri-plugin-android-fs 原生文件选择器
+ * 移动端：隐藏拖拽提示，仅显示选择文件按钮（Android 不支持选择文件夹）
  */
 
 import { useCallback, useState } from "react";
@@ -11,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Trans } from "@lingui/react/macro";
 import { cn } from "@/lib/utils";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
-import { pickFiles, pickFolder } from "@/lib/file-picker";
+import { pickFiles, pickFolder, isAndroid } from "@/lib/file-picker";
 
 interface FileDropZoneProps {
   onFilesSelected: (paths: string[]) => void;
@@ -88,15 +87,17 @@ export function FileDropZone({ onFilesSelected, disabled }: FileDropZoneProps) {
           <FilePlus className="size-5 text-blue-600" />
           <Trans>选择文件</Trans>
         </Button>
-        <Button
-          variant="outline"
-          className="h-12 w-full justify-start gap-3 border-blue-200 bg-blue-50/50 text-foreground hover:bg-blue-50"
-          onClick={handleSelectFolder}
-          disabled={disabled}
-        >
-          <FolderPlus className="size-5 text-blue-600" />
-          <Trans>选择文件夹</Trans>
-        </Button>
+        {!isAndroid() && (
+          <Button
+            variant="outline"
+            className="h-12 w-full justify-start gap-3 border-blue-200 bg-blue-50/50 text-foreground hover:bg-blue-50"
+            onClick={handleSelectFolder}
+            disabled={disabled}
+          >
+            <FolderPlus className="size-5 text-blue-600" />
+            <Trans>选择文件夹</Trans>
+          </Button>
+        )}
       </div>
     );
   }
