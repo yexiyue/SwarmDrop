@@ -9,8 +9,8 @@ import { FolderOpen } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { useShallow } from "zustand/react/shallow";
 import { usePreferencesStore } from "@/stores/preferences-store";
-import { downloadDir, homeDir, join } from "@tauri-apps/api/path";
-import { pickFolder } from "@/lib/file-picker";
+import { homeDir } from "@tauri-apps/api/path";
+import { pickFolder, getDefaultSavePath } from "@/lib/file-picker";
 import { toast } from "sonner";
 
 export function TransferSettingsSection() {
@@ -29,12 +29,7 @@ export function TransferSettingsSection() {
   // 初始化默认保存路径
   useEffect(() => {
     if (!savePath) {
-      downloadDir().then(async (dir) => {
-        if (dir) {
-          const defaultPath = await join(dir, "SwarmDrop");
-          setTransferSavePath(defaultPath);
-        }
-      });
+      getDefaultSavePath().then(setTransferSavePath);
     }
   }, [savePath, setTransferSavePath]);
 

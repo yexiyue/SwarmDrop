@@ -19,15 +19,11 @@ import { useTransferStore } from "@/stores/transfer-store";
 import { acceptReceive, rejectReceive } from "@/commands/transfer";
 import { FileTree } from "@/routes/_app/send/-components/file-tree";
 import { buildTreeDataFromOffer } from "@/routes/_app/send/-file-tree";
-import { pickFolder } from "@/lib/file-picker";
-import { downloadDir, join } from "@tauri-apps/api/path";
+import { pickFolder, getDefaultSavePath } from "@/lib/file-picker";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
 import type { TransferOfferEvent } from "@/commands/transfer";
-
-// 静态配置放在模块级别，避免每次渲染重新创建
-const DEFAULT_SAVE_PATH_SUFFIX = "SwarmDrop";
 
 export function TransferOfferDialog() {
   const navigate = useNavigate();
@@ -43,11 +39,8 @@ export function TransferOfferDialog() {
   // 初始化默认保存路径
   useEffect(() => {
     let cancelled = false;
-    downloadDir().then(async (dir) => {
-      if (!cancelled && dir) {
-        const path = await join(dir, DEFAULT_SAVE_PATH_SUFFIX);
-        setSavePath(path);
-      }
+    getDefaultSavePath().then((path) => {
+      if (!cancelled) setSavePath(path);
     });
     return () => {
       cancelled = true;
