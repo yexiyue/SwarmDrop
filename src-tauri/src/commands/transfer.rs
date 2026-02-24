@@ -7,6 +7,7 @@ use crate::transfer::fs::{FileEntry, ListFilesResult};
 use crate::transfer::offer::StartSendResult;
 use serde::Serialize;
 use tauri::State;
+use uuid::Uuid;
 
 /// 准备好的文件信息（返回给前端）
 #[derive(Debug, Clone, Serialize)]
@@ -23,7 +24,7 @@ pub struct TransferFileResult {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PreparedTransferResult {
-    pub prepared_id: String,
+    pub prepared_id: Uuid,
     pub files: Vec<TransferFileResult>,
     pub total_size: u64,
 }
@@ -75,7 +76,7 @@ pub async fn prepare_send(
 #[tauri::command]
 pub async fn start_send(
     net: State<'_, NetManagerState>,
-    prepared_id: String,
+    prepared_id: Uuid,
     peer_id: String,
     selected_file_ids: Vec<u32>,
 ) -> crate::AppResult<StartSendResult> {
@@ -95,7 +96,7 @@ pub async fn start_send(
 pub async fn accept_receive(
     app: tauri::AppHandle,
     net: State<'_, NetManagerState>,
-    session_id: String,
+    session_id: Uuid,
     save_path: String,
 ) -> crate::AppResult<()> {
     let transfer = {
@@ -113,7 +114,7 @@ pub async fn accept_receive(
 #[tauri::command]
 pub async fn reject_receive(
     net: State<'_, NetManagerState>,
-    session_id: String,
+    session_id: Uuid,
 ) -> crate::AppResult<()> {
     let transfer = {
         let guard = net.lock().await;
@@ -128,7 +129,7 @@ pub async fn reject_receive(
 #[tauri::command]
 pub async fn cancel_send(
     net: State<'_, NetManagerState>,
-    session_id: String,
+    session_id: Uuid,
 ) -> crate::AppResult<()> {
     let transfer = {
         let guard = net.lock().await;
@@ -143,7 +144,7 @@ pub async fn cancel_send(
 #[tauri::command]
 pub async fn cancel_receive(
     net: State<'_, NetManagerState>,
-    session_id: String,
+    session_id: Uuid,
 ) -> crate::AppResult<()> {
     let transfer = {
         let guard = net.lock().await;

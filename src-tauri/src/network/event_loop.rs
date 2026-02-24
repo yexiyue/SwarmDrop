@@ -3,6 +3,7 @@ use swarm_p2p_core::{EventReceiver, NodeEvent};
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_notification::NotificationExt;
 use tracing::{info, warn};
+use uuid::Uuid;
 
 use super::manager::SharedNetRefs;
 use crate::device::DeviceFilter;
@@ -24,7 +25,7 @@ struct PairingRequestPayload {
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct TransferOfferPayload {
-    session_id: String,
+    session_id: Uuid,
     peer_id: String,
     device_name: String,
     files: Vec<TransferFilePayload>,
