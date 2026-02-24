@@ -49,6 +49,14 @@ path-slash = "0.2.1"
 pathdiff = "0.2.3"
 serde_bytes = "0.11"
 tokio-util = "0.7"
+sea-orm = { version = "2.0.0-rc", features = [
+    "macros",
+    "runtime-tokio-rustls",
+    "sqlx-sqlite",
+    "schema-sync",
+    "with-chrono",
+    "with-uuid",
+] }
 
 # 桌面端启用 DNS 解析（Android 上 /etc/resolv.conf 不存在，不启用）
 [target.'cfg(not(target_os = "android"))'.dependencies]
@@ -56,7 +64,9 @@ swarm-p2p-core = { path = "../libs/core", features = ["dns"] }
 
 # Android 文件选择插件
 [target.'cfg(target_os = "android")'.dependencies]
-tauri-plugin-android-fs = { version = "=25.1.2", features = ["legacy_storage_permission"] }
+tauri-plugin-android-fs = { version = "=25.1.2", features = [
+    "legacy_storage_permission",
+] }
 
 # 在 dev 模式下为依赖开启优化（加密运算必须）
 # 否则 Stronghold 等加密库会慢 10-100 倍
