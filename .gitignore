@@ -28,3 +28,12 @@ dist-ssr
 **/openspec
 **/.obsidian
 .tanstack
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Signing keys
+keys/
+keystore.properties

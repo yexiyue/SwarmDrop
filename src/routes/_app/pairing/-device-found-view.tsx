@@ -10,24 +10,12 @@ import {
   Hash,
   Link as LinkIcon,
   Loader2,
-  Laptop,
-  Monitor,
-  Smartphone,
-  Tablet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getDeviceIcon } from "@/components/pairing/device-icon";
 import { Trans } from "@lingui/react/macro";
 import type { DeviceInfo } from "@/commands/pairing";
-import type { DeviceType } from "@/components/devices/device-card";
-import { inferDeviceType } from "@/stores/network-store";
 import { usePairingStore } from "@/stores/pairing-store";
-
-const deviceIcons: Record<DeviceType, React.ComponentType<{ className?: string }>> = {
-  smartphone: Smartphone,
-  tablet: Tablet,
-  laptop: Laptop,
-  desktop: Monitor,
-};
 
 function formatPlatformDisplay(platform: string): string {
   const map: Record<string, string> = {
@@ -82,8 +70,7 @@ function DeviceHeader({
   arch: string;
   size?: "lg" | "md";
 }) {
-  const deviceType = inferDeviceType(platform);
-  const DeviceIcon = deviceIcons[deviceType];
+  const DeviceIcon = getDeviceIcon(platform);
   const osDisplay = formatPlatformDisplay(platform);
 
   return (

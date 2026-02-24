@@ -6,14 +6,26 @@
  * - mobile (<768px): 隐藏侧边栏，显示底部导航栏
  */
 
-import { createFileRoute, Outlet, redirect, useNavigate } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Link,
+  Outlet,
+  redirect,
+  useLocation,
+} from "@tanstack/react-router";
 import { Plus } from "lucide-react";
+import { useEffect } from "react";
 import { AppSidebar } from "@/components/layout/sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { useAuthStore } from "@/stores/auth-store";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { ConnectionRequestDialog } from "@/components/pairing/connection-request-dialog";
+import { TransferOfferDialog } from "@/components/transfer/transfer-offer-dialog";
+import {
+  setupTransferListeners,
+  cleanupTransferListeners,
+} from "@/stores/transfer-store";
 
 export const Route = createFileRoute("/_app")({
   beforeLoad: () => {
@@ -37,15 +49,31 @@ function AppLayout() {
   const isMobile = breakpoint === "mobile";
   const isDesktop = breakpoint === "desktop";
 
+  // 传输事件监听
+  useEffect(() => {
+    setupTransferListeners();
+    return () => {
+      cleanupTransferListeners();
+    };
+  }, []);
+
+  // send/receive/pairing 页面为独立全屏，不显示全局 header 和 bottom nav
+  const location = useLocation();
+  const isFullScreenRoute =
+    location.pathname.startsWith("/send") ||
+    location.pathname.startsWith("/receive") ||
+    location.pathname.startsWith("/pairing");
+
   if (isMobile) {
     return (
-      <div className="flex h-svh flex-col">
-        <MobileHeader />
+      <div className="flex h-svh flex-col pt-[env(safe-area-inset-top)]">
+        {!isFullScreenRoute && <MobileHeader />}
         <main className="flex-1 overflow-hidden">
           <Outlet />
         </main>
-        <BottomNav />
+        {!isFullScreenRoute && <BottomNav />}
         <ConnectionRequestDialog />
+        <TransferOfferDialog />
       </div>
     );
   }
@@ -65,23 +93,21 @@ function AppLayout() {
         <Outlet />
       </SidebarInset>
       <ConnectionRequestDialog />
+      <TransferOfferDialog />
     </SidebarProvider>
   );
 }
 
 function MobileHeader() {
-  const navigate = useNavigate();
-
   return (
     <header className="flex items-center justify-between px-5 py-2">
       <span className="text-2xl font-bold text-foreground">SwarmDrop</span>
-      <button
-        type="button"
-        onClick={() => navigate({ to: "/pairing" })}
+      <Link
+        to="/pairing"
         className="flex size-9 items-center justify-center rounded-full bg-blue-600 text-white transition-colors hover:bg-blue-700"
       >
         <Plus className="size-5" />
-      </button>
+      </Link>
     </header>
   );
 }

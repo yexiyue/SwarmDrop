@@ -14,18 +14,22 @@ import {
   ResponsiveDialogDescription,
 } from "@/components/responsive-dialog";
 import { Trans } from "@lingui/react/macro";
+import { useShallow } from "zustand/react/shallow";
 import { usePairingStore } from "@/stores/pairing-store";
 import { getDeviceIcon } from "@/components/pairing/device-icon";
 
 export function ConnectionRequestDialog() {
-  const incomingRequest = usePairingStore((s) => s.incomingRequest);
-  const acceptRequest = usePairingStore((s) => s.acceptRequest);
-  const rejectRequest = usePairingStore((s) => s.rejectRequest);
+  const { incomingRequest, acceptRequest, rejectRequest } = usePairingStore(
+    useShallow((state) => ({
+      incomingRequest: state.incomingRequest,
+      acceptRequest: state.acceptRequest,
+      rejectRequest: state.rejectRequest,
+    }))
+  );
 
   const isOpen = incomingRequest !== null;
-  const request = incomingRequest?.request ?? null;
 
-  const DeviceIcon = request ? getDeviceIcon(request.osInfo.os) : Monitor;
+  const DeviceIcon = incomingRequest ? getDeviceIcon(incomingRequest.osInfo.os) : Monitor;
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
@@ -48,7 +52,7 @@ export function ConnectionRequestDialog() {
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
-        {request && (
+        {incomingRequest && (
           <div className="flex flex-col items-center gap-4 py-2">
             {/* 设备信息 */}
             <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-4">
@@ -57,10 +61,10 @@ export function ConnectionRequestDialog() {
               </div>
               <div className="flex flex-col">
                 <span className="text-sm font-medium text-foreground">
-                  {request.osInfo.hostname}
+                  {incomingRequest.osInfo.hostname}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  {request.osInfo.platform} · {request.osInfo.os}
+                  {incomingRequest.osInfo.platform} · {incomingRequest.osInfo.os}
                 </span>
               </div>
             </div>
