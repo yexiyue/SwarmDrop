@@ -9,6 +9,7 @@ use std::time::Instant;
 
 use tokio_util::sync::CancellationToken;
 use tracing::{info, warn};
+use uuid::Uuid;
 
 use crate::protocol::TransferResponse;
 use crate::transfer::crypto::TransferCrypto;
@@ -21,7 +22,7 @@ pub const CHUNK_SIZE: usize = 256 * 1024;
 /// 发送方会话
 pub struct SendSession {
     /// 传输会话 ID
-    pub session_id: String,
+    pub session_id: Uuid,
     /// 准备好的文件列表（含绝对路径）
     files: Vec<PreparedFile>,
     /// 加密器
@@ -36,7 +37,7 @@ pub struct SendSession {
 
 impl SendSession {
     pub fn new(
-        session_id: String,
+        session_id: Uuid,
         files: Vec<PreparedFile>,
         key: &[u8; 32],
     ) -> Self {

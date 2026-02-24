@@ -13,6 +13,7 @@ use tauri::AppHandle;
 use tokio::sync::{Mutex, Semaphore};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, warn};
+use uuid::Uuid;
 
 use crate::protocol::{
     AppNetClient, AppRequest, AppResponse, FileInfo, TransferRequest, TransferResponse,
@@ -34,7 +35,7 @@ const RETRY_DELAY_BASE_MS: u64 = 500;
 /// 接收方会话
 pub struct ReceiveSession {
     /// 传输会话 ID
-    pub session_id: String,
+    pub session_id: Uuid,
     /// 发送方 PeerId
     pub peer_id: PeerId,
     /// 文件列表
@@ -53,7 +54,7 @@ pub struct ReceiveSession {
 
 impl ReceiveSession {
     pub fn new(
-        session_id: String,
+        session_id: Uuid,
         peer_id: PeerId,
         files: Vec<FileInfo>,
         total_size: u64,
@@ -80,7 +81,7 @@ impl ReceiveSession {
     /// `on_finish` 在任务结束（成功或失败）后调用，用于清理 DashMap 中的会话引用。
     pub fn start_pulling<F>(self: Arc<Self>, app: AppHandle, on_finish: F)
     where
-        F: FnOnce(&str) + Send + 'static,
+        F: FnOnce(&Uuid) + Send + 'static,
     {
         let session = self;
         tokio::spawn(async move {
