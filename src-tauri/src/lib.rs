@@ -3,10 +3,11 @@ pub mod device;
 pub mod error;
 pub(crate) mod network;
 pub(crate) mod pairing;
-pub(crate) mod transfer;
 pub mod protocol;
+pub(crate) mod transfer;
 pub use error::{AppError, AppResult};
 
+pub mod file_source;
 mod mobile;
 
 use tauri::Manager;

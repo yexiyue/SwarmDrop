@@ -64,7 +64,7 @@ swarm-p2p-core = { path = "../libs/core", features = ["dns"] }
 
 # Android 文件选择插件
 [target.'cfg(target_os = "android")'.dependencies]
-tauri-plugin-android-fs = { version = "=25.1.2", features = [
+tauri-plugin-android-fs = { version = "=26.0.0", features = [
     "legacy_storage_permission",
 ] }
 
