@@ -8,6 +8,7 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { type } from "@tauri-apps/plugin-os";
 import { downloadDir, join } from "@tauri-apps/api/path";
+import type { AndroidFsUri } from "tauri-plugin-android-fs-api";
 import type { FileSource } from "@/commands/transfer";
 
 // 动态导入 Android FS API（仅在 Android 平台）
@@ -103,76 +104,85 @@ export async function pickFolder(
 
 /**
  * 打开文件夹（在系统文件管理器中显示）
- * Android：应用私有目录无法被外部文件管理器访问，跳过
- * 桌面端：使用 opener 插件
+ * Android：使用 showViewDirDialog 打开目录（需要 content:// URI）
+ * 桌面端：使用 opener 插件（使用文件路径）
+ *
+ * @param pathOrUri 桌面端传文件夹路径，Android 端传 AndroidFsUri
  */
-export async function openFolder(path: string): Promise<void> {
-  if (isAndroid()) return;
+export async function openFolder(pathOrUri: string | AndroidFsUri): Promise<void> {
+  if (isAndroid() && typeof pathOrUri !== "string") {
+    try {
+      const { AndroidFs } = await import("tauri-plugin-android-fs-api");
+      await AndroidFs.showViewDirDialog(pathOrUri);
+    } catch {
+      // 目录可能尚未创建或设备不支持，静默忽略
+    }
+    return;
+  }
 
   const { openPath } = await import("@tauri-apps/plugin-opener");
-  await openPath(path);
-}
-
-/** 根据文件扩展名猜测 MIME 类型 */
-function guessMimeType(name: string): string {
-  const ext = name.split(".").pop()?.toLowerCase();
-  const map: Record<string, string> = {
-    jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif",
-    webp: "image/webp", svg: "image/svg+xml", bmp: "image/bmp",
-    mp4: "video/mp4", mkv: "video/x-matroska", avi: "video/x-msvideo", mov: "video/quicktime",
-    mp3: "audio/mpeg", wav: "audio/wav", flac: "audio/flac", ogg: "audio/ogg",
-    pdf: "application/pdf", zip: "application/zip", apk: "application/vnd.android.package-archive",
-    txt: "text/plain", html: "text/html", json: "application/json",
-    doc: "application/msword", docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    xls: "application/vnd.ms-excel", xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  };
-  return (ext && map[ext]) || "application/octet-stream";
+  await openPath(pathOrUri as string);
 }
 
 /**
  * 用系统默认应用打开文件
- * Android：复制到公共 Download 目录后通过 showViewFileDialog 打开
- *          （showViewFileDialog 只接受 content:// URI，不支持 file://）
- * 桌面端：使用 opener 插件
+ * Android：使用 showViewFileDialog 打开（需要 content:// URI）
+ * 桌面端：使用 opener 插件（使用文件路径）
+ *
+ * @param pathOrUri 桌面端传文件路径，Android 端传 AndroidFsUri
  */
-export async function openFile(path: string): Promise<void> {
-  if (isAndroid()) {
-    const [AndroidFs, { AndroidPublicGeneralPurposeDir }] = await Promise.all([
-      getAndroidFs(),
-      import("tauri-plugin-android-fs-api"),
-    ]);
-
-    const name = path.split("/").pop() || "file";
-    const mimeType = guessMimeType(name);
-
-    // 在公共 Download 目录创建文件并复制内容
-    const destUri = await AndroidFs.createNewPublicFile(
-      AndroidPublicGeneralPurposeDir.Download,
-      `SwarmDrop/${name}`,
-      mimeType,
-    );
-    await AndroidFs.copyFile(path, destUri);
-    await AndroidFs.showViewFileDialog(destUri);
+export async function openFile(pathOrUri: string | AndroidFsUri): Promise<void> {
+  if (isAndroid() && typeof pathOrUri !== "string") {
+    const { AndroidFs } = await import("tauri-plugin-android-fs-api");
+    await AndroidFs.showViewFileDialog(pathOrUri);
     return;
   }
 
   const { openPath } = await import("@tauri-apps/plugin-opener");
-  await openPath(path);
+  await openPath(pathOrUri as string);
 }
 
 /**
  * 在文件管理器中显示并选中文件
- * Android：直接打开文件（无法定位到文件管理器）
+ * Android：使用 showViewFileDialog 打开文件
  * 桌面端：在文件管理器中高亮显示
+ *
+ * @param filePathOrUri 桌面端传文件路径，Android 端传 AndroidFsUri
  */
-export async function revealFile(filePath: string, _folderPath: string): Promise<void> {
-  if (isAndroid()) {
-    await openFile(filePath);
+export async function revealFile(
+  filePathOrUri: string | AndroidFsUri,
+): Promise<void> {
+  if (isAndroid() && typeof filePathOrUri !== "string") {
+    await openFile(filePathOrUri);
     return;
   }
 
   const { revealItemInDir } = await import("@tauri-apps/plugin-opener");
-  await revealItemInDir(filePath);
+  await revealItemInDir(filePathOrUri as string);
+}
+
+/**
+ * 打开传输完成后的文件/文件夹
+ * 统一处理 Android/桌面、单文件/多文件的打开逻辑
+ */
+export async function openTransferResult(session: {
+  savePath?: string;
+  files: { relativePath: string }[];
+  fileUris?: AndroidFsUri[];
+  saveDirUri?: AndroidFsUri;
+}): Promise<void> {
+  if (!session.savePath) return;
+
+  if (session.files.length === 1 && session.fileUris?.[0]) {
+    await openFile(session.fileUris[0]);
+  } else if (session.files.length === 1) {
+    const filePath = await join(session.savePath, session.files[0].relativePath);
+    await revealFile(filePath);
+  } else if (session.saveDirUri) {
+    await openFolder(session.saveDirUri);
+  } else {
+    await openFolder(session.savePath);
+  }
 }
 
 /**

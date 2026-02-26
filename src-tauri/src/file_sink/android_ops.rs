@@ -14,9 +14,6 @@ use tracing::warn;
 use crate::file_sink::PartFile;
 use crate::{AppError, AppResult};
 
-/// 传输文件在公共目录中的子目录名
-const APP_SUBDIR: &str = "SwarmDrop";
-
 /// 请求写入权限（Android 9 及以下需要）
 ///
 /// Android 11+ 自动授予，此方法直接返回 Ok。
@@ -36,15 +33,16 @@ pub async fn ensure_permission(app: &tauri::AppHandle) -> AppResult<()> {
 
 /// 创建文件（pending 状态）并返回带缓存句柄的 PartFile
 ///
-/// 使用 `create_new_file_with_pending` 在 Download/SwarmDrop/ 下创建文件，
+/// 使用 `create_new_file_with_pending` 在 Download/{subdir}/ 下创建文件，
 /// 文件在 pending 状态下对其他应用不可见。
 /// 打开文件句柄并缓存，后续 `PartFile::write_chunk()` 直接使用 pwrite 写入。
 pub async fn create_part_file(
+    subdir: &str,
     relative_path: &str,
     file_size: u64,
     app: &tauri::AppHandle,
 ) -> AppResult<PartFile> {
-    let full_relative = format!("{APP_SUBDIR}/{relative_path}");
+    let full_relative = format!("{subdir}/{relative_path}");
 
     let file_uri = app
         .android_fs_async()
@@ -166,4 +164,21 @@ pub async fn cleanup_part_file(part_file: &PartFile, app: &tauri::AppHandle) {
             warn!("Android 清理文件失败（已忽略）: {e}");
         }
     }
+}
+
+/// 获取保存目录的 FileUri
+///
+/// 通过 `resolve_initial_location` 获取 `Download/{subdir}` 目录的标准 content URI。
+/// 前端可直接用于 `showViewDirDialog`。
+pub async fn resolve_save_dir_uri(subdir: &str, app: &tauri::AppHandle) -> Option<FileUri> {
+    app.android_fs_async()
+        .public_storage()
+        .resolve_initial_location(
+            None, // 主存储卷
+            PublicGeneralPurposeDir::Download,
+            subdir,
+            false, // 目录已由文件写入时自动创建
+        )
+        .await
+        .ok()
 }

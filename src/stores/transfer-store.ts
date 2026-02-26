@@ -121,6 +121,8 @@ export const useTransferStore = create<TransferState>()((set, get) => ({
         status: "completed",
         completedAt: Date.now(),
         savePath: event.savePath,
+        fileUris: event.fileUris.length > 0 ? event.fileUris : undefined,
+        saveDirUri: event.saveDirUri ?? undefined,
       };
 
       const { [event.sessionId]: _, ...rest } = state.sessions;

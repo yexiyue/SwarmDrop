@@ -2,13 +2,16 @@
 //!
 //! 薄层命令入口，所有业务逻辑委托给 [`transfer`](crate::transfer) 模块。
 
-use crate::file_source::{EnumeratedFile, FileSource};
-use crate::network::NetManagerState;
-use crate::transfer::offer::{PrepareProgress, StartSendResult};
+use std::sync::Arc;
+
 use serde::Serialize;
 use tauri::ipc::Channel;
 use tauri::State;
 use uuid::Uuid;
+
+use crate::file_source::{EnumeratedFile, FileSource};
+use crate::network::NetManagerState;
+use crate::transfer::offer::{PrepareProgress, StartSendResult, TransferManager};
 
 // ============ scan_sources ============
 
@@ -96,12 +99,7 @@ pub async fn prepare_send(
     files: Vec<EnumeratedFile>,
     on_progress: Channel<PrepareProgress>,
 ) -> crate::AppResult<PreparedTransferResult> {
-    let transfer = {
-        let guard = net.lock().await;
-        let manager = guard.as_ref().ok_or_else(super::not_started)?;
-        manager.transfer_arc()
-    };
-
+    let transfer = get_transfer(&net).await?;
     let prepared = transfer.prepare(files, &app, on_progress).await?;
 
     Ok(PreparedTransferResult {
@@ -130,12 +128,7 @@ pub async fn start_send(
     peer_id: String,
     selected_file_ids: Vec<u32>,
 ) -> crate::AppResult<StartSendResult> {
-    let transfer = {
-        let guard = net.lock().await;
-        let manager = guard.as_ref().ok_or_else(super::not_started)?;
-        manager.transfer_arc()
-    };
-
+    let transfer = get_transfer(&net).await?;
     transfer
         .send_offer(&prepared_id, &peer_id, &selected_file_ids, app)
         .await
@@ -149,12 +142,7 @@ pub async fn accept_receive(
     session_id: Uuid,
     save_path: String,
 ) -> crate::AppResult<()> {
-    let transfer = {
-        let guard = net.lock().await;
-        let manager = guard.as_ref().ok_or_else(super::not_started)?;
-        manager.transfer_arc()
-    };
-
+    let transfer = get_transfer(&net).await?;
     transfer
         .accept_and_start_receive(&session_id, save_path, app)
         .await
@@ -166,12 +154,7 @@ pub async fn reject_receive(
     net: State<'_, NetManagerState>,
     session_id: Uuid,
 ) -> crate::AppResult<()> {
-    let transfer = {
-        let guard = net.lock().await;
-        let manager = guard.as_ref().ok_or_else(super::not_started)?;
-        manager.transfer_arc()
-    };
-
+    let transfer = get_transfer(&net).await?;
     transfer.reject_and_respond(&session_id).await
 }
 
@@ -181,12 +164,7 @@ pub async fn cancel_send(
     net: State<'_, NetManagerState>,
     session_id: Uuid,
 ) -> crate::AppResult<()> {
-    let transfer = {
-        let guard = net.lock().await;
-        let manager = guard.as_ref().ok_or_else(super::not_started)?;
-        manager.transfer_arc()
-    };
-
+    let transfer = get_transfer(&net).await?;
     transfer.cancel_send(&session_id).await
 }
 
@@ -196,11 +174,15 @@ pub async fn cancel_receive(
     net: State<'_, NetManagerState>,
     session_id: Uuid,
 ) -> crate::AppResult<()> {
-    let transfer = {
-        let guard = net.lock().await;
-        let manager = guard.as_ref().ok_or_else(super::not_started)?;
-        manager.transfer_arc()
-    };
-
+    let transfer = get_transfer(&net).await?;
     transfer.cancel_receive(&session_id).await
+}
+
+// ============ 辅助函数 ============
+
+/// 从 Tauri State 中获取 TransferManager（短暂持锁后立即释放）
+async fn get_transfer(net: &NetManagerState) -> crate::AppResult<Arc<TransferManager>> {
+    let guard = net.lock().await;
+    let manager = guard.as_ref().ok_or_else(super::not_started)?;
+    Ok(manager.transfer_arc())
 }

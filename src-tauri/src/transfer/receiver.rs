@@ -5,7 +5,7 @@
 //! 加密使用 [`TransferCrypto`]。
 //! 使用 Semaphore 控制并发度（8 并发），CancellationToken 支持取消。
 
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
 
 use swarm_p2p_core::libp2p::PeerId;
@@ -128,6 +128,9 @@ impl ReceiveSession {
             self.files.len(),
         )));
 
+        // 收集已完成文件的 URI（Android 端用于前端打开文件）
+        let mut file_uris: Vec<serde_json::Value> = Vec::new();
+
         for file_info in &self.files {
             if self.cancel_token.is_cancelled() {
                 let p = progress.lock().await;
@@ -180,6 +183,10 @@ impl ReceiveSession {
                 .await
             {
                 Ok(_final_path) => {
+                    // 收集 Android 文件 URI（桌面端返回 None，自动跳过）
+                    if let Some(value) = part_file.to_uri_value() {
+                        file_uris.push(value);
+                    }
                     // 文件已最终化，从跟踪列表移除
                     self.remove_created_part(&part_file).await;
                     // 更新进度
@@ -194,7 +201,7 @@ impl ReceiveSession {
                         file_info.name, file_info.file_id
                     );
                     let p = progress.lock().await;
-                    p.emit_failed(&self.app, msg.clone());
+                    p.emit_failed(&self.app, msg);
                     return Err(e);
                 }
             }
@@ -228,9 +235,17 @@ impl ReceiveSession {
             }
         }
 
-        // 发射完成事件
+        // 获取 Android 保存目录 URI（桌面端返回 None）
+        let save_dir_uri = self.sink.resolve_save_dir_uri(&self.app).await;
+
+        // 发射完成事件（含 Android 文件 URI 和目录 URI）
         let p = progress.lock().await;
-        p.emit_complete(&self.app, Some(self.sink.save_dir_display().into_owned()));
+        p.emit_complete(
+            &self.app,
+            Some(self.sink.save_dir_display().into_owned()),
+            file_uris,
+            save_dir_uri,
+        );
 
         Ok(())
     }
@@ -245,7 +260,7 @@ impl ReceiveSession {
     ) -> AppResult<()> {
         let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_CHUNKS));
         let chunks_completed = Arc::new(AtomicU32::new(0));
-        let file_transferred = Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let file_transferred = Arc::new(AtomicU64::new(0));
         let error_flag = Arc::new(tokio::sync::Mutex::new(None::<AppError>));
 
         let mut handles = Vec::with_capacity(total_chunks as usize);

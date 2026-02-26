@@ -26,7 +26,7 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
-import { openFolder, openFile, isAndroid } from "@/lib/file-picker";
+import { openTransferResult } from "@/lib/file-picker";
 import { useNavigate } from "@tanstack/react-router";
 
 interface TransferItemProps {
@@ -63,16 +63,10 @@ export function TransferItem({ session }: TransferItemProps) {
 
   const handleOpenFolder = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!session.savePath) return;
-    if (isAndroid()) {
-      const file = session.files[0];
-      if (file) {
-        const { join } = await import("@tauri-apps/api/path");
-        const filePath = await join(session.savePath, file.relativePath);
-        await openFile(filePath);
-      }
-    } else {
-      void openFolder(session.savePath);
+    try {
+      await openTransferResult(session);
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     }
   };
 
@@ -186,16 +180,16 @@ export function TransferItem({ session }: TransferItemProps) {
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>{formatRelativeTime(session.completedAt)}</span>
           {session.savePath && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-6 gap-1 px-2 text-xs"
-              onClick={handleOpenFolder}
-            >
-              <FolderOpen className="size-3" />
-              {isAndroid() ? <Trans>查看文件</Trans> : <Trans>打开文件夹</Trans>}
-            </Button>
-          )}
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 gap-1 px-2 text-xs"
+                onClick={handleOpenFolder}
+              >
+                <FolderOpen className="size-3" />
+                <Trans>打开文件夹</Trans>
+              </Button>
+            )}
         </div>
       )}
 
