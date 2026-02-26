@@ -20,7 +20,7 @@ use crate::protocol::{
 };
 use crate::transfer::crypto::TransferCrypto;
 use crate::transfer::progress::{CurrentFileProgress, ProgressTracker};
-use crate::transfer::sender::{calc_total_chunks, CHUNK_SIZE};
+use crate::file_source::{calc_total_chunks, CHUNK_SIZE};
 use crate::{AppError, AppResult};
 
 /// 最大并发拉取数

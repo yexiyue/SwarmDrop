@@ -8,6 +8,7 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { type } from "@tauri-apps/plugin-os";
 import { downloadDir, join } from "@tauri-apps/api/path";
+import type { FileSource } from "@/commands/transfer";
 
 // 动态导入 Android FS API（仅在 Android 平台）
 async function getAndroidFs() {
@@ -43,38 +44,35 @@ export async function getDefaultSavePath(): Promise<string> {
 /**
  * 选择文件
  * @param multiple 是否允许多选
+ * @returns FileSource[] — 文件来源描述，不做文件复制或读取
  *
- * Android：使用 AndroidFs 原生选择器，选中后复制到应用缓存目录，
- * 因为 SAF content:// URI 和 dialog 返回的虚拟路径都无法被 Rust std::fs 读取。
- * 桌面端：使用标准 Tauri dialog。
+ * Android：使用 AndroidFs 原生选择器，直接返回 content:// URI（零拷贝）
+ * 桌面端：使用标准 Tauri dialog，返回文件路径
  */
-export async function pickFiles(multiple = true): Promise<string[]> {
+export async function pickFiles(multiple = true): Promise<FileSource[]> {
   if (isAndroid()) {
-    const AndroidFs = await getAndroidFs();
+    const { AndroidFs, AndroidPickerInitialLocation, AndroidPublicDir } =
+      await import("tauri-plugin-android-fs-api");
     const uris = await AndroidFs.showOpenFilePicker({
       mimeTypes: ["*/*"],
       multiple,
+      initialLocation: AndroidPickerInitialLocation.PublicDir(
+        AndroidPublicDir.Download,
+      ),
     });
     if (uris.length === 0) return [];
 
-    const { appCacheDir } = await import("@tauri-apps/api/path");
-    const cacheBase = await appCacheDir();
-    const batchId = Date.now();
-
-    const paths: string[] = [];
-    for (let i = 0; i < uris.length; i++) {
-      const uri = uris[i];
-      const name = await AndroidFs.getName(uri);
-      const destPath = await join(cacheBase, `send_${batchId}_${i}_${name}`);
-      await AndroidFs.copyFile(uri, destPath);
-      paths.push(destPath);
-    }
-    return paths;
+    // 直接返回 AndroidFsUri，与 Rust FileUri serde 格式一致
+    return uris.map((uri) => ({
+      type: "androidUri" as const,
+      ...uri,
+    }));
   }
 
   const selected = await open({ multiple });
   if (!selected) return [];
-  return Array.isArray(selected) ? selected : [selected];
+  const paths = Array.isArray(selected) ? selected : [selected];
+  return paths.map((p) => ({ type: "path" as const, path: p }));
 }
 
 /**
@@ -177,99 +175,27 @@ export async function revealFile(filePath: string, _folderPath: string): Promise
   await revealItemInDir(filePath);
 }
 
-/** 文件条目（跨平台统一格式） */
-export interface FileEntryInfo {
-  path: string;
-  name: string;
-  size: number;
-}
-
-/** listFiles 返回结果 */
-export interface ListFilesInfo {
-  isDirectory: boolean;
-  entries: FileEntryInfo[];
-}
-
 /**
- * 将路径字符串转为 AndroidFs 可接受的参数
- * content:// 开头的包装为 AndroidFsUri，其余当作 fs path
+ * 选择文件夹（用于发送）
+ * @returns FileSource — 文件夹来源描述
+ *
+ * Android：使用 SAF 目录选择器，返回 content:// URI
+ * 桌面端：使用标准 Tauri dialog，返回文件夹路径
  */
-function toAndroidPath(path: string): string | { uri: string; documentTopTreeUri: string | null } {
-  return path.startsWith("content://")
-    ? { uri: path, documentTopTreeUri: null }
-    : path;
-}
-
-/**
- * 跨平台列举文件
- * Android content:// URI：使用 AndroidFs API
- * 其他：委托 Rust list_files 命令
- */
-export async function listFiles(path: string): Promise<ListFilesInfo> {
-  if (isAndroid() && path.startsWith("content://")) {
-    const AndroidFs = await getAndroidFs();
-    const arg = toAndroidPath(path);
-    const meta = await AndroidFs.getMetadata(arg);
-
-    if (meta.type === "Dir") {
-      const dirUri = typeof arg === "string"
-        ? { uri: arg, documentTopTreeUri: null }
-        : arg;
-      const children = await AndroidFs.readDir(dirUri);
-      const entries: FileEntryInfo[] = [];
-      for (const child of children) {
-        if (child.type === "File") {
-          entries.push({
-            path: child.uri.uri,
-            name: child.name,
-            size: child.byteLength,
-          });
-        }
-      }
-      return { isDirectory: true, entries };
-    }
-
-    return {
-      isDirectory: false,
-      entries: [{ path, name: meta.name, size: meta.byteLength }],
-    };
+export async function pickFolderAsSource(): Promise<FileSource | null> {
+  if (isAndroid()) {
+    const { AndroidFs, AndroidPickerInitialLocation, AndroidPublicDir } =
+      await import("tauri-plugin-android-fs-api");
+    const uri = await AndroidFs.showOpenDirPicker({
+      initialLocation: AndroidPickerInitialLocation.PublicDir(
+        AndroidPublicDir.Download,
+      ),
+    });
+    if (!uri) return null;
+    return { type: "androidUri" as const, ...uri };
   }
 
-  const { listFiles: rustListFiles } = await import("@/commands/transfer");
-  return rustListFiles(path);
-}
-
-/**
- * 跨平台获取文件元信息
- * Android content:// URI：使用 AndroidFs.getMetadata
- * 其他：委托 Rust get_file_meta 命令
- */
-export async function getFileMeta(paths: string[]): Promise<FileEntryInfo[]> {
-  const contentPaths = paths.filter((p) => p.startsWith("content://"));
-  const regularPaths = paths.filter((p) => !p.startsWith("content://"));
-
-  const entries: FileEntryInfo[] = [];
-
-  if (contentPaths.length > 0) {
-    const AndroidFs = await getAndroidFs();
-    for (const p of contentPaths) {
-      try {
-        const arg = toAndroidPath(p);
-        const meta = await AndroidFs.getMetadata(arg);
-        if (meta.type === "File") {
-          entries.push({ path: p, name: meta.name, size: meta.byteLength });
-        }
-      } catch {
-        // 跳过无法访问的路径
-      }
-    }
-  }
-
-  if (regularPaths.length > 0) {
-    const { getFileMeta: rustGetFileMeta } = await import("@/commands/transfer");
-    const rustEntries = await rustGetFileMeta(regularPaths);
-    entries.push(...rustEntries);
-  }
-
-  return entries;
+  const path = await open({ directory: true });
+  if (!path) return null;
+  return { type: "path" as const, path };
 }

@@ -49,7 +49,11 @@ pub struct FileSourceMetadata {
 }
 
 /// 目录遍历后的扁平化文件条目
-#[derive(Debug, Clone)]
+///
+/// 同时用于 `scan_sources` 命令返回和 `prepare_send` 命令输入，
+/// 因此同时派生 Serialize + Deserialize。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EnumeratedFile {
     /// 文件名
     pub name: String,

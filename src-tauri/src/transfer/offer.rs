@@ -6,16 +6,14 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use blake3::Hasher;
 use dashmap::DashMap;
-use path_slash::PathExt as _;
 use serde::Serialize;
 use swarm_p2p_core::libp2p::PeerId;
 use tauri::AppHandle;
 use tracing::{info, warn};
 use uuid::Uuid;
-use walkdir::WalkDir;
 
+use crate::file_source::{EnumeratedFile, FileSource};
 use crate::protocol::{
     AppNetClient, AppRequest, AppResponse, FileInfo, TransferRequest, TransferResponse,
 };
@@ -44,8 +42,8 @@ pub struct PreparedFile {
     pub name: String,
     /// 相对路径
     pub relative_path: String,
-    /// 绝对路径（发送时读取文件用）
-    pub absolute_path: String,
+    /// 文件来源（发送时读取文件用）
+    pub source: FileSource,
     /// 文件大小
     pub size: u64,
     /// BLAKE3 校验和（hex）
@@ -103,12 +101,44 @@ impl TransferManager {
 
     // ============ 准备阶段 ============
 
-    /// 准备发送：扫描文件、计算 BLAKE3 校验和、分配 fileId
-    pub async fn prepare(&self, file_paths: Vec<String>) -> AppResult<PreparedTransfer> {
-        let prepared = tokio::task::spawn_blocking(move || prepare_sync(file_paths)).await??;
+    /// 准备发送：对预扫描的文件列表计算 BLAKE3 校验和、分配 fileId
+    ///
+    /// 接收 `scan_sources` 命令返回的 `EnumeratedFile` 列表。
+    /// 前端可能已移除部分文件（用户在 UI 中取消选择）。
+    /// 此方法不做目录遍历，只对每个文件计算 hash。
+    pub async fn prepare(
+        &self,
+        entries: Vec<EnumeratedFile>,
+        app: &AppHandle,
+    ) -> AppResult<PreparedTransfer> {
+        if entries.is_empty() {
+            return Err(AppError::Transfer("文件列表为空".into()));
+        }
+
+        let mut files = Vec::new();
+        let mut total_size: u64 = 0;
+
+        for (file_id, entry) in entries.into_iter().enumerate() {
+            let checksum = entry.source.compute_hash(app).await?;
+            total_size += entry.size;
+            files.push(PreparedFile {
+                file_id: file_id as u32,
+                name: entry.name,
+                relative_path: entry.relative_path,
+                source: entry.source,
+                size: entry.size,
+                checksum,
+            });
+        }
+
+        let prepared = PreparedTransfer {
+            prepared_id: generate_id(),
+            files,
+            total_size,
+        };
 
         self.prepared
-            .insert(prepared.prepared_id.clone(), prepared.clone());
+            .insert(prepared.prepared_id, prepared.clone());
 
         Ok(prepared)
     }
@@ -123,6 +153,7 @@ impl TransferManager {
         prepared_id: &Uuid,
         peer_id: &str,
         selected_file_ids: &[u32],
+        app: AppHandle,
     ) -> AppResult<StartSendResult> {
         let prepared = self.take_prepared(prepared_id).ok_or_else(|| {
             AppError::Transfer(format!("PreparedTransfer not found: {prepared_id}"))
@@ -192,6 +223,7 @@ impl TransferManager {
                             session_id.clone(),
                             selected_prepared,
                             &key,
+                            app,
                         ));
                         self.send_sessions.insert(session_id.clone(), send_session);
                     } else {
@@ -367,97 +399,4 @@ impl TransferManager {
 /// 生成随机的 session/prepared ID（UUID v4）
 pub fn generate_id() -> Uuid {
     Uuid::new_v4()
-}
-
-/// 同步准备文件（在 blocking task 中执行）
-fn prepare_sync(file_paths: Vec<String>) -> AppResult<PreparedTransfer> {
-    if file_paths.is_empty() {
-        return Err(AppError::Transfer("文件列表为空".into()));
-    }
-
-    let mut files = Vec::new();
-    let mut file_id: u32 = 0;
-    let mut total_size: u64 = 0;
-
-    for path_str in file_paths {
-        let path = PathBuf::from(&path_str);
-        let meta = std::fs::metadata(&path)?;
-
-        if meta.is_file() {
-            let name = path
-                .file_name()
-                .map(|n| n.to_string_lossy().into_owned())
-                .unwrap_or_default();
-            let checksum = compute_checksum(&path)?;
-            let size = meta.len();
-
-            files.push(PreparedFile {
-                file_id,
-                name: name.clone(),
-                relative_path: name,
-                absolute_path: path_str,
-                size,
-                checksum,
-            });
-            total_size += size;
-            file_id += 1;
-        } else if meta.is_dir() {
-            let dir_name = path
-                .file_name()
-                .map(|n| n.to_string_lossy().into_owned())
-                .unwrap_or_default();
-
-            for entry in WalkDir::new(&path)
-                .follow_links(true)
-                .into_iter()
-                .filter_map(|e| e.ok())
-            {
-                if entry.file_type().is_dir() {
-                    continue;
-                }
-
-                let entry_path = entry.path();
-                let name = entry_path
-                    .file_name()
-                    .map(|n| n.to_string_lossy().into_owned())
-                    .unwrap_or_default();
-
-                let sub_path = pathdiff::diff_paths(entry_path, &path)
-                    .unwrap_or_else(|| entry_path.to_path_buf());
-                let relative_path = format!("{dir_name}/{}", sub_path.to_slash_lossy());
-
-                let checksum = compute_checksum(entry_path)?;
-                let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
-
-                files.push(PreparedFile {
-                    file_id,
-                    name,
-                    relative_path,
-                    absolute_path: entry_path.to_string_lossy().into_owned(),
-                    size,
-                    checksum,
-                });
-                total_size += size;
-                file_id += 1;
-            }
-        }
-    }
-
-    if files.is_empty() {
-        return Err(AppError::Transfer("未找到有效文件".into()));
-    }
-
-    Ok(PreparedTransfer {
-        prepared_id: generate_id(),
-        files,
-        total_size,
-    })
-}
-
-/// 计算文件的 BLAKE3 校验和（hex 编码）
-fn compute_checksum(path: &std::path::Path) -> AppResult<String> {
-    let mut file = std::fs::File::open(path)?;
-    let mut hasher = Hasher::new();
-    hasher.update_reader(&mut file)?;
-    Ok(hasher.finalize().to_hex().to_string())
 }

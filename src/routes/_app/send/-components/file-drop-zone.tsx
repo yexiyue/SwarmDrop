@@ -10,14 +10,15 @@ import { Button } from "@/components/ui/button";
 import { Trans } from "@lingui/react/macro";
 import { cn } from "@/lib/utils";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
-import { pickFiles, pickFolder, isAndroid } from "@/lib/file-picker";
+import { pickFiles, pickFolderAsSource, isAndroid } from "@/lib/file-picker";
+import type { FileSource } from "@/commands/transfer";
 
 interface FileDropZoneProps {
-  onFilesSelected: (paths: string[]) => void;
+  onSourcesSelected: (sources: FileSource[]) => void;
   disabled?: boolean;
 }
 
-export function FileDropZone({ onFilesSelected, disabled }: FileDropZoneProps) {
+export function FileDropZone({ onSourcesSelected, disabled }: FileDropZoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const breakpoint = useBreakpoint();
   const isMobile = breakpoint === "mobile";
@@ -38,34 +39,34 @@ export function FileDropZone({ onFilesSelected, disabled }: FileDropZoneProps) {
       setIsDragging(false);
       if (disabled) return;
 
-      const paths: string[] = [];
+      const sources: FileSource[] = [];
       const items = e.dataTransfer.items;
       for (let i = 0; i < items.length; i++) {
         const item = items[i];
         // Tauri 环境下 File 对象带有 path 属性（非标准 Web API）
         const file = item.getAsFile() as (File & { path?: string }) | null;
         if (file?.path) {
-          paths.push(file.path);
+          sources.push({ type: "path", path: file.path });
         }
       }
-      if (paths.length > 0) {
-        onFilesSelected(paths);
+      if (sources.length > 0) {
+        onSourcesSelected(sources);
       }
     },
-    [disabled, onFilesSelected],
+    [disabled, onSourcesSelected],
   );
 
   const handleSelectFiles = async () => {
-    const paths = await pickFiles(true);
-    if (paths.length > 0) {
-      onFilesSelected(paths);
+    const sources = await pickFiles(true);
+    if (sources.length > 0) {
+      onSourcesSelected(sources);
     }
   };
 
   const handleSelectFolder = async () => {
-    const path = await pickFolder();
-    if (path) {
-      onFilesSelected([path]);
+    const source = await pickFolderAsSource();
+    if (source) {
+      onSourcesSelected([source]);
     }
   };
 
