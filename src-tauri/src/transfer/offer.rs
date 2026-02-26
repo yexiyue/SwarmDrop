@@ -295,7 +295,7 @@ impl TransferManager {
 
     /// 获取发送会话（事件循环调用）
     pub fn get_send_session(&self, session_id: &Uuid) -> Option<Arc<SendSession>> {
-        self.send_sessions.get(session_id).map(|s| s.clone())
+        self.send_sessions.get(session_id).map(|r| r.clone())
     }
 
     /// 移除发送会话
@@ -353,10 +353,10 @@ impl TransferManager {
             .await
             .map_err(|e| AppError::Transfer(format!("回复 OfferResult 失败: {e}")))?;
 
-        // 创建 ReceiveSession 并启动后台拉取
-        let sink = FileSink::Path {
-            save_dir: std::path::PathBuf::from(save_path),
-        };
+        // 创建 FileSink
+        // Android: 直接写入公共 Download 目录（无需 save_path）
+        // 桌面端: 写入用户指定的本地目录
+        let sink = build_file_sink(save_path);
         let receive_session = Arc::new(ReceiveSession::new(
             offer.session_id,
             offer.peer_id,
@@ -431,7 +431,7 @@ impl TransferManager {
 
     /// 获取接收会话（事件循环调用）
     pub fn get_receive_session(&self, session_id: &Uuid) -> Option<Arc<ReceiveSession>> {
-        self.receive_sessions.get(session_id).map(|s| s.clone())
+        self.receive_sessions.get(session_id).map(|r| r.clone())
     }
 
     /// 移除接收会话
@@ -449,4 +449,24 @@ impl TransferManager {
 /// 生成随机的 session/prepared ID（UUID v4）
 pub fn generate_id() -> Uuid {
     Uuid::new_v4()
+}
+
+/// 根据平台构造 FileSink
+///
+/// Android 端忽略 `save_path`，直接写入公共 Download/SwarmDrop 目录；
+/// 桌面端写入用户指定的本地目录。
+#[allow(unused_variables)]
+fn build_file_sink(save_path: String) -> FileSink {
+    #[cfg(target_os = "android")]
+    {
+        FileSink::AndroidPublicDir {
+            subdir: "SwarmDrop".into(),
+        }
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        FileSink::Path {
+            save_dir: std::path::PathBuf::from(save_path),
+        }
+    }
 }

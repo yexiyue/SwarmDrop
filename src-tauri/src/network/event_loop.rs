@@ -202,6 +202,8 @@ pub fn spawn_event_loop(
                                     total_bytes,
                                     elapsed_ms,
                                     save_path: None,
+                                    file_uris: Vec::new(),
+                                    save_dir_uri: None,
                                 };
                                 let _ = app2.emit("transfer-complete", &event);
                             });

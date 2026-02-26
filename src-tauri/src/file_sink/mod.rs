@@ -33,8 +33,10 @@ pub enum FileSink {
     Path { save_dir: PathBuf },
 
     /// Android：保存到公共目录（SAF/MediaStore）
+    ///
+    /// `subdir` 为 Download 目录下的子目录名（如 "SwarmDrop"）。
     #[cfg(target_os = "android")]
-    AndroidPublicDir,
+    AndroidPublicDir { subdir: String },
 }
 
 /// .part 临时文件
@@ -107,25 +109,15 @@ impl PartFile {
         }
     }
 
-    /// 获取 .part 文件路径
-    pub fn part_path(&self) -> &Path {
-        &self.part_path
-    }
-
-    /// 获取最终文件路径
-    pub fn final_path(&self) -> &Path {
-        &self.final_path
-    }
-
-    /// 获取文件大小
-    pub fn size(&self) -> u64 {
-        self.size
-    }
-
-    /// 获取 Android 文件 URI
-    #[cfg(target_os = "android")]
-    pub fn file_uri(&self) -> Option<&FileUri> {
-        self.file_uri.as_ref()
+    /// 转换为可序列化的 FileUri JSON Value（用于完成事件）
+    ///
+    /// Android 端将 `FileUri` 序列化为 `serde_json::Value`，桌面端返回 `None`。
+    pub fn to_uri_value(&self) -> Option<serde_json::Value> {
+        #[cfg(target_os = "android")]
+        if let Some(uri) = &self.file_uri {
+            return serde_json::to_value(uri).ok();
+        }
+        None
     }
 
     /// 写入分块数据（使用缓存句柄 + pwrite，并发安全）
@@ -264,8 +256,8 @@ impl FileSink {
                 path_ops::create_part_file(save_dir, relative_path, file_size).await
             }
             #[cfg(target_os = "android")]
-            Self::AndroidPublicDir => {
-                android_ops::create_part_file(relative_path, file_size, app).await
+            Self::AndroidPublicDir { subdir } => {
+                android_ops::create_part_file(subdir, relative_path, file_size, app).await
             }
         }
     }
@@ -281,7 +273,7 @@ impl FileSink {
                 PartFile::new_without_handle(part_path, final_path, size)
             }
             #[cfg(target_os = "android")]
-            Self::AndroidPublicDir => {
+            Self::AndroidPublicDir { .. } => {
                 PartFile::new_without_handle(PathBuf::new(), PathBuf::new(), size)
             }
         }
@@ -292,7 +284,24 @@ impl FileSink {
         match self {
             Self::Path { save_dir } => save_dir.to_string_lossy(),
             #[cfg(target_os = "android")]
-            Self::AndroidPublicDir => Cow::Borrowed("Download"),
+            Self::AndroidPublicDir { .. } => Cow::Borrowed("Download"),
+        }
+    }
+
+    /// 获取保存目录的 FileUri（Android 端用于 showViewDirDialog）
+    ///
+    /// 桌面端返回 None，Android 端通过 `resolve_initial_location` 获取标准 content URI。
+    pub async fn resolve_save_dir_uri(
+        &self,
+        #[allow(unused_variables)] app: &tauri::AppHandle,
+    ) -> Option<serde_json::Value> {
+        match self {
+            Self::Path { .. } => None,
+            #[cfg(target_os = "android")]
+            Self::AndroidPublicDir { subdir } => {
+                let uri = android_ops::resolve_save_dir_uri(subdir, app).await?;
+                serde_json::to_value(&uri).ok()
+            }
         }
     }
 
@@ -307,7 +316,7 @@ impl FileSink {
         match self {
             Self::Path { .. } => Ok(()),
             #[cfg(target_os = "android")]
-            Self::AndroidPublicDir => android_ops::ensure_permission(app).await,
+            Self::AndroidPublicDir { .. } => android_ops::ensure_permission(app).await,
         }
     }
 }

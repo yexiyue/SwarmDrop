@@ -70,10 +70,11 @@ impl TransferCrypto {
 ///
 /// 确定性派生保证：相同输入 → 相同 nonce（幂等），不同输入 → 不同 nonce（安全）。
 fn derive_nonce(session_id: &Uuid, file_id: u32, chunk_index: u32) -> [u8; 24] {
-    let mut input = Vec::with_capacity(16 + 8);
-    input.extend_from_slice(session_id.as_bytes());
-    input.extend_from_slice(&file_id.to_be_bytes());
-    input.extend_from_slice(&chunk_index.to_be_bytes());
+    // session_id (16 bytes) || file_id (4 bytes BE) || chunk_index (4 bytes BE)
+    let mut input = [0u8; 24];
+    input[..16].copy_from_slice(session_id.as_bytes());
+    input[16..20].copy_from_slice(&file_id.to_be_bytes());
+    input[20..24].copy_from_slice(&chunk_index.to_be_bytes());
 
     let hash = blake3::derive_key("swarmdrop-transfer-nonce-v1", &input);
 

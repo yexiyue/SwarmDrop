@@ -6,6 +6,7 @@ use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
+use serde_json::Value;
 use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
 
@@ -47,6 +48,16 @@ pub struct TransferCompleteEvent {
     pub total_bytes: u64,
     pub elapsed_ms: u64,
     pub save_path: Option<String>,
+    /// Android 端已保存文件的 FileUri 列表（桌面端为空数组）
+    ///
+    /// 使用 `serde_json::Value` 避免跨平台编译问题（FileUri 仅 Android 可用），
+    /// 前端直接作为 `AndroidFsUri[]` 使用。
+    pub file_uris: Vec<Value>,
+    /// Android 端保存目录的 FileUri（桌面端为 null）
+    ///
+    /// 通过 `resolve_initial_location` 获取的标准 content URI，
+    /// 前端可直接传给 `showViewDirDialog`。
+    pub save_dir_uri: Option<Value>,
 }
 
 /// 传输失败事件
@@ -190,13 +201,21 @@ impl ProgressTracker {
     }
 
     /// 发射传输完成事件
-    pub fn emit_complete(&self, app: &AppHandle, save_path: Option<String>) {
+    pub fn emit_complete(
+        &self,
+        app: &AppHandle,
+        save_path: Option<String>,
+        file_uris: Vec<Value>,
+        save_dir_uri: Option<Value>,
+    ) {
         let event = TransferCompleteEvent {
             session_id: self.session_id,
             direction: self.direction,
             total_bytes: self.transferred_bytes,
             elapsed_ms: self.elapsed_ms(),
             save_path,
+            file_uris,
+            save_dir_uri,
         };
         let _ = app.emit("transfer-complete", &event);
     }

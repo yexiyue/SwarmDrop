@@ -4,7 +4,7 @@
  */
 
 import { Channel, invoke } from "@tauri-apps/api/core";
-import { AndroidFsUri } from "tauri-plugin-android-fs-api";
+import type { AndroidFsUri } from "tauri-plugin-android-fs-api";
 
 // === 类型定义 ===
 
@@ -50,6 +50,10 @@ export interface TransferSession {
   startedAt: number;
   completedAt: number | null;
   savePath?: string;
+  /** Android 端已保存文件的 FileUri 列表 */
+  fileUris?: AndroidFsUri[];
+  /** Android 端保存目录的 FileUri */
+  saveDirUri?: AndroidFsUri;
 }
 
 // === 事件类型 ===
@@ -90,6 +94,10 @@ export interface TransferCompleteEvent {
   totalBytes: number;
   elapsedMs: number;
   savePath?: string;
+  /** Android 端已保存文件的 FileUri 列表（桌面端为空数组） */
+  fileUris: AndroidFsUri[];
+  /** Android 端保存目录的 FileUri（桌面端为 null） */
+  saveDirUri?: AndroidFsUri;
 }
 
 /** 传输失败 */
