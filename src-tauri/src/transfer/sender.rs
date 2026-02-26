@@ -99,7 +99,7 @@ impl SendSession {
         let is_last = chunk_index + 1 >= total_chunks;
 
         Ok(TransferResponse::Chunk {
-            session_id: self.session_id.clone(),
+            session_id: self.session_id,
             file_id,
             chunk_index,
             data,

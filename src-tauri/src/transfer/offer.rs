@@ -3,7 +3,6 @@
 //! 管理 Offer 协议（发送、接受、拒绝）和活跃传输会话（发送/接收）。
 //! 事件循环写入缓存 → 前端操作后通过 Tauri 命令消费缓存。
 
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use dashmap::DashMap;
@@ -13,6 +12,7 @@ use tauri::AppHandle;
 use tracing::{info, warn};
 use uuid::Uuid;
 
+use crate::file_sink::FileSink;
 use crate::file_source::{EnumeratedFile, FileSource};
 use crate::protocol::{
     AppNetClient, AppRequest, AppResponse, FileInfo, TransferRequest, TransferResponse,
@@ -246,7 +246,7 @@ impl TransferManager {
             .send_request(
                 target_peer,
                 AppRequest::Transfer(TransferRequest::Offer {
-                    session_id: session_id.clone(),
+                    session_id,
                     files: selected_files,
                     total_size,
                 }),
@@ -266,12 +266,12 @@ impl TransferManager {
 
                         // 创建 SendSession
                         let send_session = Arc::new(SendSession::new(
-                            session_id.clone(),
+                            session_id,
                             selected_prepared,
                             &key,
                             app,
                         ));
-                        self.send_sessions.insert(session_id.clone(), send_session);
+                        self.send_sessions.insert(session_id, send_session);
                     } else {
                         warn!(
                             "Offer accepted but no key received for session {}",
@@ -354,22 +354,26 @@ impl TransferManager {
             .map_err(|e| AppError::Transfer(format!("回复 OfferResult 失败: {e}")))?;
 
         // 创建 ReceiveSession 并启动后台拉取
+        let sink = FileSink::Path {
+            save_dir: std::path::PathBuf::from(save_path),
+        };
         let receive_session = Arc::new(ReceiveSession::new(
-            offer.session_id.clone(),
+            offer.session_id,
             offer.peer_id,
             offer.files,
             offer.total_size,
-            PathBuf::from(save_path),
+            sink,
             &key,
             self.client.clone(),
+            app,
         ));
 
         self.receive_sessions
-            .insert(offer.session_id.clone(), receive_session.clone());
+            .insert(offer.session_id, receive_session.clone());
 
         // 传输结束后自动从 receive_sessions 中清理
         let sessions_map = self.receive_sessions.clone();
-        receive_session.start_pulling(app, move |session_id| {
+        receive_session.start_pulling(move |session_id| {
             sessions_map.remove(session_id);
         });
 

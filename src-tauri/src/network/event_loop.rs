@@ -189,7 +189,7 @@ pub fn spawn_event_loop(
                             let app2 = app.clone();
                             tokio::spawn(async move {
                                 let response = AppResponse::Transfer(TransferResponse::Ack {
-                                    session_id: session_id.clone(),
+                                    session_id,
                                 });
                                 if let Err(e) = client.send_response(pending_id, response).await {
                                     warn!("发送 Ack 响应失败: {}", e);
@@ -231,10 +231,9 @@ pub fn spawn_event_loop(
 
                             // 回复 Ack
                             let client = shared.client.clone();
-                            let session_id_clone = session_id.clone();
                             tokio::spawn(async move {
                                 let response = AppResponse::Transfer(TransferResponse::Ack {
-                                    session_id: session_id_clone,
+                                    session_id,
                                 });
                                 let _ = client.send_response(pending_id, response).await;
                             });
@@ -278,14 +277,14 @@ pub fn spawn_event_loop(
                                 .get_paired_devices()
                                 .into_iter()
                                 .find(|d| d.peer_id == peer_id)
-                                .map(|d| d.os_info.hostname.clone())
+                                .map(|d| d.os_info.hostname)
                                 .unwrap_or_else(|| peer_id.to_string()[..8].to_string());
 
                             // 缓存入站 Offer
                             shared.transfer.cache_inbound_offer(
                                 pending_id,
                                 peer_id,
-                                session_id.clone(),
+                                session_id,
                                 files.clone(),
                                 total_size,
                             );

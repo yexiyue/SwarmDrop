@@ -7,6 +7,7 @@ pub mod protocol;
 pub(crate) mod transfer;
 pub use error::{AppError, AppResult};
 
+pub mod file_sink;
 pub mod file_source;
 mod mobile;
 
