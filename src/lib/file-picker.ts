@@ -104,24 +104,28 @@ export async function pickFolder(
 
 /**
  * 打开文件夹（在系统文件管理器中显示）
- * Android：使用 showViewDirDialog 打开目录（需要 content:// URI）
+ * Android：使用 showViewDirDialog 打开目录（需要 readable content:// URI）
  * 桌面端：使用 opener 插件（使用文件路径）
  *
  * @param pathOrUri 桌面端传文件夹路径，Android 端传 AndroidFsUri
+ * @returns Android 端返回是否成功打开（用于调用方判断是否需要回退）
  */
-export async function openFolder(pathOrUri: string | AndroidFsUri): Promise<void> {
+export async function openFolder(pathOrUri: string | AndroidFsUri): Promise<boolean> {
   if (isAndroid() && typeof pathOrUri !== "string") {
     try {
       const { AndroidFs } = await import("tauri-plugin-android-fs-api");
       await AndroidFs.showViewDirDialog(pathOrUri);
+      return true;
     } catch {
-      // 目录可能尚未创建或设备不支持，静默忽略
+      // resolve_initial_location 返回的 URI 仅供 picker 定位，不具备 readable 权限
+      // showViewDirDialog 需要 readable URI，对 PublicStorage 目录大概率失败
+      return false;
     }
-    return;
   }
 
   const { openPath } = await import("@tauri-apps/plugin-opener");
   await openPath(pathOrUri as string);
+  return true;
 }
 
 /**
@@ -164,6 +168,9 @@ export async function revealFile(
 /**
  * 打开传输完成后的文件/文件夹
  * 统一处理 Android/桌面、单文件/多文件的打开逻辑
+ *
+ * Android 多文件场景：PublicStorage 目录 URI（resolve_initial_location）不具备
+ * readable 权限，showViewDirDialog 会失败。回退策略：打开第一个文件 URI。
  */
 export async function openTransferResult(session: {
   savePath?: string;
@@ -173,14 +180,29 @@ export async function openTransferResult(session: {
 }): Promise<void> {
   if (!session.savePath) return;
 
+  // 单文件：直接打开文件
   if (session.files.length === 1 && session.fileUris?.[0]) {
     await openFile(session.fileUris[0]);
-  } else if (session.files.length === 1) {
+    return;
+  }
+  if (session.files.length === 1) {
     const filePath = await join(session.savePath, session.files[0].relativePath);
     await revealFile(filePath);
-  } else if (session.saveDirUri) {
-    await openFolder(session.saveDirUri);
-  } else {
+    return;
+  }
+
+  // 多文件：尝试打开文件夹
+  if (session.saveDirUri) {
+    const opened = await openFolder(session.saveDirUri);
+    if (opened) return;
+    // Android 回退：打开第一个文件 URI
+    if (session.fileUris?.[0]) {
+      await openFile(session.fileUris[0]);
+      return;
+    }
+  }
+
+  if (session.savePath) {
     await openFolder(session.savePath);
   }
 }
