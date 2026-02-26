@@ -4,8 +4,9 @@
 
 use crate::file_source::{EnumeratedFile, FileSource};
 use crate::network::NetManagerState;
-use crate::transfer::offer::StartSendResult;
+use crate::transfer::offer::{PrepareProgress, StartSendResult};
 use serde::Serialize;
+use tauri::ipc::Channel;
 use tauri::State;
 use uuid::Uuid;
 
@@ -87,12 +88,13 @@ pub struct PreparedTransferResult {
 /// 准备发送：对预扫描的文件列表计算 BLAKE3 校验和、分配 fileId
 ///
 /// 接收 `scan_sources` 返回的 `EnumeratedFile` 列表（前端可能已过滤掉用户移除的文件）。
-/// 不再做目录遍历，只计算 hash。
+/// 不再做目录遍历，只计算 hash。通过 `on_progress` Channel 实时上报进度。
 #[tauri::command]
 pub async fn prepare_send(
     app: tauri::AppHandle,
     net: State<'_, NetManagerState>,
     files: Vec<EnumeratedFile>,
+    on_progress: Channel<PrepareProgress>,
 ) -> crate::AppResult<PreparedTransferResult> {
     let transfer = {
         let guard = net.lock().await;
@@ -100,7 +102,7 @@ pub async fn prepare_send(
         manager.transfer_arc()
     };
 
-    let prepared = transfer.prepare(files, &app).await?;
+    let prepared = transfer.prepare(files, &app, on_progress).await?;
 
     Ok(PreparedTransferResult {
         prepared_id: prepared.prepared_id,

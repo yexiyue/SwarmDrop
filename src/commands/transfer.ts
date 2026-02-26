@@ -3,7 +3,7 @@
  * 文件传输相关类型定义和命令
  */
 
-import { invoke } from "@tauri-apps/api/core";
+import { Channel, invoke } from "@tauri-apps/api/core";
 import { AndroidFsUri } from "tauri-plugin-android-fs-api";
 
 // === 类型定义 ===
@@ -127,6 +127,20 @@ export interface ScannedFile {
   size: number;
 }
 
+/** prepare_send 进度事件 */
+export interface PrepareProgress {
+  /** 当前正在 hash 的文件名 */
+  currentFile: string;
+  /** 已完成 hash 的文件数 */
+  completedFiles: number;
+  /** 总文件数 */
+  totalFiles: number;
+  /** 累积已 hash 的字节数（所有文件） */
+  bytesHashed: number;
+  /** 总字节数（所有文件） */
+  totalBytes: number;
+}
+
 // === 命令函数 ===
 
 /** 开始发送的结果 */
@@ -149,11 +163,17 @@ export async function scanSources(
 /**
  * 准备发送：对预扫描的文件列表计算 BLAKE3 校验和
  * 接收 scanSources 返回的 ScannedFile 列表（前端可能已移除部分文件）
+ * @param onProgress 可选的进度回调，实时接收 hash 计算进度
  */
 export async function prepareSend(
   files: ScannedFile[],
+  onProgress?: (progress: PrepareProgress) => void,
 ): Promise<PreparedTransfer> {
-  return invoke("prepare_send", { files });
+  const channel = new Channel<PrepareProgress>();
+  if (onProgress) {
+    channel.onmessage = onProgress;
+  }
+  return invoke("prepare_send", { files, onProgress: channel });
 }
 
 /** 开始发送到指定设备，等待对方响应 */

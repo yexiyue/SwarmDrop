@@ -21,6 +21,16 @@ pub async fn compute_hash(path: &Path) -> AppResult<String> {
     tokio::task::spawn_blocking(move || compute_hash_sync(&path)).await?
 }
 
+/// 流式计算 BLAKE3 hash，每读取一个 chunk 调用 `on_progress(已读字节数)`
+pub async fn compute_hash_with_progress(
+    path: &Path,
+    on_progress: impl Fn(u64) + Send + 'static,
+) -> AppResult<String> {
+    let path = path.to_path_buf();
+    tokio::task::spawn_blocking(move || compute_hash_sync_with_progress(&path, on_progress))
+        .await?
+}
+
 /// 获取文件或目录的元数据
 pub async fn metadata(path: &Path) -> AppResult<FileSourceMetadata> {
     let meta = tokio::fs::metadata(path).await?;
@@ -98,6 +108,30 @@ fn compute_hash_sync(path: &Path) -> AppResult<String> {
     let mut file = std::fs::File::open(path)?;
     let mut hasher = blake3::Hasher::new();
     hasher.update_reader(&mut file)?;
+    Ok(hasher.finalize().to_hex().to_string())
+}
+
+fn compute_hash_sync_with_progress(
+    path: &Path,
+    on_progress: impl Fn(u64),
+) -> AppResult<String> {
+    use std::io::Read;
+
+    let mut file = std::fs::File::open(path)?;
+    let mut hasher = blake3::Hasher::new();
+    let mut buf = vec![0u8; CHUNK_SIZE];
+    let mut total_read: u64 = 0;
+
+    loop {
+        let n = file.read(&mut buf)?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buf[..n]);
+        total_read += n as u64;
+        on_progress(total_read);
+    }
+
     Ok(hasher.finalize().to_hex().to_string())
 }
 
