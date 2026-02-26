@@ -57,17 +57,21 @@ function AppLayout() {
     };
   }, []);
 
-  // send/receive/pairing 页面为独立全屏，不显示全局 header 和 bottom nav
   const location = useLocation();
+
+  // send/receive/pairing 页面为独立全屏，不显示全局 header 和 bottom nav
   const isFullScreenRoute =
     location.pathname.startsWith("/send") ||
     location.pathname.startsWith("/receive") ||
     location.pathname.startsWith("/pairing");
 
+  // 移动端：只有首页（设备页）显示顶部标题栏
+  const isHomePage = location.pathname === "/" || location.pathname === "/devices";
+
   if (isMobile) {
     return (
       <div className="flex h-svh flex-col pt-[env(safe-area-inset-top)]">
-        {!isFullScreenRoute && <MobileHeader />}
+        {isHomePage && <MobileHeader />}
         <main className="flex-1 overflow-hidden">
           <Outlet />
         </main>

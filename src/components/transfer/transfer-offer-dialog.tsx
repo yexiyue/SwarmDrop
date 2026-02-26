@@ -19,15 +19,11 @@ import { useTransferStore } from "@/stores/transfer-store";
 import { acceptReceive, rejectReceive } from "@/commands/transfer";
 import { FileTree } from "@/routes/_app/send/-components/file-tree";
 import { buildTreeDataFromOffer } from "@/routes/_app/send/-file-tree";
-import { open } from "@tauri-apps/plugin-dialog";
-import { downloadDir } from "@tauri-apps/api/path";
+import { pickFolder, getDefaultSavePath, isAndroid } from "@/lib/file-picker";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
 import type { TransferOfferEvent } from "@/commands/transfer";
-
-// 静态配置放在模块级别，避免每次渲染重新创建
-const DEFAULT_SAVE_PATH_SUFFIX = "SwarmDrop";
 
 export function TransferOfferDialog() {
   const navigate = useNavigate();
@@ -43,10 +39,8 @@ export function TransferOfferDialog() {
   // 初始化默认保存路径
   useEffect(() => {
     let cancelled = false;
-    downloadDir().then((dir) => {
-      if (!cancelled) {
-        setSavePath(`${dir}${DEFAULT_SAVE_PATH_SUFFIX}`);
-      }
+    getDefaultSavePath().then((path) => {
+      if (!cancelled) setSavePath(path);
     });
     return () => {
       cancelled = true;
@@ -67,7 +61,7 @@ export function TransferOfferDialog() {
   }, [currentOffer]);
 
   const handleChangePath = useCallback(async () => {
-    const selected = await open({ directory: true });
+    const selected = await pickFolder();
     if (selected) {
       setSavePath(selected);
     }
@@ -131,7 +125,7 @@ export function TransferOfferDialog() {
   if (!currentOffer || !treeData) return null;
 
   return (
-    <ResponsiveDialog open={true} onOpenChange={handleOpenChange}>
+    <ResponsiveDialog open={true} onOpenChange={handleOpenChange} forceDialog>
       <ResponsiveDialogContent
         className="sm:max-w-lg"
         showCloseButton={false}
@@ -149,23 +143,31 @@ export function TransferOfferDialog() {
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
-        {/* 文件树预览 */}
-        <div className="max-h-[300px] overflow-auto">
-          <FileTree
-            mode="select"
-            dataLoader={treeData.dataLoader}
-            rootChildren={treeData.rootChildren}
-            totalCount={currentOffer.files.length}
-            totalSize={currentOffer.totalSize}
-          />
-        </div>
+        {/* 中间内容区域 - 可滚动 */}
+        <div className="flex-1 overflow-y-auto px-4 sm:px-0">
+          {/* 文件树预览 */}
+          <div className="max-h-[40vh] min-h-[120px]">
+            <FileTree
+              mode="select"
+              dataLoader={treeData.dataLoader}
+              rootChildren={treeData.rootChildren}
+              totalCount={currentOffer.files.length}
+              totalSize={currentOffer.totalSize}
+              showHeader={false}
+            />
+          </div>
 
-        {/* 保存路径 */}
-        <SavePathSelector
-          savePath={savePath}
-          onChangePath={handleChangePath}
-          disabled={processing}
-        />
+          {/* 保存路径（移动端不允许更改） */}
+          {!isAndroid() && (
+            <div className="mt-4">
+              <SavePathSelector
+                savePath={savePath}
+                onChangePath={handleChangePath}
+                disabled={processing}
+              />
+            </div>
+          )}
+        </div>
 
         <ResponsiveDialogFooter className="flex-row justify-center gap-3 sm:justify-center">
           <Button

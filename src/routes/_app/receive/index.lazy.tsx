@@ -5,8 +5,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createLazyFileRoute, useNavigate } from "@tanstack/react-router";
-import { open } from "@tauri-apps/plugin-dialog";
-import { downloadDir } from "@tauri-apps/api/path";
+import { pickFolder, getDefaultSavePath, isAndroid } from "@/lib/file-picker";
 import { FolderOpen, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { Trans } from "@lingui/react/macro";
@@ -39,9 +38,7 @@ function ReceivePage() {
 
   // 初始化默认保存路径
   useEffect(() => {
-    downloadDir().then((dir) => {
-      setSavePath(`${dir}SwarmDrop`);
-    });
+    getDefaultSavePath().then(setSavePath);
   }, []);
 
   // 从队列取出第一个 offer
@@ -67,7 +64,7 @@ function ReceivePage() {
   }, [currentOffer, pendingCount, navigate]);
 
   const handleChangePath = async () => {
-    const selected = await open({ directory: true });
+    const selected = await pickFolder();
     if (selected) {
       setSavePath(selected);
     }
@@ -226,16 +223,18 @@ function ReceiveContent({
         totalSize={offer.totalSize}
       />
 
-      <div className="flex flex-col gap-1.5">
-        <span className="text-sm font-medium text-foreground">
-          <Trans>保存到</Trans>
-        </span>
-        <SavePathPicker
-          savePath={savePath}
-          onChangePath={onChangePath}
-          disabled={processing}
-        />
-      </div>
+      {!isAndroid() && (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-foreground">
+            <Trans>保存到</Trans>
+          </span>
+          <SavePathPicker
+            savePath={savePath}
+            onChangePath={onChangePath}
+            disabled={processing}
+          />
+        </div>
+      )}
     </>
   );
 }

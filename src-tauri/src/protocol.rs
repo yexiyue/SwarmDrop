@@ -5,6 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 use swarm_p2p_core::NetClient;
+use uuid::Uuid;
 
 use crate::device::OsInfo;
 
@@ -56,21 +57,21 @@ pub struct FileInfo {
 pub enum TransferRequest {
     /// 发送方向接收方提出文件传输请求
     Offer {
-        session_id: String,
+        session_id: Uuid,
         files: Vec<FileInfo>,
         total_size: u64,
     },
     /// 接收方向发送方请求一个分块
     ChunkRequest {
-        session_id: String,
+        session_id: Uuid,
         file_id: u32,
         chunk_index: u32,
     },
     /// 接收方通知发送方传输完成
-    Complete { session_id: String },
+    Complete { session_id: Uuid },
     /// 任一方取消传输
     Cancel {
-        session_id: String,
+        session_id: Uuid,
         reason: String,
     },
 }
@@ -93,7 +94,7 @@ pub enum TransferResponse {
     },
     /// 发送方回复 ChunkRequest，返回加密后的分块数据
     Chunk {
-        session_id: String,
+        session_id: Uuid,
         file_id: u32,
         chunk_index: u32,
         /// 加密后的分块数据（CBOR bytes 优化）
@@ -102,7 +103,7 @@ pub enum TransferResponse {
         is_last: bool,
     },
     /// 发送方确认传输完成
-    Ack { session_id: String },
+    Ack { session_id: Uuid },
 }
 
 /// 将 `Option<[u8; 32]>` 序列化为 bytes array（CBOR 友好）

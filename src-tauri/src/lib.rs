@@ -3,10 +3,11 @@ pub mod device;
 pub mod error;
 pub(crate) mod network;
 pub(crate) mod pairing;
-pub(crate) mod transfer;
 pub mod protocol;
+pub(crate) mod transfer;
 pub use error::{AppError, AppResult};
 
+pub mod file_source;
 mod mobile;
 
 use tauri::Manager;
@@ -26,7 +27,7 @@ fn init_tracing() {
 pub fn run() {
     init_tracing();
 
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_os::init())
         .plugin(tauri_plugin_fs::init())
@@ -36,7 +37,13 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_process::init())
-        .plugin(mobile::init())
+        .plugin(mobile::init());
+
+    // Android 文件选择插件
+    #[cfg(target_os = "android")]
+    let builder = builder.plugin(tauri_plugin_android_fs::init());
+
+    builder
         .setup(|app| {
             // updater 在 setup 中注册，移动端不支持时容错跳过
             if let Err(e) = app
@@ -62,8 +69,7 @@ pub fn run() {
             commands::list_devices,
             commands::get_network_status,
             commands::install_update,
-            commands::list_files,
-            commands::get_file_meta,
+            commands::scan_sources,
             commands::prepare_send,
             commands::start_send,
             commands::accept_receive,
