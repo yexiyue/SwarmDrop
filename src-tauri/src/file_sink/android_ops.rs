@@ -21,6 +21,7 @@ use crate::{AppError, AppResult};
 pub async fn ensure_permission(app: &tauri::AppHandle) -> AppResult<()> {
     let granted = app
         .android_fs_async()
+        .public_storage()
         .request_permission()
         .await
         .map_err(|e| AppError::Transfer(format!("请求存储权限失败: {e}")))?;
@@ -46,6 +47,7 @@ pub async fn create_part_file(
 
     let file_uri = app
         .android_fs_async()
+        .public_storage()
         .create_new_file_with_pending(
             None, // 使用主存储卷
             PublicGeneralPurposeDir::Download,
@@ -140,6 +142,7 @@ pub async fn verify_and_finalize(
 
     // 校验通过：取消 pending 状态，使文件对其他应用可见
     app.android_fs_async()
+        .public_storage()
         .set_pending(file_uri, false)
         .await
         .map_err(|e| {
@@ -148,6 +151,7 @@ pub async fn verify_and_finalize(
 
     // 刷新 MediaStore 索引
     app.android_fs_async()
+        .public_storage()
         .scan(file_uri)
         .await
         .map_err(|e| AppError::Transfer(format!("Android MediaStore scan 失败: {e}")))?;
