@@ -36,7 +36,7 @@ export function AboutSection() {
     status,
     currentVersion: storeVersion,
     latestVersion,
-    promptContent,
+    releaseNotes,
     progress,
     checkForUpdate,
     executeUpdate,
@@ -46,7 +46,7 @@ export function AboutSection() {
       status: s.status,
       currentVersion: s.currentVersion,
       latestVersion: s.latestVersion,
-      promptContent: s.promptContent,
+      releaseNotes: s.releaseNotes,
       progress: s.progress,
       checkForUpdate: s.checkForUpdate,
       executeUpdate: s.executeUpdate,
@@ -115,10 +115,10 @@ export function AboutSection() {
         </div>
 
         {/* Update Banner / Progress */}
-        {status === "available" && promptContent && (
+        {status === "available" && releaseNotes && (
           <UpdateBanner
             latestVersion={latestVersion}
-            releaseNotes={promptContent}
+            releaseNotes={releaseNotes}
           />
         )}
         {status === "downloading" && progress && (
@@ -306,7 +306,7 @@ function UpdateBanner({
   releaseNotes,
 }: {
   latestVersion: string | null;
-  releaseNotes: string;
+  releaseNotes: string | null;
 }) {
   return (
     <div className="flex flex-col gap-1.5 border-t border-blue-200 bg-blue-50 px-4 py-3 dark:border-blue-900 dark:bg-blue-950/50">
@@ -316,9 +316,11 @@ function UpdateBanner({
           {t`SwarmDrop v${latestVersion ?? "?"} 已发布`}
         </span>
       </div>
-      <p className="text-xs leading-relaxed text-blue-600 dark:text-blue-400">
-        {releaseNotes}
-      </p>
+      {releaseNotes && (
+        <p className="text-xs leading-relaxed text-blue-600 dark:text-blue-400">
+          {releaseNotes}
+        </p>
+      )}
     </div>
   );
 }

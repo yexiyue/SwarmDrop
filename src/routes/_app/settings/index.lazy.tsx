@@ -22,6 +22,7 @@ import { useShallow } from "zustand/react/shallow";
 import { usePreferencesStore } from "@/stores/preferences-store";
 import { locales, type LocaleKey } from "@/lib/i18n";
 import { AboutSection } from "./-about-section";
+import { TransferSettingsSection } from "./-transfer-settings-section";
 
 export const Route = createLazyFileRoute("/_app/settings/")({
   component: SettingsPage,
@@ -43,7 +44,6 @@ function SettingsPage() {
       setLocale: state.setLocale,
     }))
   );
-
   const [systemHostname, setSystemHostname] = useState("");
 
   useEffect(() => {
@@ -56,7 +56,7 @@ function SettingsPage() {
   return (
     <main className="flex h-full flex-1 flex-col bg-background">
       {/* Toolbar */}
-      <header className="flex h-13 items-center justify-between border-b border-border px-3 md:px-4 lg:px-5">
+      <header className="flex h-13 items-center justify-between border-b border-border p-4 md:p-5 lg:p-6">
         <h1 className="text-[15px] font-medium text-foreground">
           <Trans>设置</Trans>
         </h1>
@@ -106,10 +106,7 @@ function SettingsPage() {
                     <Trans>选择应用的外观主题</Trans>
                   </span>
                 </div>
-                <Select
-                  value={theme}
-                  onValueChange={setTheme}
-                >
+                <Select value={theme} onValueChange={setTheme}>
                   <SelectTrigger className="w-30 sm:w-35">
                     <SelectValue />
                   </SelectTrigger>
@@ -151,6 +148,9 @@ function SettingsPage() {
               </div>
             </div>
           </section>
+
+          {/* 文件传输设置 */}
+          <TransferSettingsSection />
         </div>
       </div>
     </main>

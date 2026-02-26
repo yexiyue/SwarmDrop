@@ -7,12 +7,13 @@ use std::time::{Duration, Instant};
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
+use uuid::Uuid;
 
 /// 进度事件 payload（推送给前端）
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TransferProgressEvent {
-    pub session_id: String,
+    pub session_id: Uuid,
     pub direction: &'static str,
     pub total_files: usize,
     pub completed_files: usize,
@@ -41,7 +42,7 @@ pub struct CurrentFileProgress {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TransferCompleteEvent {
-    pub session_id: String,
+    pub session_id: Uuid,
     pub direction: &'static str,
     pub total_bytes: u64,
     pub elapsed_ms: u64,
@@ -52,14 +53,14 @@ pub struct TransferCompleteEvent {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TransferFailedEvent {
-    pub session_id: String,
+    pub session_id: Uuid,
     pub direction: &'static str,
     pub error: String,
 }
 
 /// 进度追踪器
 pub struct ProgressTracker {
-    session_id: String,
+    session_id: Uuid,
     direction: &'static str,
     total_bytes: u64,
     transferred_bytes: u64,
@@ -80,7 +81,7 @@ const SPEED_WINDOW: Duration = Duration::from_secs(3);
 
 impl ProgressTracker {
     pub fn new(
-        session_id: String,
+        session_id: Uuid,
         direction: &'static str,
         total_bytes: u64,
         total_files: usize,

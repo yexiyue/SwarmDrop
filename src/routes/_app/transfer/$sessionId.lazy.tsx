@@ -22,7 +22,8 @@ import { useTransferStore } from "@/stores/transfer-store";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { formatFileSize, formatSpeed, formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { openPath } from "@tauri-apps/plugin-opener";
+import { openFolder, openFile, revealFile, isAndroid } from "@/lib/file-picker";
+import { join } from "@tauri-apps/api/path";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
 import { cancelSend, cancelReceive } from "@/commands/transfer";
@@ -287,11 +288,28 @@ const TransferActions = memo(function TransferActions({
     }
   }, [isSend, session.sessionId]);
 
-  const handleOpenFolder = useCallback(() => {
-    if (session.savePath) {
-      void openPath(session.savePath);
+  const handleOpenFolder = useCallback(async () => {
+    if (!session.savePath) return;
+
+    try {
+      if (isAndroid()) {
+        // Android：直接打开文件（无法打开私有目录）
+        const file = session.files[0];
+        if (file) {
+          const filePath = await join(session.savePath, file.relativePath);
+          await openFile(filePath);
+        }
+      } else if (session.files.length === 1) {
+        const file = session.files[0];
+        const filePath = await join(session.savePath, file.relativePath);
+        await revealFile(filePath, session.savePath);
+      } else {
+        await openFolder(session.savePath);
+      }
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     }
-  }, [session.savePath]);
+  }, [session.savePath, session.files]);
 
   if (isActive) {
     return (
@@ -310,7 +328,7 @@ const TransferActions = memo(function TransferActions({
     return (
       <Button onClick={handleOpenFolder} className="w-full">
         <FolderOpen className="mr-2 size-4" />
-        <Trans>打开文件夹</Trans>
+        {isAndroid() ? <Trans>查看文件</Trans> : <Trans>打开文件夹</Trans>}
       </Button>
     );
   }
