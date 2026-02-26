@@ -176,7 +176,7 @@ impl ProgressTracker {
         self.last_emit = Some(now);
 
         let event = TransferProgressEvent {
-            session_id: self.session_id.clone(),
+            session_id: self.session_id,
             direction: self.direction,
             total_files: self.total_files,
             completed_files: self.completed_files,
@@ -192,7 +192,7 @@ impl ProgressTracker {
     /// 发射传输完成事件
     pub fn emit_complete(&self, app: &AppHandle, save_path: Option<String>) {
         let event = TransferCompleteEvent {
-            session_id: self.session_id.clone(),
+            session_id: self.session_id,
             direction: self.direction,
             total_bytes: self.transferred_bytes,
             elapsed_ms: self.elapsed_ms(),
@@ -204,7 +204,7 @@ impl ProgressTracker {
     /// 发射传输失败事件
     pub fn emit_failed(&self, app: &AppHandle, error: String) {
         let event = TransferFailedEvent {
-            session_id: self.session_id.clone(),
+            session_id: self.session_id,
             direction: self.direction,
             error,
         };
