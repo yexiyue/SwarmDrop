@@ -96,6 +96,7 @@ export function TransferOfferDialog() {
       });
     } catch (err) {
       toast.error(getErrorMessage(err));
+    } finally {
       setProcessing(false);
     }
   }, [currentOffer, savePath, addSession, navigate]);
