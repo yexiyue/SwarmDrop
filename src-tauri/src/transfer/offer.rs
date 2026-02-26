@@ -22,6 +22,22 @@ use crate::transfer::receiver::ReceiveSession;
 use crate::transfer::sender::SendSession;
 use crate::{AppError, AppResult};
 
+/// prepare_send 进度事件（通过 Tauri Channel 实时推送给前端）
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PrepareProgress {
+    /// 当前正在 hash 的文件名
+    pub current_file: String,
+    /// 已完成 hash 的文件数
+    pub completed_files: u32,
+    /// 总文件数
+    pub total_files: u32,
+    /// 累积已 hash 的字节数（所有文件）
+    pub bytes_hashed: u64,
+    /// 总字节数（所有文件）
+    pub total_bytes: u64,
+}
+
 /// 发送方准备好的传输信息
 #[derive(Debug, Clone)]
 pub struct PreparedTransfer {
@@ -106,21 +122,42 @@ impl TransferManager {
     /// 接收 `scan_sources` 命令返回的 `EnumeratedFile` 列表。
     /// 前端可能已移除部分文件（用户在 UI 中取消选择）。
     /// 此方法不做目录遍历，只对每个文件计算 hash。
+    /// 通过 `on_progress` Channel 实时上报字节级进度。
     pub async fn prepare(
         &self,
         entries: Vec<EnumeratedFile>,
         app: &AppHandle,
+        on_progress: tauri::ipc::Channel<PrepareProgress>,
     ) -> AppResult<PreparedTransfer> {
         if entries.is_empty() {
             return Err(AppError::Transfer("文件列表为空".into()));
         }
 
+        let total_files = entries.len() as u32;
+        let total_bytes: u64 = entries.iter().map(|e| e.size).sum();
         let mut files = Vec::new();
-        let mut total_size: u64 = 0;
+        let mut completed_bytes: u64 = 0;
 
         for (file_id, entry) in entries.into_iter().enumerate() {
-            let checksum = entry.source.compute_hash(app).await?;
-            total_size += entry.size;
+            let file_name: std::sync::Arc<str> = entry.name.clone().into();
+            let base_bytes = completed_bytes;
+            let completed_files = file_id as u32;
+            let progress = on_progress.clone();
+
+            let checksum = entry
+                .source
+                .compute_hash_with_progress(app, move |bytes_in_file| {
+                    let _ = progress.send(PrepareProgress {
+                        current_file: file_name.to_string(),
+                        completed_files,
+                        total_files,
+                        bytes_hashed: base_bytes + bytes_in_file,
+                        total_bytes,
+                    });
+                })
+                .await?;
+
+            completed_bytes += entry.size;
             files.push(PreparedFile {
                 file_id: file_id as u32,
                 name: entry.name,
@@ -131,10 +168,19 @@ impl TransferManager {
             });
         }
 
+        // 最终完成事件
+        let _ = on_progress.send(PrepareProgress {
+            current_file: String::new(),
+            completed_files: total_files,
+            total_files,
+            bytes_hashed: total_bytes,
+            total_bytes,
+        });
+
         let prepared = PreparedTransfer {
             prepared_id: generate_id(),
             files,
-            total_size,
+            total_size: total_bytes,
         };
 
         self.prepared

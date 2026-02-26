@@ -96,6 +96,23 @@ impl FileSource {
         }
     }
 
+    /// 流式计算 BLAKE3 hash，每读取一个 chunk 调用 `on_progress(当前文件已读字节数)`
+    pub async fn compute_hash_with_progress(
+        &self,
+        #[allow(unused_variables)] app: &tauri::AppHandle,
+        on_progress: impl Fn(u64) + Send + 'static,
+    ) -> AppResult<String> {
+        match self {
+            Self::Path { path } => {
+                path_ops::compute_hash_with_progress(path, on_progress).await
+            }
+            #[cfg(target_os = "android")]
+            Self::AndroidUri(file_uri) => {
+                android_ops::compute_hash_with_progress(file_uri, app, on_progress).await
+            }
+        }
+    }
+
     /// 获取文件或目录的元数据
     pub async fn metadata(
         &self,

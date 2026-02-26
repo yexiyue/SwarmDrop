@@ -69,6 +69,40 @@ pub async fn compute_hash(file_uri: &FileUri, app: &tauri::AppHandle) -> AppResu
     .await?
 }
 
+/// 流式计算 BLAKE3 hash，每读取一个 chunk 调用 `on_progress(已读字节数)`
+pub async fn compute_hash_with_progress(
+    file_uri: &FileUri,
+    app: &tauri::AppHandle,
+    on_progress: impl Fn(u64) + Send + 'static,
+) -> AppResult<String> {
+    let mut file = app
+        .android_fs_async()
+        .open_file_readable(file_uri)
+        .await
+        .map_err(|e| AppError::Transfer(format!("Android 打开文件失败: {e}")))?;
+
+    tokio::task::spawn_blocking(move || {
+        use std::io::Read;
+
+        let mut hasher = blake3::Hasher::new();
+        let mut buf = vec![0u8; CHUNK_SIZE];
+        let mut total_read: u64 = 0;
+
+        loop {
+            let n = file.read(&mut buf)?;
+            if n == 0 {
+                break;
+            }
+            hasher.update(&buf[..n]);
+            total_read += n as u64;
+            on_progress(total_read);
+        }
+
+        Ok(hasher.finalize().to_hex().to_string())
+    })
+    .await?
+}
+
 /// 获取文件或目录的元数据
 ///
 /// 轻量 JNI 调用，直接使用 async API。
