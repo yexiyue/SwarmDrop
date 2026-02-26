@@ -13,6 +13,7 @@ import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { Trans } from "@lingui/react/macro";
 import type { Device } from "@/commands/network";
+import type { FileSource } from "@/commands/transfer";
 import { prepareSend, startSend } from "@/commands/transfer";
 import { useTransferStore } from "@/stores/transfer-store";
 import { useNetworkStore } from "@/stores/network-store";
@@ -59,9 +60,9 @@ function SendPage() {
     };
   }, [onlineDevice, pairedDevices, peerId]);
 
-  const handleFilesSelected = async (paths: string[]) => {
+  const handleSourcesSelected = async (sources: FileSource[]) => {
     try {
-      await fileSelection.addPaths(paths);
+      await fileSelection.addSources(sources);
     } catch (err) {
       toast.error(getErrorMessage(err));
     }
@@ -72,8 +73,9 @@ function SendPage() {
 
     setSending(true);
     try {
-      const filePaths = fileSelection.getFilePaths();
-      const prepared = await prepareSend(filePaths);
+      // 将扫描到的文件列表传给后端计算 hash
+      const scannedFiles = fileSelection.getScannedFiles();
+      const prepared = await prepareSend(scannedFiles);
       const fileIds = prepared.files.map((f) => f.fileId);
       const result = await startSend(
         prepared.preparedId,
@@ -135,7 +137,7 @@ function SendPage() {
         device={device}
         fileSelection={fileSelection}
         sending={sending}
-        onFilesSelected={handleFilesSelected}
+        onSourcesSelected={handleSourcesSelected}
         onSend={handleSend}
         onBack={handleBack}
       />
@@ -147,7 +149,7 @@ function SendPage() {
       device={device}
       fileSelection={fileSelection}
       sending={sending}
-      onFilesSelected={handleFilesSelected}
+      onSourcesSelected={handleSourcesSelected}
       onSend={handleSend}
       onBack={handleBack}
     />
@@ -160,7 +162,7 @@ interface SendViewProps {
   device: Device;
   fileSelection: ReturnType<typeof useFileSelection>;
   sending: boolean;
-  onFilesSelected: (paths: string[]) => void;
+  onSourcesSelected: (sources: FileSource[]) => void;
   onSend: () => void;
   onBack: () => void;
 }
@@ -170,11 +172,11 @@ interface SendViewProps {
 function SendContent({
   fileSelection,
   sending,
-  onFilesSelected,
-}: Pick<SendViewProps, "fileSelection" | "sending" | "onFilesSelected">) {
+  onSourcesSelected,
+}: Pick<SendViewProps, "fileSelection" | "sending" | "onSourcesSelected">) {
   return (
     <>
-      <FileDropZone onFilesSelected={onFilesSelected} disabled={sending} />
+      <FileDropZone onSourcesSelected={onSourcesSelected} disabled={sending} />
       {fileSelection.hasFiles && (
         <FileTree
           mode="select"
@@ -182,7 +184,7 @@ function SendContent({
           rootChildren={fileSelection.rootChildren}
           totalCount={fileSelection.totalCount}
           totalSize={fileSelection.totalSize}
-          onRemoveFile={fileSelection.removePath}
+          onRemoveFile={fileSelection.removeFile}
         />
       )}
     </>
@@ -195,7 +197,7 @@ function MobileSendView({
   device,
   fileSelection,
   sending,
-  onFilesSelected,
+  onSourcesSelected,
   onSend,
   onBack,
 }: SendViewProps) {
@@ -226,7 +228,7 @@ function MobileSendView({
           <SendContent
             fileSelection={fileSelection}
             sending={sending}
-            onFilesSelected={onFilesSelected}
+            onSourcesSelected={onSourcesSelected}
           />
         </div>
       </div>
@@ -252,7 +254,7 @@ function DesktopSendView({
   device,
   fileSelection,
   sending,
-  onFilesSelected,
+  onSourcesSelected,
   onSend,
   onBack,
 }: SendViewProps) {
@@ -276,7 +278,7 @@ function DesktopSendView({
       <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-5 overflow-hidden p-5 lg:p-6">
         {/* 可滚动区域：拖放区 + 文件树 */}
         <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-auto">
-          <FileDropZone onFilesSelected={onFilesSelected} disabled={sending} />
+          <FileDropZone onSourcesSelected={onSourcesSelected} disabled={sending} />
           {fileSelection.hasFiles && (
             <FileTree
               mode="select"
@@ -284,7 +286,7 @@ function DesktopSendView({
               rootChildren={fileSelection.rootChildren}
               totalCount={fileSelection.totalCount}
               totalSize={fileSelection.totalSize}
-              onRemoveFile={fileSelection.removePath}
+              onRemoveFile={fileSelection.removeFile}
             />
           )}
         </div>

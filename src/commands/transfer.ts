@@ -4,6 +4,7 @@
  */
 
 import { invoke } from "@tauri-apps/api/core";
+import { AndroidFsUri } from "tauri-plugin-android-fs-api";
 
 // === 类型定义 ===
 
@@ -98,35 +99,32 @@ export interface TransferFailedEvent {
   error: string;
 }
 
-// === 文件信息查询 ===
+// === 文件来源 ===
 
-/** 文件条目 */
-export interface FileEntry {
-  path: string;
-  name: string;
-  size: number;
-}
+/**
+ * 文件来源（与 Rust FileSource 枚举对应）
+ * - path: 标准文件系统路径（桌面 + Android 私有目录）
+ * - androidUri: Android SAF/MediaStore URI（复用 tauri-plugin-android-fs-api 的 AndroidFsUri）
+ */
+export type FileSource =
+  | { type: "path"; path: string }
+  | ({ type: "androidUri" } & AndroidFsUri);
 
-/** listFiles 返回结果 */
-export interface ListFilesResult {
-  /** 输入路径是否为目录 */
+// === 扫描结果 ===
+
+/** 单个来源的扫描结果 */
+export interface ScannedSourceResult {
   isDirectory: boolean;
-  /** 所有文件条目（仅文件，不含目录） */
-  entries: FileEntry[];
-  /** 文件总数 */
-  totalCount: number;
-  /** 文件总大小（字节） */
+  files: ScannedFile[];
   totalSize: number;
 }
 
-/** 递归列举路径下的所有文件 */
-export async function listFiles(path: string): Promise<ListFilesResult> {
-  return invoke("list_files", { path });
-}
-
-/** 批量获取文件元信息 */
-export async function getFileMeta(paths: string[]): Promise<FileEntry[]> {
-  return invoke("get_file_meta", { paths });
+/** 扫描到的单个文件（同时用于 scanSources 返回和 prepareSend 输入） */
+export interface ScannedFile {
+  source: FileSource;
+  name: string;
+  relativePath: string;
+  size: number;
 }
 
 // === 命令函数 ===
@@ -138,11 +136,24 @@ export interface StartSendResult {
   reason: string | null;
 }
 
-/** 准备发送：扫描文件、计算校验和 */
+/**
+ * 扫描文件来源：遍历目录、收集元数据，不计算 hash
+ * 用于用户选择文件后在 UI 上展示文件树
+ */
+export async function scanSources(
+  sources: FileSource[],
+): Promise<ScannedSourceResult[]> {
+  return invoke("scan_sources", { sources });
+}
+
+/**
+ * 准备发送：对预扫描的文件列表计算 BLAKE3 校验和
+ * 接收 scanSources 返回的 ScannedFile 列表（前端可能已移除部分文件）
+ */
 export async function prepareSend(
-  filePaths: string[],
+  files: ScannedFile[],
 ): Promise<PreparedTransfer> {
-  return invoke("prepare_send", { filePaths });
+  return invoke("prepare_send", { files });
 }
 
 /** 开始发送到指定设备，等待对方响应 */
