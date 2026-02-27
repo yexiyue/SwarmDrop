@@ -12,7 +12,6 @@ import {
   Loader2,
   RefreshCw,
   Sparkles,
-  Zap,
 } from "lucide-react";
 import { type } from "@tauri-apps/plugin-os";
 import { getVersion } from "@tauri-apps/api/app";
@@ -74,9 +73,7 @@ export function AboutSection() {
         <div className="flex flex-col gap-4 p-4 min-[480px]:flex-row min-[480px]:items-center min-[480px]:justify-between">
           {/* 应用信息 */}
           <div className="flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-blue-500">
-              <Zap className="size-[22px] text-white" />
-            </div>
+            <img src="/app-icon.svg" alt="SwarmDrop" className="size-10 rounded-lg" />
             <div className="flex flex-col gap-0.5">
               <span className="text-[15px] font-semibold text-foreground">
                 SwarmDrop
