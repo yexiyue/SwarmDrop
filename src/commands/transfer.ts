@@ -67,24 +67,27 @@ export interface TransferOfferEvent {
   totalSize: number;
 }
 
+/** 单个文件的进度信息 */
+export interface FileProgressInfo {
+  fileId: number;
+  name: string;
+  size: number;
+  transferred: number;
+  status: "pending" | "transferring" | "completed";
+}
+
 /** 传输进度更新 */
 export interface TransferProgressEvent {
   sessionId: string;
   direction: TransferDirection;
   totalFiles: number;
   completedFiles: number;
-  currentFile: {
-    fileId: number;
-    name: string;
-    size: number;
-    transferred: number;
-    chunksCompleted: number;
-    totalChunks: number;
-  } | null;
   totalBytes: number;
   transferredBytes: number;
   speed: number;
   eta: number | null;
+  /** 每个文件的独立进度 */
+  files: FileProgressInfo[];
 }
 
 /** 传输完成 */
@@ -151,11 +154,16 @@ export interface PrepareProgress {
 
 // === 命令函数 ===
 
+/** Offer 被拒绝的原因（与 Rust OfferRejectReason 对应） */
+export type OfferRejectReason =
+  | { type: "not_paired" }
+  | { type: "user_declined" };
+
 /** 开始发送的结果 */
 export interface StartSendResult {
   sessionId: string;
   accepted: boolean;
-  reason: string | null;
+  reason: OfferRejectReason | null;
 }
 
 /**

@@ -238,11 +238,17 @@ function getFileStatus(
   errorFileIds?: Set<number>,
 ): FileStatus {
   if (mode === "select") return "select";
-  if (!data.fileId) return "waiting";
+  if (data.fileId == null) return "waiting";
 
   if (errorFileIds?.has(data.fileId)) return "error";
   if (completedFileIds?.has(data.fileId)) return "completed";
-  if (progress?.currentFile?.fileId === data.fileId) return "transferring";
+
+  // 从 per-file 进度中查找状态
+  const fileProgress = progress?.files?.find((f) => f.fileId === data.fileId);
+  if (fileProgress) {
+    if (fileProgress.status === "completed") return "completed";
+    if (fileProgress.status === "transferring") return "transferring";
+  }
   return "waiting";
 }
 
@@ -251,9 +257,8 @@ function getFileProgress(
   data: TreeNodeData,
   progress?: TransferProgressEvent | null,
 ): number {
-  if (!progress?.currentFile || progress.currentFile.fileId !== data.fileId) {
-    return 0;
-  }
-  const { transferred, size } = progress.currentFile;
-  return size > 0 ? (transferred / size) * 100 : 0;
+  if (data.fileId == null || !progress?.files) return 0;
+  const fileProgress = progress.files.find((f) => f.fileId === data.fileId);
+  if (!fileProgress || fileProgress.size <= 0) return 0;
+  return (fileProgress.transferred / fileProgress.size) * 100;
 }

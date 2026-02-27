@@ -46,11 +46,11 @@ impl OsInfo {
         )
     }
 
-    /// 无法解析 agent_version 时的回退值，用 PeerId 前 8 位作为 hostname
+    /// 无法解析 agent_version 时的回退值，用 PeerId 末尾 8 位作为 hostname
     pub fn unknown_from_peer_id(peer_id: &PeerId) -> Self {
         let s = peer_id.to_string();
         Self {
-            hostname: s[..8.min(s.len())].to_string(),
+            hostname: s[s.len().saturating_sub(8)..].to_string(),
             os: "unknown".to_string(),
             platform: "unknown".to_string(),
             arch: "unknown".to_string(),

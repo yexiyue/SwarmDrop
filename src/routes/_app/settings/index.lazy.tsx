@@ -22,6 +22,8 @@ import { useShallow } from "zustand/react/shallow";
 import { usePreferencesStore } from "@/stores/preferences-store";
 import { locales, type LocaleKey } from "@/lib/i18n";
 import { AboutSection } from "./-about-section";
+import { NetworkSettingsSection } from "./-network-settings-section";
+import { BootstrapNodesSection } from "./-bootstrap-nodes-section";
 import { TransferSettingsSection } from "./-transfer-settings-section";
 
 export const Route = createLazyFileRoute("/_app/settings/")({
@@ -89,6 +91,12 @@ function SettingsPage() {
               </div>
             </div>
           </section>
+
+          {/* 网络 */}
+          <NetworkSettingsSection />
+
+          {/* 引导节点 */}
+          <BootstrapNodesSection />
 
           {/* 外观 */}
           <section className="flex flex-col gap-3">

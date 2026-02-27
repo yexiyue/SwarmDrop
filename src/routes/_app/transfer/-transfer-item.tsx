@@ -149,9 +149,12 @@ export function TransferItem({ session }: TransferItemProps) {
           <Progress value={progressPercent} className="h-1.5" />
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>
-              {session.progress.currentFile?.name && (
-                <>{session.progress.currentFile.name} · </>
-              )}
+              {(() => {
+                const active = session.progress?.files?.find(
+                  (f) => f.status === "transferring",
+                );
+                return active ? <>{active.name} · </> : null;
+              })()}
               {formatSpeed(session.progress.speed)}
             </span>
             <span>

@@ -360,11 +360,12 @@ const MobileTransferDetailView = memo(function MobileTransferDetailView({
               <Trans>传输详情</Trans>
             </h3>
             <FileTree
-              mode="select"
+              mode={session.status === "transferring" ? "transfer" : "select"}
               dataLoader={treeData.dataLoader}
               rootChildren={treeData.rootChildren}
               totalCount={session.files.length}
               totalSize={session.totalSize}
+              progress={session.progress}
             />
           </div>
         </div>
@@ -419,11 +420,12 @@ const DesktopTransferDetailView = memo(function DesktopTransferDetailView({
               <Trans>传输详情</Trans>
             </h3>
             <FileTree
-              mode="select"
+              mode={session.status === "transferring" ? "transfer" : "select"}
               dataLoader={treeData.dataLoader}
               rootChildren={treeData.rootChildren}
               totalCount={session.files.length}
               totalSize={session.totalSize}
+              progress={session.progress}
             />
           </div>
 

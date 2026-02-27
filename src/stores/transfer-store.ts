@@ -5,6 +5,12 @@
 
 import { create } from "zustand";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import {
+  TRANSFER_OFFER,
+  TRANSFER_PROGRESS,
+  TRANSFER_COMPLETE,
+  TRANSFER_FAILED,
+} from "@/constants/events";
 import type {
   TransferSession,
   TransferOfferEvent,
@@ -52,22 +58,22 @@ export async function setupTransferListeners() {
 
   const fns = await Promise.all([
     // 收到传输提议
-    listen<TransferOfferEvent>("transfer-offer", (event) => {
+    listen<TransferOfferEvent>(TRANSFER_OFFER, (event) => {
       useTransferStore.getState().pushOffer(event.payload);
     }),
 
     // 传输进度更新
-    listen<TransferProgressEvent>("transfer-progress", (event) => {
+    listen<TransferProgressEvent>(TRANSFER_PROGRESS, (event) => {
       useTransferStore.getState().updateProgress(event.payload);
     }),
 
     // 传输完成
-    listen<TransferCompleteEvent>("transfer-complete", (event) => {
+    listen<TransferCompleteEvent>(TRANSFER_COMPLETE, (event) => {
       useTransferStore.getState().completeSession(event.payload);
     }),
 
     // 传输失败
-    listen<TransferFailedEvent>("transfer-failed", (event) => {
+    listen<TransferFailedEvent>(TRANSFER_FAILED, (event) => {
       useTransferStore.getState().failSession(event.payload);
     }),
   ]);
