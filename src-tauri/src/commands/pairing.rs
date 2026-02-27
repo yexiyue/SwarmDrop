@@ -1,3 +1,4 @@
+use crate::events;
 use crate::network::NetManagerState;
 use crate::pairing::code::{PairingCodeInfo, ShareCodeRecord};
 use crate::protocol::{PairingMethod, PairingResponse};
@@ -65,10 +66,24 @@ pub async fn request_pairing(
         .await?;
 
     if let Some(info) = paired_info {
-        let _ = app.emit("paired-device-added", &info);
+        let _ = app.emit(events::PAIRED_DEVICE_ADDED, &info);
     }
 
     Ok(response)
+}
+
+/// 取消与指定设备的配对（同步更新运行时状态）
+#[tauri::command]
+pub async fn remove_paired_device(
+    net: State<'_, NetManagerState>,
+    peer_id: PeerId,
+) -> AppResult<()> {
+    let guard = net.lock().await;
+    // 节点未运行时静默成功（前端仍会更新 Stronghold）
+    if let Some(manager) = guard.as_ref() {
+        manager.pairing().remove_paired_device(&peer_id);
+    }
+    Ok(())
 }
 
 /// 处理收到的配对请求（接受/拒绝）
@@ -90,7 +105,7 @@ pub async fn respond_pairing_request(
         .await?;
 
     if let Some(info) = paired_info {
-        let _ = app.emit("paired-device-added", &info);
+        let _ = app.emit(events::PAIRED_DEVICE_ADDED, &info);
     }
 
     Ok(())

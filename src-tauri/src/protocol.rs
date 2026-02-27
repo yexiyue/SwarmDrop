@@ -26,11 +26,19 @@ pub enum PairingMethod {
     Direct,
 }
 
+/// 配对被拒绝的原因（类型化，供前端 i18n 使用）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "type")]
+pub enum PairingRefuseReason {
+    /// 接收方用户主动拒绝
+    UserRejected,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "status")]
 pub enum PairingResponse {
     Success,
-    Refused { reason: String },
+    Refused { reason: PairingRefuseReason },
 }
 
 // ============ Transfer 协议 ============
@@ -76,6 +84,16 @@ pub enum TransferRequest {
     },
 }
 
+/// Offer 被拒绝的原因（类型化，供前端 i18n 使用）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "type")]
+pub enum OfferRejectReason {
+    /// 发送方不在接收方的已配对设备列表中
+    NotPaired,
+    /// 接收方用户主动拒绝
+    UserDeclined,
+}
+
 /// 传输响应
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "kind")]
@@ -89,8 +107,8 @@ pub enum TransferResponse {
             deserialize_with = "deserialize_opt_key"
         )]
         key: Option<[u8; 32]>,
-        /// 拒绝时的原因
-        reason: Option<String>,
+        /// 拒绝时的原因（类型化）
+        reason: Option<OfferRejectReason>,
     },
     /// 发送方回复 ChunkRequest，返回加密后的分块数据
     Chunk {
