@@ -67,24 +67,27 @@ export interface TransferOfferEvent {
   totalSize: number;
 }
 
+/** 单个文件的进度信息 */
+export interface FileProgressInfo {
+  fileId: number;
+  name: string;
+  size: number;
+  transferred: number;
+  status: "pending" | "transferring" | "completed";
+}
+
 /** 传输进度更新 */
 export interface TransferProgressEvent {
   sessionId: string;
   direction: TransferDirection;
   totalFiles: number;
   completedFiles: number;
-  currentFile: {
-    fileId: number;
-    name: string;
-    size: number;
-    transferred: number;
-    chunksCompleted: number;
-    totalChunks: number;
-  } | null;
   totalBytes: number;
   transferredBytes: number;
   speed: number;
   eta: number | null;
+  /** 每个文件的独立进度 */
+  files: FileProgressInfo[];
 }
 
 /** 传输完成 */

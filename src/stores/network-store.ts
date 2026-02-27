@@ -12,6 +12,12 @@ import {
   listDevices,
   getNetworkStatus,
 } from "@/commands/network";
+import {
+  DEVICES_CHANGED,
+  NETWORK_STATUS_CHANGED,
+  PAIRING_REQUEST_RECEIVED,
+  PAIRED_DEVICE_ADDED,
+} from "@/constants/events";
 import { getErrorMessage } from "@/lib/errors";
 import { useSecretStore, type PairedDevice } from "@/stores/secret-store";
 import { usePairingStore } from "@/stores/pairing-store";
@@ -59,12 +65,12 @@ async function setupEventListeners() {
 
   const fns = await Promise.all([
     // 设备列表变更（后端推送完整列表）
-    listen<Device[]>("devices-changed", (event) => {
+    listen<Device[]>(DEVICES_CHANGED, (event) => {
       useNetworkStore.setState({ devices: event.payload });
     }),
 
     // 网络状态变更（后端推送完整状态，同时判断节点是否已启动）
-    listen<NetworkStatus>("network-status-changed", (event) => {
+    listen<NetworkStatus>(NETWORK_STATUS_CHANGED, (event) => {
       const store = useNetworkStore.getState();
       const updates: Partial<NetworkState> = { networkStatus: event.payload };
       if (event.payload.status === "running" && store.status !== "running") {
@@ -75,12 +81,12 @@ async function setupEventListeners() {
     }),
 
     // 配对请求（转发给 pairing-store）
-    listen("pairing-request-received", (event) => {
+    listen(PAIRING_REQUEST_RECEIVED, (event) => {
       usePairingStore.getState().handleInboundRequest(event.payload as any);
     }),
 
     // 配对成功（后端已添加到运行时，同步到 Stronghold 持久化）
-    listen<PairedDevice>("paired-device-added", (event) => {
+    listen<PairedDevice>(PAIRED_DEVICE_ADDED, (event) => {
       useSecretStore.getState().addPairedDevice(event.payload);
     }),
   ]);

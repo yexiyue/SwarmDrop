@@ -1,3 +1,4 @@
+use crate::events;
 use crate::network::NetManagerState;
 use crate::pairing::code::{PairingCodeInfo, ShareCodeRecord};
 use crate::protocol::{PairingMethod, PairingResponse};
@@ -65,7 +66,7 @@ pub async fn request_pairing(
         .await?;
 
     if let Some(info) = paired_info {
-        let _ = app.emit("paired-device-added", &info);
+        let _ = app.emit(events::PAIRED_DEVICE_ADDED, &info);
     }
 
     Ok(response)
@@ -90,7 +91,7 @@ pub async fn respond_pairing_request(
         .await?;
 
     if let Some(info) = paired_info {
-        let _ = app.emit("paired-device-added", &info);
+        let _ = app.emit(events::PAIRED_DEVICE_ADDED, &info);
     }
 
     Ok(())

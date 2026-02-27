@@ -5,7 +5,6 @@
 //! 加密使用 [`TransferCrypto`]。
 //! 使用 Semaphore 控制并发度（8 并发），CancellationToken 支持取消。
 
-use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
 
 use swarm_p2p_core::libp2p::PeerId;
@@ -21,7 +20,7 @@ use crate::protocol::{
     AppNetClient, AppRequest, AppResponse, FileInfo, TransferRequest, TransferResponse,
 };
 use crate::transfer::crypto::TransferCrypto;
-use crate::transfer::progress::{CurrentFileProgress, ProgressTracker};
+use crate::transfer::progress::{FileDesc, ProgressTracker, TransferDirection};
 use crate::{AppError, AppResult};
 
 /// 最大并发拉取数
@@ -121,12 +120,26 @@ impl ReceiveSession {
         // Android 端在首次写入前请求存储权限
         self.sink.ensure_permission(&self.app).await?;
 
-        let progress = Arc::new(Mutex::new(ProgressTracker::new(
+        let mut tracker = ProgressTracker::new(
             self.session_id,
-            "receive",
+            TransferDirection::Receive,
             self.total_size,
             self.files.len(),
-        )));
+        );
+
+        // 初始化 per-file 追踪
+        let file_descs: Vec<FileDesc> = self
+            .files
+            .iter()
+            .map(|f| FileDesc {
+                file_id: f.file_id,
+                name: f.name.clone(),
+                size: f.size,
+            })
+            .collect();
+        tracker.init_files(&file_descs);
+
+        let progress = Arc::new(Mutex::new(tracker));
 
         // 收集已完成文件的 URI（Android 端用于前端打开文件）
         let mut file_uris: Vec<serde_json::Value> = Vec::new();
@@ -140,17 +153,10 @@ impl ReceiveSession {
 
             let total_chunks = calc_total_chunks(file_info.size);
 
-            // 更新进度：设置当前文件
+            // 更新进度：标记当前文件为 transferring
             {
                 let mut p = progress.lock().await;
-                p.set_current_file(CurrentFileProgress {
-                    file_id: file_info.file_id,
-                    name: file_info.name.clone(),
-                    size: file_info.size,
-                    transferred: 0,
-                    chunks_completed: 0,
-                    total_chunks,
-                });
+                p.set_file_transferring(file_info.file_id);
                 p.emit_progress(&self.app);
             }
 
@@ -189,10 +195,6 @@ impl ReceiveSession {
                     }
                     // 文件已最终化，从跟踪列表移除
                     self.remove_created_part(&part_file).await;
-                    // 更新进度
-                    let mut p = progress.lock().await;
-                    p.complete_file();
-                    p.emit_progress(&self.app);
                 }
                 Err(e) => {
                     self.remove_created_part(&part_file).await;
@@ -259,8 +261,6 @@ impl ReceiveSession {
         progress: &Arc<Mutex<ProgressTracker>>,
     ) -> AppResult<()> {
         let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_CHUNKS));
-        let chunks_completed = Arc::new(AtomicU32::new(0));
-        let file_transferred = Arc::new(AtomicU64::new(0));
         let error_flag = Arc::new(tokio::sync::Mutex::new(None::<AppError>));
 
         let mut handles = Vec::with_capacity(total_chunks as usize);
@@ -280,8 +280,6 @@ impl ReceiveSession {
             let file_id = file_info.file_id;
             let part_file = part_file.clone();
             let progress = progress.clone();
-            let chunks_done = chunks_completed.clone();
-            let file_trans = file_transferred.clone();
             let err_flag = error_flag.clone();
             let cancel = self.cancel_token.clone();
 
@@ -303,14 +301,9 @@ impl ReceiveSession {
 
                 match result {
                     Ok(chunk_size) => {
-                        let done = chunks_done.fetch_add(1, Ordering::Relaxed) + 1;
-                        let transferred =
-                            file_trans.fetch_add(chunk_size as u64, Ordering::Relaxed)
-                                + chunk_size as u64;
-
                         let mut p = progress.lock().await;
                         p.add_bytes(chunk_size as u64);
-                        p.update_current_chunks(done, transferred);
+                        p.update_file_chunk(file_id, chunk_size as u64);
                         p.emit_progress(&session.app);
                     }
                     Err(e) => {

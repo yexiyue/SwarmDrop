@@ -198,7 +198,7 @@ export const usePairingStore = create<PairingState>()(
     },
 
     async acceptRequest() {
-      const { incomingRequest } = get();
+      const { incomingRequest, current } = get();
       if (!incomingRequest) return;
 
       const { pendingId, osInfo, method } = incomingRequest;
@@ -214,6 +214,18 @@ export const usePairingStore = create<PairingState>()(
         toast.success(`已与 ${osInfo.hostname} 配对成功`);
         // 处理队列中的下一个请求
         get().processNextInbound();
+
+        // Code 模式配对成功后，后端已消耗活跃码（单例设计）
+        if (method.type === "code") {
+          // 清理队列中其他 Code 模式请求——旧码已失效，继续展示只会报错
+          set((state) => ({
+            inboundQueue: state.inboundQueue.filter((r) => r.method.type !== "code"),
+          }));
+          // 若当前仍在展示配对码，自动重新生成
+          if (current.phase === "generating") {
+            void get().generateCode();
+          }
+        }
       } catch (err) {
         if (handleNodeNotStarted(err)) return;
         const message = getErrorMessage(err);

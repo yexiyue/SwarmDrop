@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use dashmap::DashMap;
@@ -27,8 +27,8 @@ struct PendingInbound {
 pub struct PairingManager {
     client: AppNetClient,
     peer_id: PeerId,
-    /// 活跃的配对码，key 为配对码字符串
-    active_codes: DashMap<String, PairingCodeInfo>,
+    /// 当前活跃的配对码（单例，同一时刻最多一个）
+    active_code: Mutex<Option<PairingCodeInfo>>,
     /// 已配对设备（与 DeviceManager 共享读取）
     paired_devices: Arc<DashMap<PeerId, PairedDeviceInfo>>,
     /// 入站请求缓存，handle_pairing_request 时取出
@@ -46,7 +46,7 @@ impl PairingManager {
         Self {
             client,
             peer_id,
-            active_codes: DashMap::new(),
+            active_code: Mutex::new(None),
             paired_devices,
             pending_inbound: DashMap::new(),
             discovered_peers: DashMap::new(),
@@ -114,8 +114,8 @@ impl PairingManager {
         )
         .await?;
 
-        self.active_codes
-            .insert(code_info.code.clone(), code_info.clone());
+        // 覆盖旧码（旧 DHT 记录靠 TTL 自然过期，无需显式删除）
+        *self.active_code.lock().unwrap() = Some(code_info.clone());
 
         Ok(code_info)
     }
@@ -218,14 +218,19 @@ impl PairingManager {
         method: &PairingMethod,
         response: PairingResponse,
     ) -> AppResult<Option<PairedDeviceInfo>> {
+        // 仅在接受时验证并消耗配对码；拒绝时直接发响应，无需验证
         if let PairingMethod::Code { code } = method {
-            let (_, info) = self
-                .active_codes
-                .remove(code.as_str())
-                .ok_or(AppError::InvalidCode)?;
-
-            if info.is_expired() {
-                return Err(AppError::ExpiredCode);
+            if matches!(response, PairingResponse::Success) {
+                let mut guard = self.active_code.lock().unwrap();
+                let info = guard.as_ref().ok_or(AppError::InvalidCode)?;
+                if &info.code != code {
+                    return Err(AppError::InvalidCode);
+                }
+                if info.is_expired() {
+                    return Err(AppError::ExpiredCode);
+                }
+                *guard = None;
+                // guard 在此处 drop，锁在 await 之前释放
             }
         }
 
