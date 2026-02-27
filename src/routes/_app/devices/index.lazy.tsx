@@ -104,6 +104,7 @@ function DevicesPage() {
           onConnect={handleConnect}
           onUnpair={handleUnpair}
           onStartClick={() => setStartSheetOpen(true)}
+          onStopClick={() => setStopSheetOpen(true)}
         />
       )}
 
@@ -215,6 +216,7 @@ function DesktopDevicesView({
   onConnect,
   onUnpair,
   onStartClick,
+  onStopClick,
 }: {
   isOnline: boolean;
   pairedDevices: Device[];
@@ -223,6 +225,7 @@ function DesktopDevicesView({
   onConnect: (device: Device) => void;
   onUnpair: (device: Device) => void;
   onStartClick: () => void;
+  onStopClick: () => void;
 }) {
   return (
     <main className="flex h-full flex-1 flex-col bg-background">
@@ -242,6 +245,9 @@ function DesktopDevicesView({
         /* Page Content */
         <div className="flex-1 overflow-auto p-5 lg:p-6">
           <div className="flex flex-col gap-6">
+            {/* 网络状态栏 */}
+            <NetworkStatusBar onStopClick={onStopClick} />
+
             {/* Paired Devices Section */}
             <section className="flex flex-col gap-4">
               <div className="flex items-center gap-2">

@@ -33,16 +33,25 @@ pub async fn start(
     app: AppHandle,
     keypair: State<'_, Keypair>,
     paired_devices: Vec<PairedDeviceInfo>,
+    custom_bootstrap_nodes: Option<Vec<String>>,
 ) -> crate::AppResult<()> {
     let agent_version = crate::device::OsInfo::default().to_agent_version();
-    let config = crate::network::config::create_node_config(agent_version);
+    let result = crate::network::config::create_node_config(
+        agent_version,
+        custom_bootstrap_nodes.unwrap_or_default(),
+    );
 
     let (client, receiver) =
-        swarm_p2p_core::start::<AppRequest, AppResponse>((*keypair).clone(), config)
+        swarm_p2p_core::start::<AppRequest, AppResponse>((*keypair).clone(), result.config)
             .map_err(|e| AppError::Network(e.to_string()))?;
 
     let peer_id = PeerId::from_public_key(&keypair.public());
-    let net_manager = NetManager::new(client.clone(), peer_id, paired_devices);
+    let net_manager = NetManager::new(
+        client.clone(),
+        peer_id,
+        paired_devices,
+        result.bootstrap_peer_ids,
+    );
 
     // 宣布上线（bootstrap 前发布，尽早让对方发现）
     if let Err(e) = net_manager.pairing().announce_online().await {

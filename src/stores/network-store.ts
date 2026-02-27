@@ -21,6 +21,7 @@ import {
 import { getErrorMessage } from "@/lib/errors";
 import { useSecretStore, type PairedDevice } from "@/stores/secret-store";
 import { usePairingStore } from "@/stores/pairing-store";
+import { usePreferencesStore } from "@/stores/preferences-store";
 
 /** 节点状态（前端 UI 生命周期） */
 export type NodeStatus = "stopped" | "starting" | "running" | "error";
@@ -131,7 +132,8 @@ export const useNetworkStore = create<NetworkState>()((set, get) => ({
       // 设置 Tauri Event 监听（在启动前设置，避免丢失早期事件）
       await setupEventListeners();
 
-      await start(pairedDevices);
+      const { customBootstrapNodes } = usePreferencesStore.getState();
+      await start(pairedDevices, customBootstrapNodes);
       // status 会在收到 listening 事件后更新为 running
     } catch (err) {
       console.error("Failed to start node:", err);
