@@ -272,7 +272,7 @@ export const usePairingStore = create<PairingState>()(
         if (response.status === "success") {
           // 已配对设备由后端通过 paired-device-added 事件同步到 Stronghold
           const device = useNetworkStore.getState().devices.find(d => d.peerId === peerId);
-          const deviceName = device?.hostname ?? peerId.slice(0, 8);
+          const deviceName = device?.hostname ?? peerId.slice(-8);
 
           set({
             current: {

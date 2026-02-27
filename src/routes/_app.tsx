@@ -19,6 +19,8 @@ import { AppSidebar } from "@/components/layout/sidebar";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { useAuthStore } from "@/stores/auth-store";
+import { useNetworkStore } from "@/stores/network-store";
+import { usePreferencesStore } from "@/stores/preferences-store";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { ConnectionRequestDialog } from "@/components/pairing/connection-request-dialog";
 import { TransferOfferDialog } from "@/components/transfer/transfer-offer-dialog";
@@ -55,6 +57,15 @@ function AppLayout() {
     return () => {
       cleanupTransferListeners();
     };
+  }, []);
+
+  // 自动启动节点（解锁后首次进入时检查）
+  useEffect(() => {
+    const { autoStart } = usePreferencesStore.getState();
+    const { status, startNetwork } = useNetworkStore.getState();
+    if (autoStart && status === "stopped") {
+      startNetwork();
+    }
   }, []);
 
   const location = useLocation();
