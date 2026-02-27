@@ -6,7 +6,6 @@
 
 import { useMemo, useState } from "react";
 import { createLazyFileRoute, useNavigate } from "@tanstack/react-router";
-import { useShallow } from "zustand/react/shallow";
 import { DeviceCard } from "./-components/device-card";
 import type { Device } from "@/commands/network";
 import { Trans } from "@lingui/react/macro";
@@ -30,9 +29,9 @@ function DevicesPage() {
   const isMobile = breakpoint === "mobile";
   const navigate = useNavigate();
 
-  // 共享数据 hooks - 使用 useShallow 优化选择多个值的性能
-  const { devices, status } = useNetworkStore(
-    useShallow((state) => ({ devices: state.devices, status: state.status }))
+  const devices = useNetworkStore((s) => s.devices);
+  const isOnline = useNetworkStore(
+    (s) => s.status === "running" || s.status === "starting",
   );
   const storedPairedDevices = useSecretStore((state) => state.pairedDevices);
   const directPairing = usePairingStore((state) => state.directPairing);
@@ -43,8 +42,9 @@ function DevicesPage() {
 
   // 已配对设备：后端在线数据优先，离线回退到 secret-store
   const pairedDevices = useMemo<Device[]>(() => {
+    const deviceMap = new Map(devices.map((d) => [d.peerId, d]));
     return storedPairedDevices.map((stored) => {
-      const backendDevice = devices.find((d) => d.peerId === stored.peerId);
+      const backendDevice = deviceMap.get(stored.peerId);
       if (backendDevice) {
         return backendDevice;
       }
@@ -80,8 +80,6 @@ function DevicesPage() {
     useSecretStore.getState().removePairedDevice(device.peerId);
   };
 
-  const isOnline = status === "running" || status === "starting";
-
   return (
     <>
       {isMobile ? (
@@ -115,6 +113,19 @@ function DevicesPage() {
   );
 }
 
+/* ─────────────────── 共享类型 ─────────────────── */
+
+interface DevicesViewProps {
+  isOnline: boolean;
+  pairedDevices: Device[];
+  nearbyDevices: Device[];
+  onSend: (device: Device) => void;
+  onConnect: (device: Device) => void;
+  onUnpair: (device: Device) => void;
+  onStartClick: () => void;
+  onStopClick: () => void;
+}
+
 /* ─────────────────── 移动端视图 ─────────────────── */
 
 function MobileDevicesView({
@@ -126,16 +137,7 @@ function MobileDevicesView({
   onUnpair,
   onStartClick,
   onStopClick,
-}: {
-  isOnline: boolean;
-  pairedDevices: Device[];
-  nearbyDevices: Device[];
-  onSend: (device: Device) => void;
-  onConnect: (device: Device) => void;
-  onUnpair: (device: Device) => void;
-  onStartClick: () => void;
-  onStopClick: () => void;
-}) {
+}: DevicesViewProps) {
   return (
     <main className="flex h-full flex-1 flex-col bg-background">
       {/* 网络状态条 */}
@@ -217,16 +219,7 @@ function DesktopDevicesView({
   onUnpair,
   onStartClick,
   onStopClick,
-}: {
-  isOnline: boolean;
-  pairedDevices: Device[];
-  nearbyDevices: Device[];
-  onSend: (device: Device) => void;
-  onConnect: (device: Device) => void;
-  onUnpair: (device: Device) => void;
-  onStartClick: () => void;
-  onStopClick: () => void;
-}) {
+}: DevicesViewProps) {
   return (
     <main className="flex h-full flex-1 flex-col bg-background">
       {/* Toolbar */}

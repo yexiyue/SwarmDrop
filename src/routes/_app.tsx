@@ -64,7 +64,7 @@ function AppLayout() {
     const { autoStart } = usePreferencesStore.getState();
     const { status, startNetwork } = useNetworkStore.getState();
     if (autoStart && status === "stopped") {
-      startNetwork();
+      void startNetwork();
     }
   }, []);
 

@@ -967,6 +967,10 @@ msgstr "Language"
 msgid "请先启动网络节点"
 msgstr "Please start the network node first"
 
+#: src/routes/_app/pairing.tsx
+msgid "请先启动节点"
+msgstr "Please start the node first"
+
 #: src/routes/_app/settings/index.lazy.tsx
 msgid "跟随系统"
 msgstr "System"
@@ -1053,6 +1057,10 @@ msgstr "Select Files"
 #: src/routes/_app/send/-components/file-drop-zone.tsx
 msgid "选择文件夹"
 msgstr "Select Folder"
+
+#: src/routes/_app/pairing.tsx
+msgid "配对功能需要 P2P 节点处于运行状态"
+msgstr "Pairing requires the P2P node to be running"
 
 #: src/components/pairing/connection-request-dialog.tsx
 msgid "配对后，该设备可以向您发送文件。请确认您认识此设备。"
