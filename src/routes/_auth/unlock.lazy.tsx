@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuthStore, BiometryType } from "@/stores/auth-store";
 import { getAuthErrorMessage, isKnownErrorType } from "@/lib/auth-messages";
-import { Send, ScanFace, Fingerprint, Eye, EyeOff, Loader2 } from "lucide-react";
+import { ScanFace, Fingerprint, Eye, EyeOff, Loader2 } from "lucide-react";
 
 export const Route = createLazyFileRoute("/_auth/unlock")({
   component: UnlockPage,
@@ -83,9 +83,7 @@ function UnlockPage() {
       <div className="flex w-full max-w-sm flex-col items-center gap-8 rounded-xl bg-card p-10 shadow-sm">
         {/* Logo */}
         <div className="flex flex-col items-center gap-3">
-          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary">
-            <Send className="h-7 w-7 text-primary-foreground" />
-          </div>
+          <img src="/app-icon.svg" alt="SwarmDrop" className="h-14 w-14" />
           <h1 className="text-lg font-semibold">SwarmDrop</h1>
         </div>
 
@@ -131,9 +129,7 @@ function UnlockPage() {
     <div className="flex w-full max-w-sm flex-col items-center gap-8 rounded-xl bg-card p-10 shadow-sm">
       {/* Logo */}
       <div className="flex flex-col items-center gap-3">
-        <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary">
-          <Send className="h-7 w-7 text-primary-foreground" />
-        </div>
+        <img src="/app-icon.svg" alt="SwarmDrop" className="h-14 w-14" />
         <h1 className="text-lg font-semibold">SwarmDrop</h1>
       </div>
 

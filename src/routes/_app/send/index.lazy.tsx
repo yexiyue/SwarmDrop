@@ -121,7 +121,10 @@ function SendPage() {
         completedAt: null,
       });
 
-      void navigate({ to: "/transfer" });
+      void navigate({
+        to: "/transfer/$sessionId",
+        params: { sessionId: result.sessionId },
+      });
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {

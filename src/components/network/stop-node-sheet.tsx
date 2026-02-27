@@ -229,15 +229,15 @@ function StopNodeContent({
           <span className="text-sm text-muted-foreground">
             <Trans>监听地址</Trans>
           </span>
-          <Card className="gap-0 bg-muted/50 py-0">
-            <CardContent className="p-3">
+          <Card className="gap-0 overflow-hidden bg-muted/50 py-0">
+            <CardContent className="max-h-40 overflow-y-auto p-3">
               {listenAddrs.length > 0 ? (
                 <div className="flex flex-col gap-1">
                   {listenAddrs.map((addr, i) => (
                     <code
                       key={i}
                       className={cn(
-                        "font-mono text-xs",
+                        "break-all font-mono text-xs",
                         i === 0 ? "text-foreground" : "text-muted-foreground",
                       )}
                     >

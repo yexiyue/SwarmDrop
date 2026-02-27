@@ -9,7 +9,7 @@ import { useLingui } from "@lingui/react/macro";
 import { msg } from "@lingui/core/macro";
 import type { MessageDescriptor } from "@lingui/core";
 import { Button } from "@/components/ui/button";
-import { Send, Lock, Globe, Wifi, type LucideIcon } from "lucide-react";
+import { Lock, Globe, Wifi, type LucideIcon } from "lucide-react";
 
 export const Route = createLazyFileRoute("/_auth/welcome")({
   component: WelcomePage,
@@ -46,9 +46,7 @@ function WelcomePage() {
     <div className="w-full max-w-sm rounded-xl bg-card p-8 shadow-sm">
       {/* Logo */}
       <div className="flex flex-col items-center space-y-3">
-        <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary">
-          <Send className="h-7 w-7 text-primary-foreground" />
-        </div>
+        <img src="/app-icon.svg" alt="SwarmDrop" className="h-14 w-14" />
         <h1 className="text-xl font-bold">SwarmDrop</h1>
         <p className="text-sm text-muted-foreground">
           <Trans>安全、快速的跨网络文件传输</Trans>

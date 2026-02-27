@@ -1,5 +1,4 @@
 import { cn } from "@/lib/utils";
-import { Send } from "lucide-react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useLingui } from "@lingui/react/macro";
 import { useState, useEffect, useRef } from "react";
@@ -99,9 +98,7 @@ export function AppSidebar() {
         onClick={toggleSidebar}
       >
         <div className="flex items-center gap-2">
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-linear-to-br from-blue-600 to-blue-500">
-            <Send className="size-4 text-white" />
-          </div>
+          <img src="/app-icon.svg" alt="SwarmDrop" className="size-7 shrink-0 rounded-md" />
           {!isCollapsed && (
             <span className="text-[15px] font-semibold text-sidebar-foreground">
               SwarmDrop
