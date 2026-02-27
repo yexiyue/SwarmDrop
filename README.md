@@ -1,221 +1,230 @@
+<div align="center">
+
+<img src="public/app-icon.svg" width="128" alt="SwarmDrop">
+
 # SwarmDrop
 
-<p align="center">
-  <img src="public/app-icon.svg" width="120" alt="SwarmDrop Logo">
-</p>
+**去中心化、跨网络、端到端加密的文件传输工具**
 
-<p align="center">
-  <strong>去中心化、跨网络、端到端加密的文件传输工具</strong>
-</p>
+*Drop files anywhere. No cloud. No limits.*
 
-<p align="center">
-  <a href="https://github.com/yexiyue/SwarmDrop/releases">
-    <img src="https://img.shields.io/github/v/release/yexiyue/SwarmDrop" alt="Release">
-  </a>
-  <a href="https://github.com/yexiyue/SwarmDrop/blob/main/LICENSE">
-    <img src="https://img.shields.io/badge/license-MIT-blue" alt="License">
-  </a>
-  <a href="https://tauri.app">
-    <img src="https://img.shields.io/badge/built%20with-Tauri-FFC131?logo=tauri" alt="Tauri">
-  </a>
-</p>
+[![Release](https://img.shields.io/github/v/release/yexiyue/SwarmDrop?style=flat-square)](https://github.com/yexiyue/SwarmDrop/releases)
+[![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
+[![Tauri](https://img.shields.io/badge/Tauri-v2-FFC131?style=flat-square&logo=tauri)](https://tauri.app)
+[![libp2p](https://img.shields.io/badge/libp2p-0.56-blue?style=flat-square)](https://libp2p.io)
 
-<p align="center">
-  <a href="https://github.com/yexiyue/SwarmDrop/releases">下载</a> •
-  <a href="#特性">特性</a> •
-  <a href="#安装">安装</a> •
-  <a href="#使用">使用</a> •
-  <a href="#开发">开发</a>
-</p>
+[下载安装](#下载安装) · [快速开始](#快速开始) · [功能特性](#功能特性) · [参与贡献](#参与贡献)
+
+</div>
 
 ---
 
-## 简介
+## 为什么选择 SwarmDrop？
 
-**SwarmDrop** 是一款无需账号、无需服务器的点对点文件传输工具，定位为"跨网络版的 LocalSend"。
+SwarmDrop 是一款无需账号、无需服务器的**点对点文件传输工具**，定位为「**跨网络版 LocalSend**」。
 
-利用 libp2p 网络协议，SwarmDrop 支持：
-- 📡 **跨网络传输** - 不局限于局域网，通过互联网连接任意设备
-- 🔒 **端到端加密** - 所有传输内容均加密，确保隐私安全
-- 🚀 **零配置** - 无需注册账号，开箱即用
-- 📱 **全平台** - 支持 Windows、macOS、Linux、Android
+<table>
+<tr>
+<td width="25%" align="center">
+<h3>🌐</h3>
+<b>跨网络传输</b><br>
+<sub>不局限于局域网<br>通过互联网连接任意设备</sub>
+</td>
+<td width="25%" align="center">
+<h3>🔒</h3>
+<b>端到端加密</b><br>
+<sub>XChaCha20-Poly1305 加密<br>中继节点无法解密内容</sub>
+</td>
+<td width="25%" align="center">
+<h3>🚀</h3>
+<b>零配置</b><br>
+<sub>无需注册账号<br>无需中央服务器</sub>
+</td>
+<td width="25%" align="center">
+<h3>📱</h3>
+<b>全平台</b><br>
+<sub>Windows · macOS<br>Linux · Android</sub>
+</td>
+</tr>
+</table>
 
-## 特性
+### 与同类工具对比
+
+| | LocalSend | Send Anywhere | **SwarmDrop** |
+|---|---|---|---|
+| **网络范围** | 仅局域网 | 跨网络 (中转服务器) | **跨网络 (P2P)** |
+| **服务器依赖** | 无 | 有中转服务器 | **无** (可选自建引导节点) |
+| **隐私保护** | 本地传输 | 可能经服务器 | **端到端加密** |
+| **开源** | 是 | 否 | **是** |
+| **自托管** | 不需要 | 不支持 | **支持** |
+
+## 下载安装
+
+前往 [Releases](https://github.com/yexiyue/SwarmDrop/releases/latest) 下载最新版本：
+
+| 平台 | 格式 | 架构 |
+|------|------|------|
+| **Windows** | `.msi` · `.exe` | x64 |
+| **macOS** | `.dmg` | Apple Silicon · Intel |
+| **Linux** | `.deb` · `.rpm` · `.AppImage` | x64 |
+| **Android** | `.apk` | arm64 |
+
+## 快速开始
+
+```
+ 1. 启动应用 → 设置安全密码 → 启动 P2P 节点
+ 2. 添加设备 → 通过 6 位配对码或局域网发现配对
+ 3. 选择设备 → 拖拽文件发送
+```
+
+### 配对方式
+
+- **配对码** — 一方生成 6 位数字码，另一方输入，适用于跨网络场景
+- **局域网直连** — 自动发现同网络设备，点击即可配对
+
+### 传输方式
+
+SwarmDrop 会自动选择最优传输路径：
+
+| 连接类型 | 延迟 | 场景 |
+|----------|------|------|
+| 局域网直连 | ~2ms | 同一 Wi-Fi / 有线网络 |
+| NAT 打洞 | 10–100ms | 不同网络，DCUtR 穿透成功 |
+| 中继转发 | 100–500ms | 打洞失败时自动兜底 |
+
+## 功能特性
 
 | 功能 | 状态 |
 |------|------|
-| P2P 网络连接 (libp2p) | ✅ 已完成 |
-| mDNS 局域网发现 | ✅ 已完成 |
-| DHT 跨网络发现 | ✅ 已完成 |
-| Relay / DCUtR 穿透 | ✅ 已完成 |
-| 设备配对系统 | ✅ 已完成 |
-| 6位数字配对码 | ✅ 已完成 |
-| 端到端加密传输 | ✅ 已完成 |
-| 文件传输 + 进度显示 | ✅ 已完成 |
-| 传输历史 (SeaORM) | ✅ 已完成 |
-| 生物识别解锁 | ✅ 已完成 |
-| Android 支持 | ✅ 已完成 |
+| P2P 网络 (mDNS + DHT + Relay + DCUtR) | ✅ |
+| 6 位数字配对码 + 局域网直连 | ✅ |
+| 端到端加密传输 | ✅ |
+| 文件 / 文件夹传输 + 实时进度 | ✅ |
+| 生物识别解锁 (FaceID / TouchID / Windows Hello) | ✅ |
+| 自动更新 (桌面端 + Android) | ✅ |
+| 多语言支持 (zh · en · zh-TW) | ✅ |
+| Android 支持 | ✅ |
+| 自定义引导节点 | ✅ |
 | 断点续传 | 📋 计划中 |
+| MCP 集成 (AI 助手发文件) | 📋 计划中 |
 
-## 安装
+## 安全
 
-### 下载预编译版本
+- **设备身份** — Ed25519 密钥对，私钥存储于 [Stronghold](https://github.com/nicbarker/stronghold.rs) 加密保险库
+- **传输加密** — 每次传输生成 256-bit 对称密钥，XChaCha20-Poly1305 加密
+- **生物识别** — 支持 FaceID / TouchID / Windows Hello 解锁
+- **零信任** — 引导节点和中继节点均无法解密传输内容
+- **无遥测** — 不收集任何用户数据
 
-前往 [Releases](https://github.com/yexiyue/SwarmDrop/releases) 页面下载对应平台的安装包：
+## 技术架构
 
-- **Windows**: `.msi` 或 `.exe`
-- **macOS**: `.dmg` (aarch64 / x64)
-- **Linux**: `.deb` / `.rpm` / `.AppImage`
-- **Android**: `.apk` (aarch64)
-
-### 从源码构建
-
-#### 环境要求
-
-- [Node.js](https://nodejs.org/) 18+
-- [pnpm](https://pnpm.io/) 9+
-- [Rust](https://rust-lang.org/) 1.80+
-- [Android Studio](https://developer.android.com/studio) (Android 构建需要)
-
-#### 构建步骤
-
-```bash
-# 克隆仓库
-git clone https://github.com/yexiyue/SwarmDrop.git
-cd SwarmDrop
-
-# 初始化子模块
-git submodule update --init --recursive
-
-# 安装依赖
-pnpm install
-
-# 开发模式（桌面端）
-pnpm tauri dev
-
-# 构建桌面端
-pnpm tauri build
-
-# Android 开发
-pnpm android:dev
-
-# Android 构建
-pnpm android:build
+```
+┌─────────────────────────────────────┐
+│  React 19 + TypeScript + Vite 7     │  ← 前端 UI
+│  TanStack Router · Zustand · Lingui │
+├──────────── Tauri IPC ──────────────┤
+│  Rust + Tauri 2                     │  ← 后端逻辑
+│  文件读写 · 分块校验 · E2E 加密      │
+├──────────── libp2p ─────────────────┤
+│  Request-Response  文件传输          │
+│  mDNS              局域网发现        │  ← P2P 网络
+│  Kademlia DHT      跨网络发现        │
+│  Relay + DCUtR     NAT 穿透         │
+└─────────────────────────────────────┘
 ```
 
-## 使用
-
-### 快速开始
-
-1. **启动应用** - 首次启动需要设置安全密码
-2. **启动节点** - 点击网络状态条启动 P2P 节点
-3. **添加设备** - 
-   - 方式一：通过 6 位配对码连接
-   - 方式二：扫描设备发现的附近设备
-4. **发送文件** - 选择已配对设备发送文件
-
-### 配对流程
-
-1. 在目标设备上选择"生成配对码"
-2. 在当前设备上选择"输入配对码"
-3. 输入显示的 6 位数字
-4. 双方确认配对请求
-5. 配对完成，开始传输
-
-## 技术栈
+<details>
+<summary><b>技术栈详情</b></summary>
 
 | 层级 | 技术 |
 |------|------|
-| 前端 | React 19 + TypeScript 5.8 + Vite 7 |
-| 样式 | Tailwind CSS 4 + shadcn/ui |
-| 状态管理 | Zustand 5 |
-| 路由 | TanStack Router |
-| 国际化 | Lingui (8 语言支持) |
-| 后端 | Rust 2021 + Tauri 2 |
-| P2P 网络 | libp2p 0.56 |
-| 加密 | Stronghold + Ed25519 |
+| 前端 | React 19 · TypeScript 5.8 · Vite 7 · Tailwind CSS 4 |
+| UI 组件 | shadcn/ui (new-york) · Lucide Icons |
+| 状态管理 | Zustand 5 (4 个 Store) |
+| 路由 | TanStack Router (文件系统路由) |
+| 国际化 | Lingui 5 (zh · en · zh-TW) |
+| 后端 | Rust 2021 · Tauri 2 |
+| P2P | libp2p 0.56 via `swarm-p2p-core` |
+| 加密 | Stronghold · Ed25519 · XChaCha20-Poly1305 |
 
-## 项目结构
+</details>
+
+<details>
+<summary><b>项目结构</b></summary>
 
 ```
 swarmdrop/
 ├── src/                    # 前端源码
-│   ├── commands/           # Tauri IPC 封装
-│   ├── components/         # React 组件
-│   ├── routes/             # TanStack Router 路由
-│   ├── stores/             # Zustand 状态管理
-│   └── locales/            # 国际化翻译
-├── src-tauri/              # Tauri Rust 后端
-│   ├── src/commands/       # 命令处理器
-│   ├── src/network/        # P2P 网络管理
-│   └── gen/android/        # Android 生成代码
-├── libs/core/              # P2P 核心库 (子模块)
-└── docs/                   # 文档站点
+│   ├── commands/           #   Tauri IPC 命令封装
+│   ├── components/         #   React 组件
+│   ├── routes/             #   TanStack Router 文件路由
+│   ├── stores/             #   Zustand 状态管理
+│   └── locales/            #   国际化翻译文件
+├── src-tauri/              # Rust 后端
+│   └── src/
+│       ├── commands/       #   Tauri 命令处理器
+│       ├── network/        #   P2P 网络管理
+│       ├── pairing/        #   设备配对系统
+│       ├── transfer/       #   文件传输引擎
+│       └── device/         #   设备信息管理
+├── libs/core/              # P2P 核心库 (Git 子模块)
+└── docs/                   # Astro + Starlight 文档站
 ```
 
-## 开发
+</details>
+
+## 从源码构建
+
+### 环境要求
+
+- [Node.js](https://nodejs.org/) 18+ 和 [pnpm](https://pnpm.io/) 9+
+- [Rust](https://rust-lang.org/) 1.80+
+- [Android Studio](https://developer.android.com/studio) (仅 Android 构建需要)
+
+### 构建步骤
 
 ```bash
+# 克隆仓库 (含子模块)
+git clone --recurse-submodules https://github.com/yexiyue/SwarmDrop.git
+cd SwarmDrop
+
 # 安装依赖
 pnpm install
 
 # 桌面端开发
 pnpm tauri dev
 
-# Android 开发
+# 桌面端构建
+pnpm tauri build
+
+# Android 开发 / 构建
 pnpm android:dev
-
-# 提取翻译字符串
-pnpm i18n:extract
-
-# 构建
-pnpm build          # 前端构建
-pnpm tauri build    # 桌面端构建
-pnpm android:build  # Android 构建
+pnpm android:build
 ```
-
-## 国际化
-
-SwarmDrop 支持 8 种语言：
-- 简体中文 (zh)
-- 繁体中文 (zh-TW)
-- English (en)
-- 日本語 (ja)
-- 한국어 (ko)
-- Español (es)
-- Français (fr)
-- Deutsch (de)
 
 ## 路线图
 
-- [x] Phase 1: 网络层 (libp2p, mDNS, DHT, Relay)
-- [x] Phase 2: 设备配对系统
-- [x] Phase 3: 文件传输 (端到端加密, 进度显示, 传输历史)
-- [ ] Phase 4: 移动端优化 (二维码配对, HTTP 桥接)
+- [x] **Phase 1** — 网络层 (libp2p · mDNS · DHT · Relay · DCUtR)
+- [x] **Phase 2** — 设备配对 (配对码 · 局域网直连 · 生物识别)
+- [x] **Phase 3** — 文件传输 (端到端加密 · 进度显示 · 传输历史)
+- [ ] **Phase 4** — 断点续传
+- [ ] **Phase 5** — MCP 集成 (AI 助手发文件)
 
-## 安全
+## 参与贡献
 
-- 设备身份使用 Ed25519 密钥对
-- 私钥存储在系统密钥库 (Stronghold)
-- 支持生物识别解锁 (FaceID / TouchID / Windows Hello)
-- 所有传输内容端到端加密
+欢迎提交 Issue 和 Pull Request！
 
-## 贡献
+1. Fork 本仓库
+2. 创建特性分支 `git checkout -b feature/amazing`
+3. 提交更改并推送
+4. 创建 Pull Request
 
-欢迎提交 Issue 和 PR！
+## 许可证
 
-1. Fork 本项目
-2. 创建分支 (`git checkout -b feature/amazing`)
-3. 提交更改 (`git commit -m 'Add amazing feature'`)
-4. 推送分支 (`git push origin feature/amazing`)
-5. 创建 Pull Request
-
-## 许可
-
-[MIT](LICENSE) © 2025 SwarmDrop Contributors
+[MIT](LICENSE) &copy; 2025 SwarmDrop Contributors
 
 ---
 
-<p align="center">
-  Made with ❤️ using <a href="https://tauri.app">Tauri</a> and <a href="https://libp2p.io">libp2p</a>
-</p>
+<div align="center">
+<sub>Built with <a href="https://tauri.app">Tauri</a> and <a href="https://libp2p.io">libp2p</a></sub>
+</div>
