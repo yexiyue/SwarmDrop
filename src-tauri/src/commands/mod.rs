@@ -38,7 +38,7 @@ pub async fn start(
     let agent_version = crate::device::OsInfo::default().to_agent_version();
     let result = crate::network::config::create_node_config(
         agent_version,
-        custom_bootstrap_nodes.unwrap_or_default(),
+        &custom_bootstrap_nodes.unwrap_or_default(),
     );
 
     let (client, receiver) =

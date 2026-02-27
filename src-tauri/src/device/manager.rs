@@ -208,8 +208,7 @@ impl DeviceManager {
     pub fn is_connected(&self, peer_id: &PeerId) -> bool {
         self.peers
             .get(peer_id)
-            .map(|e| e.value().is_connected)
-            .unwrap_or(false)
+            .is_some_and(|e| e.value().is_connected)
     }
 
     /// 已连接 peer 数量
