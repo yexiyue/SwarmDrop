@@ -3,7 +3,6 @@
  * 设置页「网络」区域 — P2P 网络相关设置
  */
 
-import { useCallback } from "react";
 import { Trans } from "@lingui/react/macro";
 import { Switch } from "@/components/ui/switch";
 import { usePreferencesStore } from "@/stores/preferences-store";
@@ -11,13 +10,6 @@ import { usePreferencesStore } from "@/stores/preferences-store";
 export function NetworkSettingsSection() {
   const autoStart = usePreferencesStore((state) => state.autoStart);
   const setAutoStart = usePreferencesStore((state) => state.setAutoStart);
-
-  const handleAutoStartChange = useCallback(
-    (checked: boolean) => {
-      setAutoStart(checked);
-    },
-    [setAutoStart],
-  );
 
   return (
     <section className="flex flex-col gap-3">
@@ -35,7 +27,7 @@ export function NetworkSettingsSection() {
               <Trans>解锁后自动启动 P2P 网络节点</Trans>
             </span>
           </div>
-          <Switch checked={autoStart} onCheckedChange={handleAutoStartChange} />
+          <Switch checked={autoStart} onCheckedChange={setAutoStart} />
         </div>
       </div>
     </section>

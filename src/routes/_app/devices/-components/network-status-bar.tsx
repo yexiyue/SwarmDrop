@@ -4,7 +4,7 @@
  */
 
 import { useNetworkStore, type NodeStatus } from "@/stores/network-store";
-import { useShallow } from "zustand/shallow";
+import { useShallow } from "zustand/react/shallow";
 import { Trans } from "@lingui/react/macro";
 import { cn } from "@/lib/utils";
 import type { NetworkStatus } from "@/commands/network";
@@ -78,16 +78,15 @@ function NetworkIndicators({ networkStatus }: { networkStatus: NetworkStatus }) 
 }
 
 export function NetworkStatusBar({ onStopClick }: NetworkStatusBarProps) {
-  const { status, networkStatus, getConnectedCount } = useNetworkStore(
+  const { status, networkStatus } = useNetworkStore(
     useShallow((s) => ({
       status: s.status,
       networkStatus: s.networkStatus,
-      getConnectedCount: s.getConnectedCount,
     })),
   );
 
   const style = barStyles[status];
-  const connectedCount = getConnectedCount();
+  const connectedCount = networkStatus?.connectedPeers ?? 0;
 
   return (
     <div

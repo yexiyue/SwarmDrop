@@ -12,14 +12,15 @@
 
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { toast } from "sonner";
+import { t } from "@lingui/core/macro";
 import { useNetworkStore } from "@/stores/network-store";
 
 export const Route = createFileRoute("/_app/pairing")({
   beforeLoad: () => {
     const { status } = useNetworkStore.getState();
     if (status !== "running") {
-      toast.error("请先启动节点", {
-        description: "配对功能需要 P2P 节点处于运行状态",
+      toast.error(t`请先启动节点`, {
+        description: t`配对功能需要 P2P 节点处于运行状态`,
       });
       throw redirect({ to: "/devices" });
     }

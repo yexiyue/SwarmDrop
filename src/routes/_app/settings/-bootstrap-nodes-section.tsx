@@ -11,7 +11,6 @@ import { Plus, Trash2, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { useShallow } from "zustand/react/shallow";
 import { usePreferencesStore } from "@/stores/preferences-store";
 import { useNetworkStore } from "@/stores/network-store";
 import { toast } from "sonner";
@@ -43,14 +42,9 @@ function truncateAddr(addr: string): string {
 
 export function BootstrapNodesSection() {
   const { t } = useLingui();
-  const { customBootstrapNodes, addBootstrapNode, removeBootstrapNode } =
-    usePreferencesStore(
-      useShallow((state) => ({
-        customBootstrapNodes: state.customBootstrapNodes,
-        addBootstrapNode: state.addBootstrapNode,
-        removeBootstrapNode: state.removeBootstrapNode,
-      })),
-    );
+  const customBootstrapNodes = usePreferencesStore((s) => s.customBootstrapNodes);
+  const addBootstrapNode = usePreferencesStore((s) => s.addBootstrapNode);
+  const removeBootstrapNode = usePreferencesStore((s) => s.removeBootstrapNode);
   const nodeStatus = useNetworkStore((s) => s.status);
 
   const [inputValue, setInputValue] = useState("");
@@ -58,7 +52,7 @@ export function BootstrapNodesSection() {
   const [needsRestart, setNeedsRestart] = useState(false);
   const [restarting, setRestarting] = useState(false);
 
-  const handleAdd = useCallback(() => {
+  function handleAdd() {
     const addr = inputValue.trim();
     if (!addr) return;
 
@@ -84,17 +78,14 @@ export function BootstrapNodesSection() {
     if (nodeStatus === "running") {
       setNeedsRestart(true);
     }
-  }, [inputValue, customBootstrapNodes, addBootstrapNode, nodeStatus, t]);
+  }
 
-  const handleRemove = useCallback(
-    (addr: string) => {
-      removeBootstrapNode(addr);
-      if (nodeStatus === "running") {
-        setNeedsRestart(true);
-      }
-    },
-    [removeBootstrapNode, nodeStatus],
-  );
+  function handleRemove(addr: string) {
+    removeBootstrapNode(addr);
+    if (nodeStatus === "running") {
+      setNeedsRestart(true);
+    }
+  }
 
   const handleRestart = useCallback(async () => {
     setRestarting(true);
