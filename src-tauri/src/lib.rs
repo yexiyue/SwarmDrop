@@ -68,6 +68,7 @@ pub fn run() {
             commands::get_device_info,
             commands::request_pairing,
             commands::respond_pairing_request,
+            commands::remove_paired_device,
             commands::list_devices,
             commands::get_network_status,
             commands::install_update,
