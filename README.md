@@ -1,7 +1,7 @@
 # SwarmDrop
 
 <p align="center">
-  <img src="src-tauri/icons/icon.png" width="120" alt="SwarmDrop Logo">
+  <img src="public/app-icon.svg" width="120" alt="SwarmDrop Logo">
 </p>
 
 <p align="center">
