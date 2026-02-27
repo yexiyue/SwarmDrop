@@ -54,6 +54,8 @@ export interface NetworkStatus {
   discoveredPeers: number;
   /** Relay 中继是否就绪（已获得 reservation） */
   relayReady: boolean;
+  /** 是否至少有一个引导节点已连接 */
+  bootstrapConnected: boolean;
 }
 
 /**
@@ -64,8 +66,9 @@ export interface NetworkStatus {
  */
 export async function start(
   pairedDevices: PairedDevice[],
+  customBootstrapNodes?: string[],
 ): Promise<void> {
-  await invoke("start", { pairedDevices });
+  await invoke("start", { pairedDevices, customBootstrapNodes });
 }
 
 /**

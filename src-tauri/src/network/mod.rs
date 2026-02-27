@@ -39,4 +39,6 @@ pub struct NetworkStatus {
     pub discovered_peers: usize,
     /// Relay 中继是否就绪（已获得 reservation）
     pub relay_ready: bool,
+    /// 是否至少有一个引导节点已连接
+    pub bootstrap_connected: bool,
 }

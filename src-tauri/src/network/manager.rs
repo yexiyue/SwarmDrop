@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::sync::{Arc, RwLock};
 
 use dashmap::DashMap;
@@ -25,6 +26,9 @@ pub struct NetManager {
     nat_status: Arc<RwLock<NatStatus>>,
     public_addr: Arc<RwLock<Option<Multiaddr>>>,
     relay_ready: Arc<RwLock<bool>>,
+    bootstrap_connected: Arc<RwLock<bool>>,
+    /// 引导节点 PeerId 集合，用于判断连接是否为引导节点
+    bootstrap_peer_ids: Arc<HashSet<PeerId>>,
 }
 
 impl NetManager {
@@ -32,6 +36,7 @@ impl NetManager {
         client: AppNetClient,
         peer_id: PeerId,
         paired_devices: Vec<PairedDeviceInfo>,
+        bootstrap_peer_ids: HashSet<PeerId>,
     ) -> Self {
         // 创建共享的已配对设备 Map：PairingManager 读写，DeviceManager 只读
         let paired_map: Arc<DashMap<_, _>> = Arc::new(
@@ -58,6 +63,8 @@ impl NetManager {
             nat_status: Arc::new(RwLock::new(NatStatus::Unknown)),
             public_addr: Arc::new(RwLock::new(None)),
             relay_ready: Arc::new(RwLock::new(false)),
+            bootstrap_connected: Arc::new(RwLock::new(false)),
+            bootstrap_peer_ids: Arc::new(bootstrap_peer_ids),
         }
     }
 
@@ -98,6 +105,8 @@ impl NetManager {
             nat_status: self.nat_status.clone(),
             public_addr: self.public_addr.clone(),
             relay_ready: self.relay_ready.clone(),
+            bootstrap_connected: self.bootstrap_connected.clone(),
+            bootstrap_peer_ids: self.bootstrap_peer_ids.clone(),
         }
     }
 }
@@ -116,6 +125,8 @@ pub(crate) struct SharedNetRefs {
     pub nat_status: Arc<RwLock<NatStatus>>,
     pub public_addr: Arc<RwLock<Option<Multiaddr>>>,
     pub relay_ready: Arc<RwLock<bool>>,
+    pub bootstrap_connected: Arc<RwLock<bool>>,
+    pub bootstrap_peer_ids: Arc<HashSet<PeerId>>,
 }
 
 impl SharedNetRefs {
@@ -130,6 +141,7 @@ impl SharedNetRefs {
             connected_peers: self.devices.connected_count(),
             discovered_peers: self.devices.discovered_count(),
             relay_ready: read_or(&self.relay_ready, false),
+            bootstrap_connected: read_or(&self.bootstrap_connected, false),
         }
     }
 }

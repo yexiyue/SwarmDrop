@@ -34,9 +34,18 @@ msgstr "{connectedCount} 台"
 msgid "{fileCount} 项"
 msgstr "{fileCount} 項"
 
+#. placeholder {0}: ms / 1000
+#: src/stores/pairing-store.ts
+msgid "{label}超时（{0}s）"
+msgstr ""
+
 #: src/routes/_app/pairing/-device-found-view.tsx
 msgid "CPU 架构"
 msgstr "CPU 架構"
+
+#: src/routes/_app/devices/-components/network-status-bar.tsx
+msgid "NAT"
+msgstr ""
 
 #: src/components/ForceUpdateDialog.tsx
 #~ msgid "P2P 协议已变更，旧版本无法与其他设备通信"
@@ -95,6 +104,7 @@ msgid "中等"
 msgstr "中等"
 
 #: src/routes/_app/devices/-components/device-card.tsx
+#: src/routes/_app/devices/-components/network-status-bar.tsx
 msgid "中继"
 msgstr "中繼"
 
@@ -226,6 +236,10 @@ msgstr "剩餘 {0}"
 msgid "包含字母和数字"
 msgstr "包含字母和數字"
 
+#: src/routes/_app/send/index.lazy.tsx
+msgid "去配对"
+msgstr ""
+
 #: src/components/upgrade/prompt-update-dialog.tsx
 msgid "发现新版本"
 msgstr "發現新版本"
@@ -272,6 +286,7 @@ msgstr "傳送配對請求"
 #: src/routes/_app/pairing/generate.lazy.tsx
 #: src/routes/_app/pairing/input.lazy.tsx
 #: src/routes/_app/send/index.lazy.tsx
+#: src/routes/_app/settings/-bootstrap-nodes-section.tsx
 msgid "取消"
 msgstr "取消"
 
@@ -286,6 +301,7 @@ msgid "取消配对"
 msgstr "取消配對"
 
 #: src/components/network/start-node-sheet.tsx
+#: src/stores/pairing-store.ts
 msgid "启动"
 msgstr "啟動"
 
@@ -341,6 +357,10 @@ msgstr "在線"
 msgid "在设备页面选择已配对设备发送文件"
 msgstr "在裝置頁面選擇已配對裝置傳送檔案"
 
+#: src/routes/_app/settings/-bootstrap-nodes-section.tsx
+msgid "地址需以 / 开头且包含 /p2p/ 部分"
+msgstr ""
+
 #: src/components/transfer/transfer-offer-dialog.tsx
 #: src/routes/_app/receive/index.lazy.tsx
 #: src/routes/_app/receive/index.lazy.tsx
@@ -384,6 +404,14 @@ msgstr "密碼要求"
 msgid "密码错误"
 msgstr "密碼錯誤"
 
+#: src/routes/_app/send/index.lazy.tsx
+msgid "对方拒绝了请求"
+msgstr ""
+
+#: src/stores/pairing-store.ts
+msgid "对方拒绝了配对请求"
+msgstr ""
+
 #: src/components/network/start-node-sheet.tsx
 msgid ""
 "将连接到 SwarmDrop 网络，\n"
@@ -400,6 +428,17 @@ msgstr "區域網路"
 msgid "局域网和广域网无缝切换"
 msgstr "區域網路和廣域網路無縫切換"
 
+#. placeholder {0}: deviceInfo.codeRecord.hostname
+#. placeholder {0}: osInfo.hostname
+#: src/stores/pairing-store.ts
+#: src/stores/pairing-store.ts
+msgid "已与 {0} 配对成功"
+msgstr ""
+
+#: src/stores/pairing-store.ts
+msgid "已与 {deviceName} 配对成功"
+msgstr ""
+
 #: src/components/network/start-node-sheet.tsx
 #: src/components/network/stop-node-sheet.tsx
 msgid "已发现节点"
@@ -412,6 +451,11 @@ msgstr "已取消"
 #: src/routes/_app/pairing/generate.lazy.tsx
 msgid "已复制"
 msgstr "已複製"
+
+#. placeholder {0}: osInfo.hostname
+#: src/stores/pairing-store.ts
+msgid "已拒绝来自 {0} 的配对请求"
+msgstr ""
 
 #: src/components/network/start-node-sheet.tsx
 #: src/components/network/stop-node-sheet.tsx
@@ -434,6 +478,15 @@ msgstr "已配對裝置"
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "开始使用"
 msgstr "開始使用"
+
+#: src/routes/_app/devices/-components/network-status-bar.tsx
+#: src/routes/_app/settings/-bootstrap-nodes-section.tsx
+msgid "引导节点"
+msgstr ""
+
+#: src/routes/_app/settings/-bootstrap-nodes-section.tsx
+msgid "引导节点已变更，需重启节点生效"
+msgstr ""
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "弱"
@@ -536,6 +589,10 @@ msgstr "檔案傳輸全程加密保護"
 msgid "新版本 {latestVersion} 可用，当前版本 {currentVersion}"
 msgstr "新版本 {latestVersion} 可用，目前版本 {currentVersion}"
 
+#: src/routes/_app/settings/-bootstrap-nodes-section.tsx
+msgid "无效的 Multiaddr 地址"
+msgstr ""
+
 #: src/lib/auth-messages.ts
 msgid "无法获取密码"
 msgstr "無法取得密碼"
@@ -600,6 +657,7 @@ msgid "来自：{0}"
 msgstr "來自：{0}"
 
 #: src/routes/_app/pairing/-components/mobile-input-code-view.tsx
+#: src/stores/pairing-store.ts
 msgid "查找设备"
 msgstr "尋找裝置"
 
@@ -654,6 +712,12 @@ msgstr "正在產生裝置金鑰..."
 msgid "正在解密数据..."
 msgstr "正在解密資料..."
 
+#. placeholder {0}: progress.completedFiles
+#. placeholder {1}: progress.totalFiles
+#: src/routes/_app/send/index.lazy.tsx
+msgid "正在计算校验和 ({0}/{1})"
+msgstr ""
+
 #: src/components/upgrade/force-update-dialog.tsx
 #: src/components/upgrade/prompt-update-dialog.tsx
 msgid "正在重启..."
@@ -675,10 +739,18 @@ msgstr "淺色"
 msgid "深色"
 msgstr "深色"
 
+#: src/routes/_app/settings/-bootstrap-nodes-section.tsx
+msgid "添加"
+msgstr ""
+
 #: src/routes/_app/pairing/generate.lazy.tsx
 #: src/routes/_app/pairing/generate.lazy.tsx
 msgid "添加新设备"
 msgstr "新增裝置"
+
+#: src/routes/_app/settings/-bootstrap-nodes-section.tsx
+msgid "添加自定义引导节点"
+msgstr ""
 
 #: src/routes/_app/pairing/index.lazy.tsx
 msgid "添加设备"
@@ -789,10 +861,18 @@ msgstr "等待對方確認..."
 msgid "管理 P2P 网络节点的启动和连接状态"
 msgstr "管理 P2P 網路節點的啟動和連線狀態"
 
+#: src/routes/_app/settings/-network-settings-section.tsx
+msgid "网络"
+msgstr ""
+
 #: src/components/network/start-node-sheet.tsx
 #: src/components/network/stop-node-sheet.tsx
 msgid "网络节点"
 msgstr "網路節點"
+
+#: src/routes/_app/settings/-network-settings-section.tsx
+msgid "自动启动节点"
+msgstr ""
 
 #: src/routes/_app/settings/-transfer-settings-section.tsx
 msgid "自动接受已配对设备的文件"
@@ -810,9 +890,14 @@ msgstr "至少 8 個字元"
 msgid "节点启动中..."
 msgstr "節點啟動中..."
 
+#: src/routes/_app/settings/-bootstrap-nodes-section.tsx
+msgid "节点已重启"
+msgstr ""
+
 #: src/components/network/start-node-sheet.tsx
 #: src/components/network/stop-node-sheet.tsx
 #: src/routes/_app/devices/-components/offline-empty-state.tsx
+#: src/stores/pairing-store.ts
 msgid "节点未启动"
 msgstr "節點未啟動"
 
@@ -835,6 +920,10 @@ msgstr "解鎖"
 msgid "解锁中..."
 msgstr "解鎖中..."
 
+#: src/routes/_app/settings/-network-settings-section.tsx
+msgid "解锁后自动启动 P2P 网络节点"
+msgstr ""
+
 #: src/components/layout/nav-items.ts
 #: src/routes/_app/devices/index.lazy.tsx
 msgid "设备"
@@ -847,6 +936,10 @@ msgstr "裝置資訊"
 #: src/routes/_app/pairing/-device-found-view.tsx
 msgid "设备在线，可以建立连接"
 msgstr "裝置在線，可以建立連線"
+
+#: src/routes/_app/send/index.lazy.tsx
+msgid "设备已取消配对"
+msgstr ""
 
 #: src/routes/_app/send/index.lazy.tsx
 msgid "设备未找到"
@@ -862,9 +955,17 @@ msgstr "裝置詳情"
 msgid "设置"
 msgstr "設定"
 
+#: src/routes/_app/settings/-bootstrap-nodes-section.tsx
+msgid "该节点已存在"
+msgstr ""
+
 #: src/routes/_app/settings/index.lazy.tsx
 msgid "语言"
 msgstr "語言"
+
+#: src/stores/pairing-store.ts
+msgid "请先启动网络节点"
+msgstr ""
 
 #: src/routes/_app/settings/index.lazy.tsx
 msgid "跟随系统"
@@ -873,6 +974,10 @@ msgstr "跟隨系統"
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "跨网络传输"
 msgstr "跨網路傳輸"
+
+#: src/routes/_app/settings/-bootstrap-nodes-section.tsx
+msgid "输入 Multiaddr 地址，如 /ip4/.../p2p/..."
+msgstr ""
 
 #: src/routes/_app/pairing/input.lazy.tsx
 msgid "输入另一台设备上显示的配对码"
@@ -972,6 +1077,23 @@ msgstr "配對碼將在 {0} 後過期"
 msgid "配对码已过期"
 msgstr "配對碼已過期"
 
+#: src/stores/pairing-store.ts
+#: src/stores/pairing-store.ts
+msgid "配对请求"
+msgstr ""
+
+#: src/routes/_app/settings/-bootstrap-nodes-section.tsx
+msgid "重启中..."
+msgstr ""
+
+#: src/routes/_app/settings/-bootstrap-nodes-section.tsx
+msgid "重启节点"
+msgstr ""
+
+#: src/routes/_app/settings/-bootstrap-nodes-section.tsx
+msgid "重启节点失败"
+msgstr ""
+
 #: src/routes/_app/pairing/-components/mobile-generate-code-view.tsx
 #: src/routes/_app/pairing/generate.lazy.tsx
 msgid "重新生成"
@@ -990,3 +1112,7 @@ msgstr "附近裝置"
 #: src/components/upgrade/force-update-dialog.tsx
 msgid "需要更新"
 msgstr "需要更新"
+
+#: src/routes/_app/settings/-bootstrap-nodes-section.tsx
+msgid "默认"
+msgstr ""

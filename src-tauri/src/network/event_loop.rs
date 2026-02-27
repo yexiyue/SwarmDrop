@@ -8,7 +8,9 @@ use uuid::Uuid;
 use super::manager::SharedNetRefs;
 use crate::device::DeviceFilter;
 use crate::events;
-use crate::protocol::{AppRequest, AppResponse, PairingRequest, TransferRequest, TransferResponse};
+use crate::protocol::{
+    AppRequest, AppResponse, OfferRejectReason, PairingRequest, TransferRequest, TransferResponse,
+};
 use crate::transfer::progress::{TransferDirection, TransferFailedEvent};
 use swarm_p2p_core::libp2p::PeerId;
 
@@ -102,9 +104,37 @@ pub fn spawn_event_loop(
                 }
 
                 // === 设备事件（handle_event 已在上方处理） ===
+                NodeEvent::PeerConnected { ref peer_id } => {
+                    // 检查是否为引导节点
+                    if shared.bootstrap_peer_ids.contains(peer_id) {
+                        if let Ok(mut bc) = shared.bootstrap_connected.write() {
+                            *bc = true;
+                        }
+                    }
+                    let devices = shared.devices.get_devices(DeviceFilter::All);
+                    let _ = app.emit(events::DEVICES_CHANGED, &devices);
+                    let net_status = shared.build_network_status();
+                    let _ = app.emit(events::NETWORK_STATUS_CHANGED, &net_status);
+                }
+                NodeEvent::PeerDisconnected { ref peer_id } => {
+                    // 检查是否为引导节点断开
+                    if shared.bootstrap_peer_ids.contains(peer_id) {
+                        // 检查是否还有其他引导节点连接
+                        let any_connected = shared.bootstrap_peer_ids.iter().any(|bp| {
+                            bp != peer_id && shared.devices.is_connected(bp)
+                        });
+                        if !any_connected {
+                            if let Ok(mut bc) = shared.bootstrap_connected.write() {
+                                *bc = false;
+                            }
+                        }
+                    }
+                    let devices = shared.devices.get_devices(DeviceFilter::All);
+                    let _ = app.emit(events::DEVICES_CHANGED, &devices);
+                    let net_status = shared.build_network_status();
+                    let _ = app.emit(events::NETWORK_STATUS_CHANGED, &net_status);
+                }
                 NodeEvent::PeersDiscovered { .. }
-                | NodeEvent::PeerConnected { .. }
-                | NodeEvent::PeerDisconnected { .. }
                 | NodeEvent::IdentifyReceived { .. }
                 | NodeEvent::PingSuccess { .. }
                 | NodeEvent::HolePunchSucceeded { .. } => {
@@ -262,7 +292,7 @@ pub fn spawn_event_loop(
                                     AppResponse::Transfer(TransferResponse::OfferResult {
                                         accepted: false,
                                         key: None,
-                                        reason: Some("未配对设备".into()),
+                                        reason: Some(OfferRejectReason::NotPaired),
                                     });
                                 let client = shared.client.clone();
                                 tokio::spawn(async move {
