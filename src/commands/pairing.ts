@@ -46,11 +46,16 @@ export type PairingMethod =
   | { type: "direct" };
 
 /**
+ * 配对被拒绝的原因（与 Rust PairingRefuseReason 对应）
+ */
+export type PairingRefuseReason = { type: "user_rejected" };
+
+/**
  * 配对响应
  */
 export type PairingResponse =
   | { status: "success" }
-  | { status: "refused"; reason: string };
+  | { status: "refused"; reason: PairingRefuseReason };
 
 /**
  * 生成配对码，发布到 DHT 供对端查询

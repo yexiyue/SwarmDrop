@@ -154,11 +154,16 @@ export interface PrepareProgress {
 
 // === 命令函数 ===
 
+/** Offer 被拒绝的原因（与 Rust OfferRejectReason 对应） */
+export type OfferRejectReason =
+  | { type: "not_paired" }
+  | { type: "user_declined" };
+
 /** 开始发送的结果 */
 export interface StartSendResult {
   sessionId: string;
   accepted: boolean;
-  reason: string | null;
+  reason: OfferRejectReason | null;
 }
 
 /**
