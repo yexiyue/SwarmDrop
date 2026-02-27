@@ -40,7 +40,7 @@ pub struct NodeConfigResult {
 /// `custom_bootstrap_nodes` — 用户自定义的额外引导节点地址，与默认节点合并
 pub fn create_node_config(
     agent_version: String,
-    custom_bootstrap_nodes: Vec<String>,
+    custom_bootstrap_nodes: &[String],
 ) -> NodeConfigResult {
     let mut bootstrap_peers = parse_multiaddrs(BOOTSTRAP_NODES);
 

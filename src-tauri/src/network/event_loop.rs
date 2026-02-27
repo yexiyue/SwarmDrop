@@ -69,6 +69,13 @@ pub fn spawn_event_loop(
     shared: SharedNetRefs,
 ) {
     tokio::spawn(async move {
+        let emit_device_and_status = || {
+            let devices = shared.devices.get_devices(DeviceFilter::All);
+            let _ = app.emit(events::DEVICES_CHANGED, &devices);
+            let net_status = shared.build_network_status();
+            let _ = app.emit(events::NETWORK_STATUS_CHANGED, &net_status);
+        };
+
         while let Some(event) = receiver.recv().await {
             // handle_event 对不相关的事件直接忽略，无条件调用后再消费 event
             shared.devices.handle_event(&event);
@@ -111,10 +118,7 @@ pub fn spawn_event_loop(
                             *bc = true;
                         }
                     }
-                    let devices = shared.devices.get_devices(DeviceFilter::All);
-                    let _ = app.emit(events::DEVICES_CHANGED, &devices);
-                    let net_status = shared.build_network_status();
-                    let _ = app.emit(events::NETWORK_STATUS_CHANGED, &net_status);
+                    emit_device_and_status();
                 }
                 NodeEvent::PeerDisconnected { ref peer_id } => {
                     // 检查是否为引导节点断开
@@ -129,19 +133,13 @@ pub fn spawn_event_loop(
                             }
                         }
                     }
-                    let devices = shared.devices.get_devices(DeviceFilter::All);
-                    let _ = app.emit(events::DEVICES_CHANGED, &devices);
-                    let net_status = shared.build_network_status();
-                    let _ = app.emit(events::NETWORK_STATUS_CHANGED, &net_status);
+                    emit_device_and_status();
                 }
                 NodeEvent::PeersDiscovered { .. }
                 | NodeEvent::IdentifyReceived { .. }
                 | NodeEvent::PingSuccess { .. }
                 | NodeEvent::HolePunchSucceeded { .. } => {
-                    let devices = shared.devices.get_devices(DeviceFilter::All);
-                    let _ = app.emit(events::DEVICES_CHANGED, &devices);
-                    let net_status = shared.build_network_status();
-                    let _ = app.emit(events::NETWORK_STATUS_CHANGED, &net_status);
+                    emit_device_and_status();
                 }
 
                 // === 入站请求（缓存上下文 + 推送业务事件给前端） ===

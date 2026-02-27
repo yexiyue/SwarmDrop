@@ -27,7 +27,7 @@ pub enum PairingMethod {
 }
 
 /// 配对被拒绝的原因（类型化，供前端 i18n 使用）
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum PairingRefuseReason {
     /// 接收方用户主动拒绝
@@ -85,7 +85,7 @@ pub enum TransferRequest {
 }
 
 /// Offer 被拒绝的原因（类型化，供前端 i18n 使用）
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case", tag = "type")]
 pub enum OfferRejectReason {
     /// 发送方不在接收方的已配对设备列表中
