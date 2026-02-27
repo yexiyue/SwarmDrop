@@ -88,6 +88,15 @@ export async function requestPairing(
 }
 
 /**
+ * 取消与指定设备的配对（同步更新后端运行时状态）
+ *
+ * 节点未运行时静默成功，前端应同时更新 Stronghold 持久化。
+ */
+export async function removePairedDevice(peerId: PeerId): Promise<void> {
+  return invoke("remove_paired_device", { peerId });
+}
+
+/**
  * 响应收到的配对请求（接受/拒绝）
  *
  * @param pendingId - 请求标识（来自 InboundRequest 事件）

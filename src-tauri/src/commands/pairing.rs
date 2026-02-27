@@ -72,6 +72,20 @@ pub async fn request_pairing(
     Ok(response)
 }
 
+/// 取消与指定设备的配对（同步更新运行时状态）
+#[tauri::command]
+pub async fn remove_paired_device(
+    net: State<'_, NetManagerState>,
+    peer_id: PeerId,
+) -> AppResult<()> {
+    let guard = net.lock().await;
+    // 节点未运行时静默成功（前端仍会更新 Stronghold）
+    if let Some(manager) = guard.as_ref() {
+        manager.pairing().remove_paired_device(&peer_id);
+    }
+    Ok(())
+}
+
 /// 处理收到的配对请求（接受/拒绝）
 ///
 /// 接受配对后自动添加到已配对设备，并 emit `paired-device-added` 事件通知前端。
