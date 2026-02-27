@@ -22,7 +22,7 @@ import { useTransferStore } from "@/stores/transfer-store";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { formatFileSize, formatSpeed, formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { openPath } from "@tauri-apps/plugin-opener";
+import { openTransferResult } from "@/lib/file-picker";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
 import { cancelSend, cancelReceive } from "@/commands/transfer";
@@ -156,12 +156,9 @@ const TransferProgress = memo(function TransferProgress({
 }: {
   session: TransferSession;
 }) {
-  const progressPercent = useMemo(() => {
-    if (!session.progress) return 0;
-    return Math.round(
-      (session.progress.transferredBytes / session.progress.totalBytes) * 100,
-    );
-  }, [session.progress]);
+  const progressPercent = session.progress
+    ? Math.round((session.progress.transferredBytes / session.progress.totalBytes) * 100)
+    : 0;
 
   if (session.status === "transferring" && session.progress) {
     return (
@@ -287,11 +284,13 @@ const TransferActions = memo(function TransferActions({
     }
   }, [isSend, session.sessionId]);
 
-  const handleOpenFolder = useCallback(() => {
-    if (session.savePath) {
-      void openPath(session.savePath);
+  const handleOpenFolder = useCallback(async () => {
+    try {
+      await openTransferResult(session);
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     }
-  }, [session.savePath]);
+  }, [session]);
 
   if (isActive) {
     return (

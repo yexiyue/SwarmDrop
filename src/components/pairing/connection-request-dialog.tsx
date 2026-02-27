@@ -38,7 +38,7 @@ export function ConnectionRequestDialog() {
   };
 
   return (
-    <ResponsiveDialog open={isOpen} onOpenChange={handleOpenChange}>
+    <ResponsiveDialog open={isOpen} onOpenChange={handleOpenChange} forceDialog>
       <ResponsiveDialogContent className="sm:max-w-md" showCloseButton={false}>
         <ResponsiveDialogHeader className="flex flex-col items-center gap-2">
           <div className="flex size-12 items-center justify-center rounded-full bg-primary/10">

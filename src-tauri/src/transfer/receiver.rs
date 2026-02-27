@@ -1,25 +1,27 @@
 //! 接收方会话
 //!
 //! 管理单个接收传输的生命周期：并发拉取分块、解密写入、校验、完成确认。
+//! 文件写入通过 [`PartFile`](crate::file_sink::PartFile) 的 OOP 方法完成，
+//! 加密使用 [`TransferCrypto`]。
 //! 使用 Semaphore 控制并发度（8 并发），CancellationToken 支持取消。
 
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
 
-use blake3::Hasher;
 use swarm_p2p_core::libp2p::PeerId;
 use tauri::AppHandle;
 use tokio::sync::{Mutex, Semaphore};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, warn};
+use uuid::Uuid;
 
+use crate::file_sink::{FileSink, PartFile};
+use crate::file_source::calc_total_chunks;
 use crate::protocol::{
     AppNetClient, AppRequest, AppResponse, FileInfo, TransferRequest, TransferResponse,
 };
 use crate::transfer::crypto::TransferCrypto;
 use crate::transfer::progress::{CurrentFileProgress, ProgressTracker};
-use crate::transfer::sender::{calc_total_chunks, CHUNK_SIZE};
 use crate::{AppError, AppResult};
 
 /// 最大并发拉取数
@@ -34,57 +36,65 @@ const RETRY_DELAY_BASE_MS: u64 = 500;
 /// 接收方会话
 pub struct ReceiveSession {
     /// 传输会话 ID
-    pub session_id: String,
+    pub session_id: Uuid,
     /// 发送方 PeerId
     pub peer_id: PeerId,
     /// 文件列表
     files: Vec<FileInfo>,
     /// 总大小
     total_size: u64,
-    /// 保存路径（根目录）
-    save_path: PathBuf,
+    /// 文件写入目标（工厂：创建 PartFile + 权限检查）
+    sink: FileSink,
+    /// Tauri AppHandle（用于事件发射和 Android 操作）
+    app: AppHandle,
     /// 加密器
     crypto: Arc<TransferCrypto>,
     /// 网络客户端
     client: AppNetClient,
     /// 取消令牌
     cancel_token: CancellationToken,
+    /// 已创建的临时文件（用于取消时清理）
+    created_parts: Mutex<Vec<Arc<PartFile>>>,
 }
 
 impl ReceiveSession {
+    #[expect(clippy::too_many_arguments, reason = "传输会话初始化需要完整上下文")]
     pub fn new(
-        session_id: String,
+        session_id: Uuid,
         peer_id: PeerId,
         files: Vec<FileInfo>,
         total_size: u64,
-        save_path: PathBuf,
+        sink: FileSink,
         key: &[u8; 32],
         client: AppNetClient,
+        app: AppHandle,
     ) -> Self {
         Self {
             session_id,
             peer_id,
             files,
             total_size,
-            save_path,
+            sink,
+            app,
             crypto: Arc::new(TransferCrypto::new(key)),
             client,
             cancel_token: CancellationToken::new(),
+            created_parts: Mutex::new(Vec::new()),
         }
     }
 
     /// 启动后台拉取任务
     ///
-    /// 逐文件、并发分块拉取 → 解密 → 写入 .part → 校验 → 重命名。
+    /// 逐文件、并发分块拉取 → 解密 → 写入 → 校验 → 最终化。
     /// 所有文件完成后发送 Complete 消息给发送方。
     /// `on_finish` 在任务结束（成功或失败）后调用，用于清理 DashMap 中的会话引用。
-    pub fn start_pulling<F>(self: Arc<Self>, app: AppHandle, on_finish: F)
+    pub fn start_pulling<F>(self: Arc<Self>, on_finish: F)
     where
-        F: FnOnce(&str) + Send + 'static,
+        F: FnOnce(&Uuid) + Send + 'static,
     {
         let session = self;
         tokio::spawn(async move {
-            let result = session.run_transfer(&app).await;
+            let result = session.run_transfer().await;
 
             match result {
                 Ok(()) => {
@@ -107,18 +117,24 @@ impl ReceiveSession {
     }
 
     /// 主传输逻辑
-    async fn run_transfer(self: &Arc<Self>, app: &AppHandle) -> AppResult<()> {
+    async fn run_transfer(self: &Arc<Self>) -> AppResult<()> {
+        // Android 端在首次写入前请求存储权限
+        self.sink.ensure_permission(&self.app).await?;
+
         let progress = Arc::new(Mutex::new(ProgressTracker::new(
-            self.session_id.clone(),
+            self.session_id,
             "receive",
             self.total_size,
             self.files.len(),
         )));
 
+        // 收集已完成文件的 URI（Android 端用于前端打开文件）
+        let mut file_uris: Vec<serde_json::Value> = Vec::new();
+
         for file_info in &self.files {
             if self.cancel_token.is_cancelled() {
                 let p = progress.lock().await;
-                p.emit_failed(app, "用户取消".into());
+                p.emit_failed(&self.app, "用户取消".into());
                 return Ok(());
             }
 
@@ -135,72 +151,59 @@ impl ReceiveSession {
                     chunks_completed: 0,
                     total_chunks,
                 });
-                p.emit_progress(app);
+                p.emit_progress(&self.app);
             }
 
-            // 创建保存路径和 .part 文件
-            let final_path = self.resolve_file_path(&file_info.relative_path)?;
-            let part_path = final_path.with_extension(
-                final_path
-                    .extension()
-                    .map(|e| format!("{}.part", e.to_string_lossy()))
-                    .unwrap_or_else(|| "part".into()),
+            // 通过 FileSink 创建带缓存句柄的 PartFile
+            let part_file = Arc::new(
+                self.sink
+                    .create_part_file(&file_info.relative_path, file_info.size, &self.app)
+                    .await?,
             );
 
-            // 确保目录存在 + 创建 .part 文件
-            if let Some(parent) = final_path.parent() {
-                tokio::fs::create_dir_all(parent).await?;
-            }
-            let f = tokio::fs::File::create(&part_path).await?;
-            if file_info.size > 0 {
-                f.set_len(file_info.size).await?;
-            }
+            // 跟踪已创建的临时文件（用于取消时清理）
+            self.created_parts.lock().await.push(part_file.clone());
 
-            // 并发拉取分块
+            // 并发拉取分块（写入通过 PartFile::write_chunk 完成）
             let pull_result = self
-                .pull_file_chunks(
-                    file_info,
-                    total_chunks,
-                    &part_path,
-                    &progress,
-                    app,
-                )
+                .pull_file_chunks(file_info, total_chunks, &part_file, &progress)
                 .await;
 
             if let Err(e) = pull_result {
-                let _ = tokio::fs::remove_file(&part_path).await;
+                part_file.cleanup(&self.app).await;
+                self.remove_created_part(&part_file).await;
                 let p = progress.lock().await;
-                p.emit_failed(app, e.to_string());
+                p.emit_failed(&self.app, e.to_string());
                 return Err(e);
             }
 
-            // 校验 BLAKE3
-            let expected_checksum = file_info.checksum.clone();
-            let part_path_clone = part_path.clone();
-            let checksum_ok = tokio::task::spawn_blocking(move || {
-                verify_checksum(&part_path_clone, &expected_checksum)
-            })
-            .await??;
-
-            if !checksum_ok {
-                let _ = tokio::fs::remove_file(&part_path).await;
-                let msg = format!(
-                    "文件校验失败: {} (file_id={})",
-                    file_info.name, file_info.file_id
-                );
-                let p = progress.lock().await;
-                p.emit_failed(app, msg.clone());
-                return Err(AppError::Transfer(msg));
-            }
-
-            // 重命名 .part → 最终文件
-            tokio::fs::rename(&part_path, &final_path).await?;
-
-            // 更新进度
+            // 校验 BLAKE3 并最终化（内部自动关闭写入句柄）
+            match part_file
+                .verify_and_finalize(&file_info.checksum, &self.app)
+                .await
             {
-                let mut p = progress.lock().await;
-                p.complete_file();
-                p.emit_progress(app);
+                Ok(_final_path) => {
+                    // 收集 Android 文件 URI（桌面端返回 None，自动跳过）
+                    if let Some(value) = part_file.to_uri_value() {
+                        file_uris.push(value);
+                    }
+                    // 文件已最终化，从跟踪列表移除
+                    self.remove_created_part(&part_file).await;
+                    // 更新进度
+                    let mut p = progress.lock().await;
+                    p.complete_file();
+                    p.emit_progress(&self.app);
+                }
+                Err(e) => {
+                    self.remove_created_part(&part_file).await;
+                    let msg = format!(
+                        "文件校验失败: {} (file_id={})",
+                        file_info.name, file_info.file_id
+                    );
+                    let p = progress.lock().await;
+                    p.emit_failed(&self.app, msg);
+                    return Err(e);
+                }
             }
 
             info!(
@@ -215,7 +218,7 @@ impl ReceiveSession {
             .send_request(
                 self.peer_id,
                 AppRequest::Transfer(TransferRequest::Complete {
-                    session_id: self.session_id.clone(),
+                    session_id: self.session_id,
                 }),
             )
             .await;
@@ -232,9 +235,17 @@ impl ReceiveSession {
             }
         }
 
-        // 发射完成事件
+        // 获取 Android 保存目录 URI（桌面端返回 None）
+        let save_dir_uri = self.sink.resolve_save_dir_uri(&self.app).await;
+
+        // 发射完成事件（含 Android 文件 URI 和目录 URI）
         let p = progress.lock().await;
-        p.emit_complete(app, Some(self.save_path.to_string_lossy().into_owned()));
+        p.emit_complete(
+            &self.app,
+            Some(self.sink.save_dir_display().into_owned()),
+            file_uris,
+            save_dir_uri,
+        );
 
         Ok(())
     }
@@ -244,13 +255,12 @@ impl ReceiveSession {
         self: &Arc<Self>,
         file_info: &FileInfo,
         total_chunks: u32,
-        part_path: &Path,
+        part_file: &Arc<PartFile>,
         progress: &Arc<Mutex<ProgressTracker>>,
-        app: &AppHandle,
     ) -> AppResult<()> {
         let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_CHUNKS));
         let chunks_completed = Arc::new(AtomicU32::new(0));
-        let file_transferred = Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let file_transferred = Arc::new(AtomicU64::new(0));
         let error_flag = Arc::new(tokio::sync::Mutex::new(None::<AppError>));
 
         let mut handles = Vec::with_capacity(total_chunks as usize);
@@ -268,10 +278,8 @@ impl ReceiveSession {
 
             let session = self.clone();
             let file_id = file_info.file_id;
-            let file_size = file_info.size;
-            let part_path = part_path.to_path_buf();
+            let part_file = part_file.clone();
             let progress = progress.clone();
-            let app = app.clone();
             let chunks_done = chunks_completed.clone();
             let file_trans = file_transferred.clone();
             let err_flag = error_flag.clone();
@@ -290,7 +298,7 @@ impl ReceiveSession {
                 }
 
                 let result = session
-                    .pull_single_chunk(file_id, chunk_index, file_size, &part_path)
+                    .pull_single_chunk(file_id, chunk_index, &part_file)
                     .await;
 
                 match result {
@@ -303,7 +311,7 @@ impl ReceiveSession {
                         let mut p = progress.lock().await;
                         p.add_bytes(chunk_size as u64);
                         p.update_current_chunks(done, transferred);
-                        p.emit_progress(&app);
+                        p.emit_progress(&session.app);
                     }
                     Err(e) => {
                         let mut flag = err_flag.lock().await;
@@ -337,8 +345,7 @@ impl ReceiveSession {
         &self,
         file_id: u32,
         chunk_index: u32,
-        _file_size: u64,
-        part_path: &Path,
+        part_file: &Arc<PartFile>,
     ) -> AppResult<usize> {
         let mut last_error = None;
 
@@ -364,7 +371,7 @@ impl ReceiveSession {
                 .send_request(
                     self.peer_id,
                     AppRequest::Transfer(TransferRequest::ChunkRequest {
-                        session_id: self.session_id.clone(),
+                        session_id: self.session_id,
                         file_id,
                         chunk_index,
                     }),
@@ -387,13 +394,8 @@ impl ReceiveSession {
 
                     let chunk_size = plaintext.len();
 
-                    // 写入 .part 文件
-                    let offset = chunk_index as u64 * CHUNK_SIZE as u64;
-                    let part_path = part_path.to_path_buf();
-                    tokio::task::spawn_blocking(move || {
-                        write_chunk_at_offset(&part_path, offset, &plaintext)
-                    })
-                    .await??;
+                    // 通过 PartFile 写入分块（pwrite，并发安全）
+                    part_file.write_chunk(chunk_index, &plaintext).await?;
 
                     return Ok(chunk_size);
                 }
@@ -417,13 +419,6 @@ impl ReceiveSession {
         }))
     }
 
-    /// 解析文件保存路径
-    fn resolve_file_path(&self, relative_path: &str) -> AppResult<PathBuf> {
-        // relative_path 使用 Unix 风格 `/` 分隔符
-        let path = self.save_path.join(relative_path);
-        Ok(path)
-    }
-
     /// 发送 Cancel 消息给发送方
     pub async fn send_cancel(&self) {
         let _ = self
@@ -431,7 +426,7 @@ impl ReceiveSession {
             .send_request(
                 self.peer_id,
                 AppRequest::Transfer(TransferRequest::Cancel {
-                    session_id: self.session_id.clone(),
+                    session_id: self.session_id,
                     reason: "用户取消".into(),
                 }),
             )
@@ -448,38 +443,17 @@ impl ReceiveSession {
         &self.cancel_token
     }
 
-    /// 清理 .part 临时文件
+    /// 清理所有已创建但未最终化的临时文件
     pub async fn cleanup_part_files(&self) {
-        for file_info in &self.files {
-            let final_path = self.save_path.join(&file_info.relative_path);
-            let part_path = final_path.with_extension(
-                final_path
-                    .extension()
-                    .map(|e| format!("{}.part", e.to_string_lossy()))
-                    .unwrap_or_else(|| "part".into()),
-            );
-            let _ = tokio::fs::remove_file(&part_path).await;
+        let parts = self.created_parts.lock().await;
+        for part_file in parts.iter() {
+            part_file.cleanup(&self.app).await;
         }
     }
-}
 
-/// 在指定 offset 写入数据到文件
-fn write_chunk_at_offset(path: &Path, offset: u64, data: &[u8]) -> AppResult<()> {
-    use std::io::{Seek, SeekFrom, Write};
-
-    let mut file = std::fs::OpenOptions::new()
-        .write(true)
-        .open(path)?;
-    file.seek(SeekFrom::Start(offset))?;
-    file.write_all(data)?;
-    Ok(())
-}
-
-/// 校验文件的 BLAKE3 checksum
-fn verify_checksum(path: &Path, expected_hex: &str) -> AppResult<bool> {
-    let mut file = std::fs::File::open(path)?;
-    let mut hasher = Hasher::new();
-    hasher.update_reader(&mut file)?;
-    let actual_hex = hasher.finalize().to_hex().to_string();
-    Ok(actual_hex == expected_hex)
+    /// 从跟踪列表中移除指定的 PartFile（通过 Arc 指针比较）
+    async fn remove_created_part(&self, part_file: &Arc<PartFile>) {
+        let mut parts = self.created_parts.lock().await;
+        parts.retain(|p| !Arc::ptr_eq(p, part_file));
+    }
 }

@@ -3,6 +3,7 @@ use swarm_p2p_core::{EventReceiver, NodeEvent};
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_notification::NotificationExt;
 use tracing::{info, warn};
+use uuid::Uuid;
 
 use super::manager::SharedNetRefs;
 use crate::device::DeviceFilter;
@@ -24,7 +25,7 @@ struct PairingRequestPayload {
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 struct TransferOfferPayload {
-    session_id: String,
+    session_id: Uuid,
     peer_id: String,
     device_name: String,
     files: Vec<TransferFilePayload>,
@@ -188,7 +189,7 @@ pub fn spawn_event_loop(
                             let app2 = app.clone();
                             tokio::spawn(async move {
                                 let response = AppResponse::Transfer(TransferResponse::Ack {
-                                    session_id: session_id.clone(),
+                                    session_id,
                                 });
                                 if let Err(e) = client.send_response(pending_id, response).await {
                                     warn!("发送 Ack 响应失败: {}", e);
@@ -201,6 +202,8 @@ pub fn spawn_event_loop(
                                     total_bytes,
                                     elapsed_ms,
                                     save_path: None,
+                                    file_uris: Vec::new(),
+                                    save_dir_uri: None,
                                 };
                                 let _ = app2.emit("transfer-complete", &event);
                             });
@@ -230,10 +233,9 @@ pub fn spawn_event_loop(
 
                             // 回复 Ack
                             let client = shared.client.clone();
-                            let session_id_clone = session_id.clone();
                             tokio::spawn(async move {
                                 let response = AppResponse::Transfer(TransferResponse::Ack {
-                                    session_id: session_id_clone,
+                                    session_id,
                                 });
                                 let _ = client.send_response(pending_id, response).await;
                             });
@@ -277,14 +279,14 @@ pub fn spawn_event_loop(
                                 .get_paired_devices()
                                 .into_iter()
                                 .find(|d| d.peer_id == peer_id)
-                                .map(|d| d.os_info.hostname.clone())
+                                .map(|d| d.os_info.hostname)
                                 .unwrap_or_else(|| peer_id.to_string()[..8].to_string());
 
                             // 缓存入站 Offer
                             shared.transfer.cache_inbound_offer(
                                 pending_id,
                                 peer_id,
-                                session_id.clone(),
+                                session_id,
                                 files.clone(),
                                 total_size,
                             );

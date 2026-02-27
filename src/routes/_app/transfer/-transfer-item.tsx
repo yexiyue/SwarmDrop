@@ -26,7 +26,7 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
-import { openPath } from "@tauri-apps/plugin-opener";
+import { openTransferResult } from "@/lib/file-picker";
 import { useNavigate } from "@tanstack/react-router";
 
 interface TransferItemProps {
@@ -61,10 +61,12 @@ export function TransferItem({ session }: TransferItemProps) {
     }
   };
 
-  const handleOpenFolder = (e: React.MouseEvent) => {
+  const handleOpenFolder = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (session.savePath) {
-      void openPath(session.savePath);
+    try {
+      await openTransferResult(session);
+    } catch (err) {
+      toast.error(getErrorMessage(err));
     }
   };
 
@@ -178,16 +180,16 @@ export function TransferItem({ session }: TransferItemProps) {
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>{formatRelativeTime(session.completedAt)}</span>
           {session.savePath && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-6 gap-1 px-2 text-xs"
-              onClick={handleOpenFolder}
-            >
-              <FolderOpen className="size-3" />
-              <Trans>打开文件夹</Trans>
-            </Button>
-          )}
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 gap-1 px-2 text-xs"
+                onClick={handleOpenFolder}
+              >
+                <FolderOpen className="size-3" />
+                <Trans>打开文件夹</Trans>
+              </Button>
+            )}
         </div>
       )}
 

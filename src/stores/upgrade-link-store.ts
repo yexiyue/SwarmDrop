@@ -43,9 +43,13 @@ interface UpgradeLinkState {
   latestVersion: string | null;
   currentVersion: string | null;
   promptContent: string | null;
+  /** 更新日志 */
+  releaseNotes: string | null;
   downloadUrl: string | null;
   progress: DownloadProgress | null;
   error: string | null;
+  /** 是否已经检查过更新（避免重复检查） */
+  hasChecked: boolean;
 
   // Actions
   checkForUpdate: () => Promise<void>;
@@ -73,12 +77,16 @@ export const useUpgradeLinkStore = create<UpgradeLinkState>()((set, get) => ({
   latestVersion: null,
   currentVersion: null,
   promptContent: null,
+  releaseNotes: null,
   downloadUrl: null,
   progress: null,
   error: null,
+  hasChecked: false,
 
-  async checkForUpdate() {
-    const { status } = get();
+  async checkForUpdate(force = false) {
+    const { status, hasChecked } = get();
+    // 如果已经检查过且不是强制检查，则跳过
+    if (!force && hasChecked) return;
     if (status === "checking" || status === "downloading") return;
 
     set({ status: "checking", error: null });
@@ -104,6 +112,8 @@ export const useUpgradeLinkStore = create<UpgradeLinkState>()((set, get) => ({
         status: "error",
         error: err instanceof Error ? err.message : String(err),
       });
+    } finally {
+      set({ hasChecked: true });
     }
   },
 
@@ -207,9 +217,11 @@ export const useUpgradeLinkStore = create<UpgradeLinkState>()((set, get) => ({
       latestVersion: null,
       currentVersion: null,
       promptContent: null,
+      releaseNotes: null,
       downloadUrl: null,
       progress: null,
       error: null,
+      hasChecked: false,
     });
   },
 
@@ -296,6 +308,7 @@ async function checkDesktop(
   set({
     latestVersion: desktopUpdate.version,
     upgradeType: result.upgradeType,
+    releaseNotes: desktopUpdate.body ?? null,
   });
 
   // 根据策略设置状态
@@ -325,6 +338,7 @@ async function checkAndroid(
     upgradeType: result.upgradeType,
     downloadUrl: result.downloadUrl,
     promptContent: result.promptContent,
+    releaseNotes: result.promptContent,
   });
 
   if (result.upgradeType === "force") {

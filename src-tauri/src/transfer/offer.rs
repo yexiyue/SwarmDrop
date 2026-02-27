@@ -3,18 +3,17 @@
 //! 管理 Offer 协议（发送、接受、拒绝）和活跃传输会话（发送/接收）。
 //! 事件循环写入缓存 → 前端操作后通过 Tauri 命令消费缓存。
 
-use std::path::PathBuf;
 use std::sync::Arc;
 
-use blake3::Hasher;
 use dashmap::DashMap;
-use path_slash::PathExt as _;
 use serde::Serialize;
 use swarm_p2p_core::libp2p::PeerId;
 use tauri::AppHandle;
 use tracing::{info, warn};
-use walkdir::WalkDir;
+use uuid::Uuid;
 
+use crate::file_sink::FileSink;
+use crate::file_source::{EnumeratedFile, FileSource};
 use crate::protocol::{
     AppNetClient, AppRequest, AppResponse, FileInfo, TransferRequest, TransferResponse,
 };
@@ -23,11 +22,27 @@ use crate::transfer::receiver::ReceiveSession;
 use crate::transfer::sender::SendSession;
 use crate::{AppError, AppResult};
 
+/// prepare_send 进度事件（通过 Tauri Channel 实时推送给前端）
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PrepareProgress {
+    /// 当前正在 hash 的文件名
+    pub current_file: String,
+    /// 已完成 hash 的文件数
+    pub completed_files: u32,
+    /// 总文件数
+    pub total_files: u32,
+    /// 累积已 hash 的字节数（所有文件）
+    pub bytes_hashed: u64,
+    /// 总字节数（所有文件）
+    pub total_bytes: u64,
+}
+
 /// 发送方准备好的传输信息
 #[derive(Debug, Clone)]
 pub struct PreparedTransfer {
     /// 唯一标识符
-    pub prepared_id: String,
+    pub prepared_id: Uuid,
     /// 文件列表（含 BLAKE3 校验和）
     pub files: Vec<PreparedFile>,
     /// 总大小（字节）
@@ -43,8 +58,8 @@ pub struct PreparedFile {
     pub name: String,
     /// 相对路径
     pub relative_path: String,
-    /// 绝对路径（发送时读取文件用）
-    pub absolute_path: String,
+    /// 文件来源（发送时读取文件用）
+    pub source: FileSource,
     /// 文件大小
     pub size: u64,
     /// BLAKE3 校验和（hex）
@@ -59,7 +74,7 @@ pub struct PendingOffer {
     /// 发送方 PeerId
     pub peer_id: PeerId,
     /// 传输会话 ID
-    pub session_id: String,
+    pub session_id: Uuid,
     /// 文件列表
     pub files: Vec<FileInfo>,
     /// 总大小
@@ -70,7 +85,7 @@ pub struct PendingOffer {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StartSendResult {
-    pub session_id: String,
+    pub session_id: Uuid,
     pub accepted: bool,
     pub reason: Option<String>,
 }
@@ -80,13 +95,13 @@ pub struct TransferManager {
     /// libp2p 网络客户端
     client: AppNetClient,
     /// 发送方：prepare_send 的缓存（key = prepared_id）
-    prepared: DashMap<String, PreparedTransfer>,
+    prepared: DashMap<Uuid, PreparedTransfer>,
     /// 接收方：入站 Offer 的缓存（key = session_id）
-    pending: DashMap<String, PendingOffer>,
+    pending: DashMap<Uuid, PendingOffer>,
     /// 活跃的发送会话（key = session_id）
-    send_sessions: DashMap<String, Arc<SendSession>>,
+    send_sessions: DashMap<Uuid, Arc<SendSession>>,
     /// 活跃的接收会话（key = session_id, Arc 包装以便回调中清理）
-    receive_sessions: Arc<DashMap<String, Arc<ReceiveSession>>>,
+    receive_sessions: Arc<DashMap<Uuid, Arc<ReceiveSession>>>,
 }
 
 impl TransferManager {
@@ -102,12 +117,74 @@ impl TransferManager {
 
     // ============ 准备阶段 ============
 
-    /// 准备发送：扫描文件、计算 BLAKE3 校验和、分配 fileId
-    pub async fn prepare(&self, file_paths: Vec<String>) -> AppResult<PreparedTransfer> {
-        let prepared = tokio::task::spawn_blocking(move || prepare_sync(file_paths)).await??;
+    /// 准备发送：对预扫描的文件列表计算 BLAKE3 校验和、分配 fileId
+    ///
+    /// 接收 `scan_sources` 命令返回的 `EnumeratedFile` 列表。
+    /// 前端可能已移除部分文件（用户在 UI 中取消选择）。
+    /// 此方法不做目录遍历，只对每个文件计算 hash。
+    /// 通过 `on_progress` Channel 实时上报字节级进度。
+    pub async fn prepare(
+        &self,
+        entries: Vec<EnumeratedFile>,
+        app: &AppHandle,
+        on_progress: tauri::ipc::Channel<PrepareProgress>,
+    ) -> AppResult<PreparedTransfer> {
+        if entries.is_empty() {
+            return Err(AppError::Transfer("文件列表为空".into()));
+        }
+
+        let total_files = entries.len() as u32;
+        let total_bytes: u64 = entries.iter().map(|e| e.size).sum();
+        let mut files = Vec::new();
+        let mut completed_bytes: u64 = 0;
+
+        for (file_id, entry) in entries.into_iter().enumerate() {
+            let file_name: std::sync::Arc<str> = entry.name.clone().into();
+            let base_bytes = completed_bytes;
+            let completed_files = file_id as u32;
+            let progress = on_progress.clone();
+
+            let checksum = entry
+                .source
+                .compute_hash_with_progress(app, move |bytes_in_file| {
+                    let _ = progress.send(PrepareProgress {
+                        current_file: file_name.to_string(),
+                        completed_files,
+                        total_files,
+                        bytes_hashed: base_bytes + bytes_in_file,
+                        total_bytes,
+                    });
+                })
+                .await?;
+
+            completed_bytes += entry.size;
+            files.push(PreparedFile {
+                file_id: file_id as u32,
+                name: entry.name,
+                relative_path: entry.relative_path,
+                source: entry.source,
+                size: entry.size,
+                checksum,
+            });
+        }
+
+        // 最终完成事件
+        let _ = on_progress.send(PrepareProgress {
+            current_file: String::new(),
+            completed_files: total_files,
+            total_files,
+            bytes_hashed: total_bytes,
+            total_bytes,
+        });
+
+        let prepared = PreparedTransfer {
+            prepared_id: generate_id(),
+            files,
+            total_size: total_bytes,
+        };
 
         self.prepared
-            .insert(prepared.prepared_id.clone(), prepared.clone());
+            .insert(prepared.prepared_id, prepared.clone());
 
         Ok(prepared)
     }
@@ -119,15 +196,14 @@ impl TransferManager {
     /// 如果被接受，自动创建 SendSession 并缓存。
     pub async fn send_offer(
         &self,
-        prepared_id: &str,
+        prepared_id: &Uuid,
         peer_id: &str,
         selected_file_ids: &[u32],
+        app: AppHandle,
     ) -> AppResult<StartSendResult> {
-        let prepared = self
-            .take_prepared(prepared_id)
-            .ok_or_else(|| {
-                AppError::Transfer(format!("PreparedTransfer not found: {prepared_id}"))
-            })?;
+        let prepared = self.take_prepared(prepared_id).ok_or_else(|| {
+            AppError::Transfer(format!("PreparedTransfer not found: {prepared_id}"))
+        })?;
 
         // 筛选选中的文件
         let selected_prepared: Vec<PreparedFile> = prepared
@@ -170,7 +246,7 @@ impl TransferManager {
             .send_request(
                 target_peer,
                 AppRequest::Transfer(TransferRequest::Offer {
-                    session_id: session_id.clone(),
+                    session_id,
                     files: selected_files,
                     total_size,
                 }),
@@ -190,12 +266,12 @@ impl TransferManager {
 
                         // 创建 SendSession
                         let send_session = Arc::new(SendSession::new(
-                            session_id.clone(),
+                            session_id,
                             selected_prepared,
                             &key,
+                            app,
                         ));
-                        self.send_sessions
-                            .insert(session_id.clone(), send_session);
+                        self.send_sessions.insert(session_id, send_session);
                     } else {
                         warn!(
                             "Offer accepted but no key received for session {}",
@@ -203,10 +279,7 @@ impl TransferManager {
                         );
                     }
                 } else {
-                    info!(
-                        "Offer rejected for session {}: {:?}",
-                        session_id, reason
-                    );
+                    info!("Offer rejected for session {}: {:?}", session_id, reason);
                 }
                 Ok(StartSendResult {
                     session_id,
@@ -214,21 +287,19 @@ impl TransferManager {
                     reason,
                 })
             }
-            other => Err(AppError::Transfer(format!(
-                "意外的响应类型: {other:?}"
-            ))),
+            other => Err(AppError::Transfer(format!("意外的响应类型: {other:?}"))),
         }
     }
 
     // ============ 发送方：响应 ChunkRequest ============
 
     /// 获取发送会话（事件循环调用）
-    pub fn get_send_session(&self, session_id: &str) -> Option<Arc<SendSession>> {
-        self.send_sessions.get(session_id).map(|s| s.clone())
+    pub fn get_send_session(&self, session_id: &Uuid) -> Option<Arc<SendSession>> {
+        self.send_sessions.get(session_id).map(|r| r.clone())
     }
 
     /// 移除发送会话
-    pub fn remove_send_session(&self, session_id: &str) {
+    pub fn remove_send_session(&self, session_id: &Uuid) {
         self.send_sessions.remove(session_id);
     }
 
@@ -239,12 +310,12 @@ impl TransferManager {
         &self,
         pending_id: u64,
         peer_id: PeerId,
-        session_id: String,
+        session_id: Uuid,
         files: Vec<FileInfo>,
         total_size: u64,
     ) {
         self.pending.insert(
-            session_id.clone(),
+            session_id,
             PendingOffer {
                 pending_id,
                 peer_id,
@@ -258,16 +329,14 @@ impl TransferManager {
     /// 接受传输并启动接收：生成密钥、回复 OfferResult、创建 ReceiveSession 并开始拉取
     pub async fn accept_and_start_receive(
         &self,
-        session_id: &str,
+        session_id: &Uuid,
         save_path: String,
         app: AppHandle,
     ) -> AppResult<()> {
         let (_, offer) = self
             .pending
             .remove(session_id)
-            .ok_or_else(|| {
-                AppError::Transfer(format!("pending offer not found: {session_id}"))
-            })?;
+            .ok_or_else(|| AppError::Transfer(format!("pending offer not found: {session_id}")))?;
 
         let key = generate_key();
 
@@ -284,23 +353,27 @@ impl TransferManager {
             .await
             .map_err(|e| AppError::Transfer(format!("回复 OfferResult 失败: {e}")))?;
 
-        // 创建 ReceiveSession 并启动后台拉取
+        // 创建 FileSink
+        // Android: 直接写入公共 Download 目录（无需 save_path）
+        // 桌面端: 写入用户指定的本地目录
+        let sink = build_file_sink(save_path);
         let receive_session = Arc::new(ReceiveSession::new(
-            offer.session_id.clone(),
+            offer.session_id,
             offer.peer_id,
             offer.files,
             offer.total_size,
-            PathBuf::from(save_path),
+            sink,
             &key,
             self.client.clone(),
+            app,
         ));
 
         self.receive_sessions
-            .insert(offer.session_id.clone(), receive_session.clone());
+            .insert(offer.session_id, receive_session.clone());
 
         // 传输结束后自动从 receive_sessions 中清理
         let sessions_map = self.receive_sessions.clone();
-        receive_session.start_pulling(app, move |session_id| {
+        receive_session.start_pulling(move |session_id| {
             sessions_map.remove(session_id);
         });
 
@@ -308,13 +381,11 @@ impl TransferManager {
     }
 
     /// 拒绝传输：回复拒绝的 OfferResult
-    pub async fn reject_and_respond(&self, session_id: &str) -> AppResult<()> {
+    pub async fn reject_and_respond(&self, session_id: &Uuid) -> AppResult<()> {
         let (_, offer) = self
             .pending
             .remove(session_id)
-            .ok_or_else(|| {
-                AppError::Transfer(format!("pending offer not found: {session_id}"))
-            })?;
+            .ok_or_else(|| AppError::Transfer(format!("pending offer not found: {session_id}")))?;
 
         info!("Rejecting transfer offer: session={}", session_id);
 
@@ -333,13 +404,11 @@ impl TransferManager {
     // ============ 取消 ============
 
     /// 取消发送
-    pub async fn cancel_send(&self, session_id: &str) -> AppResult<()> {
+    pub async fn cancel_send(&self, session_id: &Uuid) -> AppResult<()> {
         let (_, session) = self
             .send_sessions
             .remove(session_id)
-            .ok_or_else(|| {
-                AppError::Transfer(format!("发送会话不存在: {session_id}"))
-            })?;
+            .ok_or_else(|| AppError::Transfer(format!("发送会话不存在: {session_id}")))?;
 
         session.cancel();
         info!("Send session cancelled: session={}", session_id);
@@ -347,13 +416,11 @@ impl TransferManager {
     }
 
     /// 取消接收
-    pub async fn cancel_receive(&self, session_id: &str) -> AppResult<()> {
+    pub async fn cancel_receive(&self, session_id: &Uuid) -> AppResult<()> {
         let (_, session) = self
             .receive_sessions
             .remove(session_id)
-            .ok_or_else(|| {
-                AppError::Transfer(format!("接收会话不存在: {session_id}"))
-            })?;
+            .ok_or_else(|| AppError::Transfer(format!("接收会话不存在: {session_id}")))?;
 
         session.cancel();
         session.send_cancel().await;
@@ -363,119 +430,43 @@ impl TransferManager {
     }
 
     /// 获取接收会话（事件循环调用）
-    pub fn get_receive_session(&self, session_id: &str) -> Option<Arc<ReceiveSession>> {
-        self.receive_sessions.get(session_id).map(|s| s.clone())
+    pub fn get_receive_session(&self, session_id: &Uuid) -> Option<Arc<ReceiveSession>> {
+        self.receive_sessions.get(session_id).map(|r| r.clone())
     }
 
     /// 移除接收会话
-    pub fn remove_receive_session(&self, session_id: &str) {
+    pub fn remove_receive_session(&self, session_id: &Uuid) {
         self.receive_sessions.remove(session_id);
     }
 
     // ============ 内部方法 ============
 
-    fn take_prepared(&self, prepared_id: &str) -> Option<PreparedTransfer> {
+    fn take_prepared(&self, prepared_id: &Uuid) -> Option<PreparedTransfer> {
         self.prepared.remove(prepared_id).map(|(_, v)| v)
     }
 }
 
 /// 生成随机的 session/prepared ID（UUID v4）
-pub fn generate_id() -> String {
-    uuid::Uuid::new_v4().to_string()
+pub fn generate_id() -> Uuid {
+    Uuid::new_v4()
 }
 
-/// 同步准备文件（在 blocking task 中执行）
-fn prepare_sync(file_paths: Vec<String>) -> AppResult<PreparedTransfer> {
-    if file_paths.is_empty() {
-        return Err(AppError::Transfer("文件列表为空".into()));
-    }
-
-    let mut files = Vec::new();
-    let mut file_id: u32 = 0;
-    let mut total_size: u64 = 0;
-
-    for path_str in file_paths {
-        let path = PathBuf::from(&path_str);
-        let meta = std::fs::metadata(&path)?;
-
-        if meta.is_file() {
-            let name = path
-                .file_name()
-                .map(|n| n.to_string_lossy().into_owned())
-                .unwrap_or_default();
-            let checksum = compute_checksum(&path)?;
-            let size = meta.len();
-
-            files.push(PreparedFile {
-                file_id,
-                name: name.clone(),
-                relative_path: name,
-                absolute_path: path_str,
-                size,
-                checksum,
-            });
-            total_size += size;
-            file_id += 1;
-        } else if meta.is_dir() {
-            let dir_name = path
-                .file_name()
-                .map(|n| n.to_string_lossy().into_owned())
-                .unwrap_or_default();
-
-            for entry in WalkDir::new(&path)
-                .follow_links(true)
-                .into_iter()
-                .filter_map(|e| e.ok())
-            {
-                if entry.file_type().is_dir() {
-                    continue;
-                }
-
-                let entry_path = entry.path();
-                let name = entry_path
-                    .file_name()
-                    .map(|n| n.to_string_lossy().into_owned())
-                    .unwrap_or_default();
-
-                let sub_path = pathdiff::diff_paths(entry_path, &path)
-                    .unwrap_or_else(|| entry_path.to_path_buf());
-                let relative_path = format!(
-                    "{dir_name}/{}",
-                    sub_path.to_slash_lossy()
-                );
-
-                let checksum = compute_checksum(entry_path)?;
-                let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
-
-                files.push(PreparedFile {
-                    file_id,
-                    name,
-                    relative_path,
-                    absolute_path: entry_path.to_string_lossy().into_owned(),
-                    size,
-                    checksum,
-                });
-                total_size += size;
-                file_id += 1;
-            }
+/// 根据平台构造 FileSink
+///
+/// Android 端忽略 `save_path`，直接写入公共 Download/SwarmDrop 目录；
+/// 桌面端写入用户指定的本地目录。
+#[allow(unused_variables)]
+fn build_file_sink(save_path: String) -> FileSink {
+    #[cfg(target_os = "android")]
+    {
+        FileSink::AndroidPublicDir {
+            subdir: "SwarmDrop".into(),
         }
     }
-
-    if files.is_empty() {
-        return Err(AppError::Transfer("未找到有效文件".into()));
+    #[cfg(not(target_os = "android"))]
+    {
+        FileSink::Path {
+            save_dir: std::path::PathBuf::from(save_path),
+        }
     }
-
-    Ok(PreparedTransfer {
-        prepared_id: generate_id(),
-        files,
-        total_size,
-    })
-}
-
-/// 计算文件的 BLAKE3 校验和（hex 编码）
-fn compute_checksum(path: &std::path::Path) -> AppResult<String> {
-    let mut file = std::fs::File::open(path)?;
-    let mut hasher = Hasher::new();
-    hasher.update_reader(&mut file)?;
-    Ok(hasher.finalize().to_hex().to_string())
 }
