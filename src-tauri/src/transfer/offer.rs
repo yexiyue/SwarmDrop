@@ -15,7 +15,8 @@ use uuid::Uuid;
 use crate::file_sink::FileSink;
 use crate::file_source::{EnumeratedFile, FileSource};
 use crate::protocol::{
-    AppNetClient, AppRequest, AppResponse, FileInfo, TransferRequest, TransferResponse,
+    AppNetClient, AppRequest, AppResponse, FileInfo, OfferRejectReason, TransferRequest,
+    TransferResponse,
 };
 use crate::transfer::crypto::generate_key;
 use crate::transfer::receiver::ReceiveSession;
@@ -87,7 +88,7 @@ pub struct PendingOffer {
 pub struct StartSendResult {
     pub session_id: Uuid,
     pub accepted: bool,
-    pub reason: Option<String>,
+    pub reason: Option<OfferRejectReason>,
 }
 
 /// 传输管理器（原 OfferManager，扩展为管理完整传输生命周期）
@@ -392,7 +393,7 @@ impl TransferManager {
         let response = AppResponse::Transfer(TransferResponse::OfferResult {
             accepted: false,
             key: None,
-            reason: Some("用户拒绝".into()),
+            reason: Some(OfferRejectReason::UserDeclined),
         });
 
         self.client
