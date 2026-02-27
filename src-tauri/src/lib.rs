@@ -1,6 +1,7 @@
 pub mod commands;
 pub mod device;
 pub mod error;
+pub mod events;
 pub(crate) mod network;
 pub(crate) mod pairing;
 pub mod protocol;
