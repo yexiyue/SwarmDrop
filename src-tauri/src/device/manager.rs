@@ -204,6 +204,13 @@ impl DeviceManager {
         }
     }
 
+    /// 检查指定 peer 是否处于连接状态
+    pub fn is_connected(&self, peer_id: &PeerId) -> bool {
+        self.peers
+            .get(peer_id)
+            .is_some_and(|e| e.value().is_connected)
+    }
+
     /// 已连接 peer 数量
     pub fn connected_count(&self) -> usize {
         self.peers.iter().filter(|e| e.value().is_connected).count()

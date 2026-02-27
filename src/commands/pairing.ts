@@ -46,11 +46,16 @@ export type PairingMethod =
   | { type: "direct" };
 
 /**
+ * 配对被拒绝的原因（与 Rust PairingRefuseReason 对应）
+ */
+export type PairingRefuseReason = { type: "user_rejected" };
+
+/**
  * 配对响应
  */
 export type PairingResponse =
   | { status: "success" }
-  | { status: "refused"; reason: string };
+  | { status: "refused"; reason: PairingRefuseReason };
 
 /**
  * 生成配对码，发布到 DHT 供对端查询
@@ -85,6 +90,15 @@ export async function requestPairing(
   addrs?: string[],
 ): Promise<PairingResponse> {
   return invoke<PairingResponse>("request_pairing", { peerId, method, addrs });
+}
+
+/**
+ * 取消与指定设备的配对（同步更新后端运行时状态）
+ *
+ * 节点未运行时静默成功，前端应同时更新 Stronghold 持久化。
+ */
+export async function removePairedDevice(peerId: PeerId): Promise<void> {
+  return invoke("remove_paired_device", { peerId });
 }
 
 /**

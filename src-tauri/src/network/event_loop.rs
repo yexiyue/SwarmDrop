@@ -7,8 +7,11 @@ use uuid::Uuid;
 
 use super::manager::SharedNetRefs;
 use crate::device::DeviceFilter;
-use crate::protocol::{AppRequest, AppResponse, PairingRequest, TransferRequest, TransferResponse};
-use crate::transfer::progress::TransferFailedEvent;
+use crate::events;
+use crate::protocol::{
+    AppRequest, AppResponse, OfferRejectReason, PairingRequest, TransferRequest, TransferResponse,
+};
+use crate::transfer::progress::{TransferDirection, TransferFailedEvent};
 use swarm_p2p_core::libp2p::PeerId;
 
 /// 配对请求事件 payload
@@ -66,6 +69,13 @@ pub fn spawn_event_loop(
     shared: SharedNetRefs,
 ) {
     tokio::spawn(async move {
+        let emit_device_and_status = || {
+            let devices = shared.devices.get_devices(DeviceFilter::All);
+            let _ = app.emit(events::DEVICES_CHANGED, &devices);
+            let net_status = shared.build_network_status();
+            let _ = app.emit(events::NETWORK_STATUS_CHANGED, &net_status);
+        };
+
         while let Some(event) = receiver.recv().await {
             // handle_event 对不相关的事件直接忽略，无条件调用后再消费 event
             shared.devices.handle_event(&event);
@@ -77,7 +87,7 @@ pub fn spawn_event_loop(
                         addrs.push(addr);
                     }
                     let status = shared.build_network_status();
-                    let _ = app.emit("network-status-changed", &status);
+                    let _ = app.emit(events::NETWORK_STATUS_CHANGED, &status);
                 }
                 NodeEvent::NatStatusChanged {
                     status,
@@ -90,27 +100,46 @@ pub fn spawn_event_loop(
                         *pa = public_addr;
                     }
                     let net_status = shared.build_network_status();
-                    let _ = app.emit("network-status-changed", &net_status);
+                    let _ = app.emit(events::NETWORK_STATUS_CHANGED, &net_status);
                 }
                 NodeEvent::RelayReservationAccepted { .. } => {
                     if let Ok(mut rr) = shared.relay_ready.write() {
                         *rr = true;
                     }
                     let net_status = shared.build_network_status();
-                    let _ = app.emit("network-status-changed", &net_status);
+                    let _ = app.emit(events::NETWORK_STATUS_CHANGED, &net_status);
                 }
 
                 // === 设备事件（handle_event 已在上方处理） ===
+                NodeEvent::PeerConnected { ref peer_id } => {
+                    // 检查是否为引导节点
+                    if shared.bootstrap_peer_ids.contains(peer_id) {
+                        if let Ok(mut bc) = shared.bootstrap_connected.write() {
+                            *bc = true;
+                        }
+                    }
+                    emit_device_and_status();
+                }
+                NodeEvent::PeerDisconnected { ref peer_id } => {
+                    // 检查是否为引导节点断开
+                    if shared.bootstrap_peer_ids.contains(peer_id) {
+                        // 检查是否还有其他引导节点连接
+                        let any_connected = shared.bootstrap_peer_ids.iter().any(|bp| {
+                            bp != peer_id && shared.devices.is_connected(bp)
+                        });
+                        if !any_connected {
+                            if let Ok(mut bc) = shared.bootstrap_connected.write() {
+                                *bc = false;
+                            }
+                        }
+                    }
+                    emit_device_and_status();
+                }
                 NodeEvent::PeersDiscovered { .. }
-                | NodeEvent::PeerConnected { .. }
-                | NodeEvent::PeerDisconnected { .. }
                 | NodeEvent::IdentifyReceived { .. }
                 | NodeEvent::PingSuccess { .. }
                 | NodeEvent::HolePunchSucceeded { .. } => {
-                    let devices = shared.devices.get_devices(DeviceFilter::All);
-                    let _ = app.emit("devices-changed", &devices);
-                    let net_status = shared.build_network_status();
-                    let _ = app.emit("network-status-changed", &net_status);
+                    emit_device_and_status();
                 }
 
                 // === 入站请求（缓存上下文 + 推送业务事件给前端） ===
@@ -137,7 +166,7 @@ pub fn spawn_event_loop(
                                 pending_id,
                                 request: req,
                             };
-                            let _ = app.emit("pairing-request-received", &payload);
+                            let _ = app.emit(events::PAIRING_REQUEST_RECEIVED, &payload);
                         }
 
                         // === 分块传输请求（ChunkRequest / Complete / Cancel） ===
@@ -198,14 +227,14 @@ pub fn spawn_event_loop(
                                 // 发送方也发射完成事件
                                 let event = crate::transfer::progress::TransferCompleteEvent {
                                     session_id,
-                                    direction: "send",
+                                    direction: TransferDirection::Send,
                                     total_bytes,
                                     elapsed_ms,
                                     save_path: None,
                                     file_uris: Vec::new(),
                                     save_dir_uri: None,
                                 };
-                                let _ = app2.emit("transfer-complete", &event);
+                                let _ = app2.emit(events::TRANSFER_COMPLETE, &event);
                             });
                         }
 
@@ -243,10 +272,10 @@ pub fn spawn_event_loop(
                             // 发射失败事件
                             let event = TransferFailedEvent {
                                 session_id,
-                                direction: "unknown",
+                                direction: TransferDirection::Unknown,
                                 error: format!("对方取消: {}", reason),
                             };
-                            let _ = app.emit("transfer-failed", &event);
+                            let _ = app.emit(events::TRANSFER_FAILED, &event);
                         }
 
                         AppRequest::Transfer(TransferRequest::Offer {
@@ -261,7 +290,7 @@ pub fn spawn_event_loop(
                                     AppResponse::Transfer(TransferResponse::OfferResult {
                                         accepted: false,
                                         key: None,
-                                        reason: Some("未配对设备".into()),
+                                        reason: Some(OfferRejectReason::NotPaired),
                                     });
                                 let client = shared.client.clone();
                                 tokio::spawn(async move {
@@ -280,7 +309,10 @@ pub fn spawn_event_loop(
                                 .into_iter()
                                 .find(|d| d.peer_id == peer_id)
                                 .map(|d| d.os_info.hostname)
-                                .unwrap_or_else(|| peer_id.to_string()[..8].to_string());
+                                .unwrap_or_else(|| {
+                                    let s = peer_id.to_string();
+                                    s[s.len().saturating_sub(8)..].to_string()
+                                });
 
                             // 缓存入站 Offer
                             shared.transfer.cache_inbound_offer(
@@ -308,7 +340,7 @@ pub fn spawn_event_loop(
                                     .collect(),
                                 total_size,
                             };
-                            let _ = app.emit("transfer-offer", &payload);
+                            let _ = app.emit(events::TRANSFER_OFFER, &payload);
 
                             notify_if_unfocused(
                                 &app,

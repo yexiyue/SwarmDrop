@@ -5,7 +5,8 @@
 
 import { create } from "zustand";
 import { toast } from "sonner";
-import type { PairingCodeInfo, DeviceInfo, PairingResponse, PairingMethod } from "@/commands/pairing";
+import { t } from "@lingui/core/macro";
+import type { PairingCodeInfo, DeviceInfo, PairingResponse, PairingMethod, PairingRefuseReason } from "@/commands/pairing";
 import {
   generatePairingCode,
   getDeviceInfo,
@@ -30,7 +31,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   return Promise.race([
     promise,
     new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(`${label}超时（${ms / 1000}s）`)), ms),
+      setTimeout(() => reject(new Error(t`${label}超时（${ms / 1000}s）`)), ms),
     ),
   ]);
 }
@@ -38,14 +39,22 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
 /** 检查是否为 NodeNotStarted 错误，如果是则弹出启动提示并返回 true */
 function handleNodeNotStarted(err: unknown): boolean {
   if (!isErrorKind(err, "NodeNotStarted")) return false;
-  toast.error("节点未启动", {
-    description: "请先启动网络节点",
+  toast.error(t`节点未启动`, {
+    description: t`请先启动网络节点`,
     action: {
-      label: "启动",
+      label: t`启动`,
       onClick: () => useNetworkStore.getState().startNetwork(),
     },
   });
   return true;
+}
+
+/** 将 PairingRefuseReason 转换为可展示的本地化消息 */
+function getPairingRefuseMessage(reason: PairingRefuseReason): string {
+  switch (reason.type) {
+    case "user_rejected":
+      return t`对方拒绝了配对请求`;
+  }
 }
 
 /** 配对流程阶段（仅管理出站配对流程） */
@@ -135,7 +144,7 @@ export const usePairingStore = create<PairingState>()(
         const deviceInfo = await withTimeout(
           getDeviceInfo(code),
           SEARCH_TIMEOUT_MS,
-          "查找设备",
+          t`查找设备`,
         );
         // 如果版本号不匹配，说明已被取消/重置
         if (searchVersion !== version) return;
@@ -160,7 +169,7 @@ export const usePairingStore = create<PairingState>()(
         const response: PairingResponse = await withTimeout(
           requestPairing(deviceInfo.peerId, { type: "code", code }, deviceInfo.codeRecord.listenAddrs),
           REQUEST_TIMEOUT_MS,
-          "配对请求",
+          t`配对请求`,
         );
 
         if (response.status === "success") {
@@ -172,10 +181,11 @@ export const usePairingStore = create<PairingState>()(
               deviceName: deviceInfo.codeRecord.hostname,
             },
           });
-          toast.success(`已与 ${deviceInfo.codeRecord.hostname} 配对成功`);
+          toast.success(t`已与 ${deviceInfo.codeRecord.hostname} 配对成功`);
         } else {
-          set({ current: { phase: "error", message: response.reason } });
-          toast.error(response.reason);
+          const message = getPairingRefuseMessage(response.reason);
+          set({ current: { phase: "error", message } });
+          toast.error(message);
         }
       } catch (err) {
         if (handleNodeNotStarted(err)) return;
@@ -198,7 +208,7 @@ export const usePairingStore = create<PairingState>()(
     },
 
     async acceptRequest() {
-      const { incomingRequest } = get();
+      const { incomingRequest, current } = get();
       if (!incomingRequest) return;
 
       const { pendingId, osInfo, method } = incomingRequest;
@@ -211,9 +221,21 @@ export const usePairingStore = create<PairingState>()(
 
         // 已配对设备由后端通过 paired-device-added 事件同步到 Stronghold
         set({ incomingRequest: null });
-        toast.success(`已与 ${osInfo.hostname} 配对成功`);
+        toast.success(t`已与 ${osInfo.hostname} 配对成功`);
         // 处理队列中的下一个请求
         get().processNextInbound();
+
+        // Code 模式配对成功后，后端已消耗活跃码（单例设计）
+        if (method.type === "code") {
+          // 清理队列中其他 Code 模式请求——旧码已失效，继续展示只会报错
+          set((state) => ({
+            inboundQueue: state.inboundQueue.filter((r) => r.method.type !== "code"),
+          }));
+          // 若当前仍在展示配对码，自动重新生成
+          if (current.phase === "generating") {
+            void get().generateCode();
+          }
+        }
       } catch (err) {
         if (handleNodeNotStarted(err)) return;
         const message = getErrorMessage(err);
@@ -232,10 +254,10 @@ export const usePairingStore = create<PairingState>()(
         await respondPairingRequest(
           pendingId,
           method,
-          { status: "refused", reason: "user_rejected" },
+          { status: "refused", reason: { type: "user_rejected" } },
         );
         set({ incomingRequest: null });
-        toast.success(`已拒绝来自 ${osInfo.hostname} 的配对请求`);
+        toast.success(t`已拒绝来自 ${osInfo.hostname} 的配对请求`);
         // 处理队列中的下一个请求
         get().processNextInbound();
       } catch (err) {
@@ -254,13 +276,13 @@ export const usePairingStore = create<PairingState>()(
         const response: PairingResponse = await withTimeout(
           requestPairing(peerId, { type: "direct" }),
           REQUEST_TIMEOUT_MS,
-          "配对请求",
+          t`配对请求`,
         );
 
         if (response.status === "success") {
           // 已配对设备由后端通过 paired-device-added 事件同步到 Stronghold
           const device = useNetworkStore.getState().devices.find(d => d.peerId === peerId);
-          const deviceName = device?.hostname ?? peerId.slice(0, 8);
+          const deviceName = device?.hostname ?? peerId.slice(-8);
 
           set({
             current: {
@@ -269,10 +291,11 @@ export const usePairingStore = create<PairingState>()(
               deviceName,
             },
           });
-          toast.success(`已与 ${deviceName} 配对成功`);
+          toast.success(t`已与 ${deviceName} 配对成功`);
         } else {
-          set({ current: { phase: "error", message: response.reason } });
-          toast.error(response.reason);
+          const message = getPairingRefuseMessage(response.reason);
+          set({ current: { phase: "error", message } });
+          toast.error(message);
         }
       } catch (err) {
         if (handleNodeNotStarted(err)) return;

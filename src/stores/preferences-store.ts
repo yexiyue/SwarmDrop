@@ -14,6 +14,10 @@ interface PreferencesState {
   locale: LocaleKey;
   /** 自定义设备名称（为空时使用系统主机名） */
   deviceName: string;
+  /** 解锁后自动启动 P2P 节点 */
+  autoStart: boolean;
+  /** 自定义引导节点地址列表（Multiaddr 格式） */
+  customBootstrapNodes: string[];
   /** 文件传输设置 */
   transfer: {
     /** 接收文件的默认保存路径 */
@@ -28,6 +32,12 @@ interface PreferencesState {
   setLocale: (locale: LocaleKey) => Promise<void>;
   /** 设置设备名称 */
   setDeviceName: (name: string) => void;
+  /** 设置自动启动 */
+  setAutoStart: (autoStart: boolean) => void;
+  /** 添加自定义引导节点 */
+  addBootstrapNode: (addr: string) => void;
+  /** 删除自定义引导节点 */
+  removeBootstrapNode: (addr: string) => void;
   /** 设置传输保存路径 */
   setTransferSavePath: (path: string) => void;
   /** 设置自动接收 */
@@ -53,6 +63,8 @@ export const usePreferencesStore = create<PreferencesState>()(
     (set) => ({
       locale: defaultLocale,
       deviceName: "",
+      autoStart: false,
+      customBootstrapNodes: [],
       transfer: {
         savePath: "",
         autoAccept: false,
@@ -65,6 +77,22 @@ export const usePreferencesStore = create<PreferencesState>()(
 
       setDeviceName(name: string) {
         set({ deviceName: name });
+      },
+
+      setAutoStart(autoStart: boolean) {
+        set({ autoStart });
+      },
+
+      addBootstrapNode(addr: string) {
+        set((state) => ({
+          customBootstrapNodes: [...state.customBootstrapNodes, addr],
+        }));
+      },
+
+      removeBootstrapNode(addr: string) {
+        set((state) => ({
+          customBootstrapNodes: state.customBootstrapNodes.filter((n) => n !== addr),
+        }));
       },
 
       setTransferSavePath(path: string) {
@@ -85,6 +113,8 @@ export const usePreferencesStore = create<PreferencesState>()(
       partialize: (state) => ({
         locale: state.locale,
         deviceName: state.deviceName,
+        autoStart: state.autoStart,
+        customBootstrapNodes: state.customBootstrapNodes,
         transfer: state.transfer,
       }),
       onRehydrateStorage: () => {
