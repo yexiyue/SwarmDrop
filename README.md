@@ -38,7 +38,7 @@
 - 📡 **跨网络传输** - 不局限于局域网，通过互联网连接任意设备
 - 🔒 **端到端加密** - 所有传输内容均加密，确保隐私安全
 - 🚀 **零配置** - 无需注册账号，开箱即用
-- 📱 **全平台** - 支持 Windows、macOS、Linux、Android、iOS
+- 📱 **全平台** - 支持 Windows、macOS、Linux、Android
 
 ## 特性
 
@@ -50,9 +50,12 @@
 | Relay / DCUtR 穿透 | ✅ 已完成 |
 | 设备配对系统 | ✅ 已完成 |
 | 6位数字配对码 | ✅ 已完成 |
-| 端到端加密传输 | 🚧 进行中 |
-| 文件传输 | 🚧 进行中 |
+| 端到端加密传输 | ✅ 已完成 |
+| 文件传输 + 进度显示 | ✅ 已完成 |
+| 传输历史 (SeaORM) | ✅ 已完成 |
 | 生物识别解锁 | ✅ 已完成 |
+| Android 支持 | ✅ 已完成 |
+| 断点续传 | 📋 计划中 |
 
 ## 安装
 
@@ -61,9 +64,9 @@
 前往 [Releases](https://github.com/yexiyue/SwarmDrop/releases) 页面下载对应平台的安装包：
 
 - **Windows**: `.msi` 或 `.exe`
-- **macOS**: `.dmg` (Universal)
-- **Linux**: `.AppImage` 或 `.deb`
-- **Android**: `.apk`
+- **macOS**: `.dmg` (aarch64 / x64)
+- **Linux**: `.deb` / `.rpm` / `.AppImage`
+- **Android**: `.apk` (aarch64)
 
 ### 从源码构建
 
@@ -187,7 +190,7 @@ SwarmDrop 支持 8 种语言：
 
 - [x] Phase 1: 网络层 (libp2p, mDNS, DHT, Relay)
 - [x] Phase 2: 设备配对系统
-- [ ] Phase 3: 文件传输 (Request-Response, 进度显示)
+- [x] Phase 3: 文件传输 (端到端加密, 进度显示, 传输历史)
 - [ ] Phase 4: 移动端优化 (二维码配对, HTTP 桥接)
 
 ## 安全
