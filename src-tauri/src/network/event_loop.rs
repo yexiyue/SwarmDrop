@@ -281,7 +281,10 @@ pub fn spawn_event_loop(
                                 .into_iter()
                                 .find(|d| d.peer_id == peer_id)
                                 .map(|d| d.os_info.hostname)
-                                .unwrap_or_else(|| peer_id.to_string()[..8].to_string());
+                                .unwrap_or_else(|| {
+                                    let s = peer_id.to_string();
+                                    s[s.len().saturating_sub(8)..].to_string()
+                                });
 
                             // 缓存入站 Offer
                             shared.transfer.cache_inbound_offer(
