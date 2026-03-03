@@ -7604,6 +7604,7 @@ dependencies = [
  "pathdiff",
  "rand 0.10.0",
  "sea-orm",
+ "sea-orm-migration",
  "serde",
  "serde_bytes",
  "serde_json",

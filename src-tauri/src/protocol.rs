@@ -59,6 +59,26 @@ pub struct FileInfo {
     pub checksum: String,
 }
 
+/// 文件校验和（断点续传请求中携带）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileChecksum {
+    pub file_id: u32,
+    pub checksum: String,
+}
+
+/// 断点续传被拒绝的原因
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "type")]
+pub enum ResumeRejectReason {
+    /// 源文件已被修改
+    FileModified,
+    /// 发送方找不到对应会话
+    SessionNotFound,
+    /// 发送方已取消传输
+    SenderCancelled,
+}
+
 /// 传输请求
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "kind")]
@@ -81,6 +101,12 @@ pub enum TransferRequest {
     Cancel {
         session_id: Uuid,
         reason: String,
+    },
+    /// 接收方向发送方请求断点续传
+    ResumeRequest {
+        session_id: Uuid,
+        /// 每个文件的校验和（用于验证源文件是否被修改）
+        file_checksums: Vec<FileChecksum>,
     },
 }
 
@@ -122,6 +148,19 @@ pub enum TransferResponse {
     },
     /// 发送方确认传输完成
     Ack { session_id: Uuid },
+    /// 发送方回复断点续传请求
+    ResumeResult {
+        session_id: Uuid,
+        accepted: bool,
+        /// 拒绝时的原因
+        reason: Option<ResumeRejectReason>,
+        /// 接受时由接收方原始生成的对称加密密钥（发送方不持有，接收方重新提供）
+        #[serde(
+            serialize_with = "serialize_opt_key",
+            deserialize_with = "deserialize_opt_key"
+        )]
+        key: Option<[u8; 32]>,
+    },
 }
 
 /// 将 `Option<[u8; 32]>` 序列化为 bytes array（CBOR 友好）

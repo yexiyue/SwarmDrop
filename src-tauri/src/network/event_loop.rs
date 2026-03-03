@@ -5,11 +5,14 @@ use tauri_plugin_notification::NotificationExt;
 use tracing::{info, warn};
 use uuid::Uuid;
 
+use sea_orm::DatabaseConnection;
+
 use super::manager::SharedNetRefs;
 use crate::device::DeviceFilter;
 use crate::events;
 use crate::protocol::{
-    AppRequest, AppResponse, OfferRejectReason, PairingRequest, TransferRequest, TransferResponse,
+    AppRequest, AppResponse, OfferRejectReason, PairingRequest, ResumeRejectReason,
+    TransferRequest, TransferResponse,
 };
 use crate::transfer::progress::{TransferDirection, TransferFailedEvent};
 use swarm_p2p_core::libp2p::PeerId;
@@ -44,6 +47,125 @@ struct TransferFilePayload {
     relative_path: String,
     size: u64,
     is_directory: bool,
+}
+
+use std::path::PathBuf;
+use std::sync::Arc;
+
+use sea_orm::EntityTrait;
+
+use crate::file_source::FileSource;
+use crate::protocol::FileChecksum;
+use crate::transfer::offer::{PreparedFile, TransferManager};
+use crate::transfer::sender::SendSession;
+
+/// 构造拒绝恢复的响应
+fn reject_resume(session_id: Uuid, reason: ResumeRejectReason) -> TransferResponse {
+    TransferResponse::ResumeResult {
+        session_id,
+        accepted: false,
+        reason: Some(reason),
+        key: None,
+    }
+}
+
+/// 发送方处理 ResumeRequest：验证文件校验和，重建 PreparedFile，创建 SendSession
+async fn handle_resume_request(
+    app: &AppHandle,
+    session_id: Uuid,
+    file_checksums: &[FileChecksum],
+    transfer: &Arc<TransferManager>,
+) -> TransferResponse {
+    let db = match app.try_state::<DatabaseConnection>() {
+        Some(db) => db.inner().clone(),
+        None => return reject_resume(session_id, ResumeRejectReason::SessionNotFound),
+    };
+
+    // 查 DB 中是否有此 session
+    let session = match entity::TransferSession::find_by_id(session_id)
+        .one(&db)
+        .await
+    {
+        Ok(Some(s)) => s,
+        _ => return reject_resume(session_id, ResumeRejectReason::SessionNotFound),
+    };
+
+    if session.status == entity::SessionStatus::Cancelled {
+        return reject_resume(session_id, ResumeRejectReason::SenderCancelled);
+    }
+
+    // 获取 DB 中的文件列表
+    let db_files = match crate::database::ops::get_session_files(&db, session_id).await {
+        Ok(files) => files,
+        Err(_) => return reject_resume(session_id, ResumeRejectReason::SessionNotFound),
+    };
+
+    // 校验文件 checksum 是否匹配
+    for fc in file_checksums {
+        let matched = db_files
+            .iter()
+            .any(|f| f.file_id == fc.file_id as i32 && f.checksum == fc.checksum);
+        if !matched {
+            return reject_resume(session_id, ResumeRejectReason::FileModified);
+        }
+    }
+
+    // 接受恢复：更新 DB 状态
+    if let Err(e) = crate::database::ops::mark_session_transferring(&db, session_id).await {
+        warn!("DB 标记 session transferring 失败: {}", e);
+    }
+
+    // 从 DB 文件记录重建 PreparedFile 列表
+    let mut prepared_files = Vec::with_capacity(db_files.len());
+    for db_file in &db_files {
+        let source_path = match &db_file.source_path {
+            Some(sp) => sp.clone(),
+            None => {
+                warn!("文件缺少 source_path: file_id={}", db_file.file_id);
+                return reject_resume(session_id, ResumeRejectReason::SessionNotFound);
+            }
+        };
+
+        // 验证源文件仍存在且大小匹配
+        let path = PathBuf::from(&source_path);
+        match std::fs::metadata(&path) {
+            Ok(meta) if meta.len() == db_file.size as u64 => {}
+            _ => {
+                warn!("源文件不存在或大小不匹配: {}", source_path);
+                return reject_resume(session_id, ResumeRejectReason::FileModified);
+            }
+        }
+
+        prepared_files.push(PreparedFile {
+            file_id: db_file.file_id as u32,
+            name: db_file.name.clone(),
+            relative_path: db_file.relative_path.clone(),
+            source: FileSource::Path { path },
+            size: db_file.size as u64,
+            checksum: db_file.checksum.clone(),
+        });
+    }
+
+    // 生成密钥（发送方不持久化密钥，每次恢复重新生成）
+    let key = crate::transfer::crypto::generate_key();
+
+    // 创建 SendSession 并注册到 TransferManager
+    let send_session = Arc::new(SendSession::new(
+        session_id,
+        prepared_files,
+        &key,
+        app.clone(),
+    ));
+    transfer.insert_send_session(session_id, send_session);
+
+    info!("接受断点续传: session={}", session_id);
+
+    TransferResponse::ResumeResult {
+        session_id,
+        accepted: true,
+        reason: None,
+        key: Some(key),
+    }
 }
 
 /// 当窗口未聚焦时发送系统通知
@@ -124,9 +246,10 @@ pub fn spawn_event_loop(
                     // 检查是否为引导节点断开
                     if shared.bootstrap_peer_ids.contains(peer_id) {
                         // 检查是否还有其他引导节点连接
-                        let any_connected = shared.bootstrap_peer_ids.iter().any(|bp| {
-                            bp != peer_id && shared.devices.is_connected(bp)
-                        });
+                        let any_connected = shared
+                            .bootstrap_peer_ids
+                            .iter()
+                            .any(|bp| bp != peer_id && shared.devices.is_connected(bp));
                         if !any_connected {
                             if let Ok(mut bc) = shared.bootstrap_connected.write() {
                                 *bc = false;
@@ -217,11 +340,21 @@ pub fn spawn_event_loop(
                             let client = shared.client.clone();
                             let app2 = app.clone();
                             tokio::spawn(async move {
-                                let response = AppResponse::Transfer(TransferResponse::Ack {
-                                    session_id,
-                                });
+                                let response =
+                                    AppResponse::Transfer(TransferResponse::Ack { session_id });
                                 if let Err(e) = client.send_response(pending_id, response).await {
                                     warn!("发送 Ack 响应失败: {}", e);
+                                }
+
+                                // DB: 标记发送方会话完成
+                                if let Some(db) = app2.try_state::<DatabaseConnection>() {
+                                    if let Err(e) = crate::database::ops::mark_session_completed(
+                                        &db, session_id,
+                                    )
+                                    .await
+                                    {
+                                        warn!("DB 标记发送完成失败: {}", e);
+                                    }
                                 }
 
                                 // 发送方也发射完成事件
@@ -260,13 +393,24 @@ pub fn spawn_event_loop(
                                 });
                             }
 
-                            // 回复 Ack
+                            // 回复 Ack + DB 标记取消（合并为一个异步任务）
                             let client = shared.client.clone();
+                            let app2 = app.clone();
                             tokio::spawn(async move {
-                                let response = AppResponse::Transfer(TransferResponse::Ack {
-                                    session_id,
-                                });
+                                let response =
+                                    AppResponse::Transfer(TransferResponse::Ack { session_id });
                                 let _ = client.send_response(pending_id, response).await;
+
+                                if let Some(db) = app2.try_state::<DatabaseConnection>() {
+                                    if let Err(e) =
+                                        crate::database::ops::mark_session_cancelled(
+                                            &db, session_id,
+                                        )
+                                        .await
+                                    {
+                                        warn!("DB 标记取消失败: {}", e);
+                                    }
+                                }
                             });
 
                             // 发射失败事件
@@ -347,6 +491,38 @@ pub fn spawn_event_loop(
                                 "收到文件传输请求",
                                 &format!("{} 想要向您发送文件", device_name),
                             );
+                        }
+
+                        // === 断点续传请求（发送方处理接收方的 ResumeRequest） ===
+                        AppRequest::Transfer(TransferRequest::ResumeRequest {
+                            session_id,
+                            file_checksums,
+                        }) => {
+                            info!(
+                                "收到断点续传请求: session={}, files={}",
+                                session_id,
+                                file_checksums.len()
+                            );
+
+                            let client = shared.client.clone();
+                            let app2 = app.clone();
+                            let transfer = shared.transfer.clone();
+
+                            tokio::spawn(async move {
+                                let response = handle_resume_request(
+                                    &app2,
+                                    session_id,
+                                    &file_checksums,
+                                    &transfer,
+                                )
+                                .await;
+                                if let Err(e) = client
+                                    .send_response(pending_id, AppResponse::Transfer(response))
+                                    .await
+                                {
+                                    warn!("发送 ResumeResult 失败: {}", e);
+                                }
+                            });
                         }
                     }
                 }

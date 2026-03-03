@@ -178,6 +178,74 @@ pub async fn cancel_receive(
     transfer.cancel_receive(&session_id).await
 }
 
+// ============ 传输历史 API ============
+
+/// 查询传输历史列表（可选按状态过滤）
+#[tauri::command]
+pub async fn get_transfer_history(
+    db: State<'_, sea_orm::DatabaseConnection>,
+    status: Option<entity::SessionStatus>,
+) -> crate::AppResult<Vec<crate::database::ops::TransferHistoryItem>> {
+    crate::database::ops::get_transfer_history(&db, status).await
+}
+
+/// 查询单个传输会话详情
+#[tauri::command]
+pub async fn get_transfer_session(
+    db: State<'_, sea_orm::DatabaseConnection>,
+    session_id: Uuid,
+) -> crate::AppResult<crate::database::ops::TransferHistoryItem> {
+    crate::database::ops::get_session_detail(&db, session_id).await
+}
+
+/// 删除单个传输会话
+#[tauri::command]
+pub async fn delete_transfer_session(
+    db: State<'_, sea_orm::DatabaseConnection>,
+    session_id: Uuid,
+) -> crate::AppResult<()> {
+    crate::database::ops::delete_session(&db, session_id).await
+}
+
+/// 清空所有传输历史
+#[tauri::command]
+pub async fn clear_transfer_history(
+    db: State<'_, sea_orm::DatabaseConnection>,
+) -> crate::AppResult<()> {
+    crate::database::ops::clear_all_history(&db).await
+}
+
+/// 暂停传输
+#[tauri::command]
+pub async fn pause_transfer(
+    db: State<'_, sea_orm::DatabaseConnection>,
+    net: State<'_, NetManagerState>,
+    session_id: Uuid,
+) -> crate::AppResult<()> {
+    // 标记 DB 状态为 paused
+    crate::database::ops::mark_session_paused(&db, session_id).await?;
+
+    // 取消运行时接收会话
+    let transfer = get_transfer(&net).await?;
+    if let Some(session) = transfer.get_receive_session(&session_id) {
+        session.cancel();
+        transfer.remove_receive_session(&session_id);
+    }
+    Ok(())
+}
+
+/// 恢复传输（接收方发起 ResumeRequest）
+#[tauri::command]
+pub async fn resume_transfer(
+    app: tauri::AppHandle,
+    db: State<'_, sea_orm::DatabaseConnection>,
+    net: State<'_, NetManagerState>,
+    session_id: Uuid,
+) -> crate::AppResult<()> {
+    let transfer = get_transfer(&net).await?;
+    transfer.initiate_resume(&db, session_id, app).await
+}
+
 // ============ 辅助函数 ============
 
 /// 从 Tauri State 中获取 TransferManager（短暂持锁后立即释放）

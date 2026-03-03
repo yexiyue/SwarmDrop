@@ -262,6 +262,27 @@ impl FileSink {
         }
     }
 
+    /// 打开已有 .part 文件或创建新文件（断点续传用）
+    ///
+    /// 桌面端：检查 .part 文件存在且大小匹配时以读写模式打开，否则创建新文件。
+    /// Android 端：暂不支持断点续传，回退到 create_part_file。
+    pub async fn open_or_create_part_file(
+        &self,
+        relative_path: &str,
+        file_size: u64,
+        #[allow(unused_variables)] app: &tauri::AppHandle,
+    ) -> AppResult<PartFile> {
+        match self {
+            Self::Path { save_dir } => {
+                path_ops::open_or_create_part_file(save_dir, relative_path, file_size).await
+            }
+            #[cfg(target_os = "android")]
+            Self::AndroidPublicDir { subdir } => {
+                android_ops::create_part_file(subdir, relative_path, file_size, app).await
+            }
+        }
+    }
+
     /// 构建 PartFile（不创建实际文件，不含写入句柄）
     ///
     /// 用于桌面端清理场景：已知 relative_path 但不需要创建文件。

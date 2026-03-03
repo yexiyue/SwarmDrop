@@ -20,6 +20,7 @@ pub struct Model {
     pub transferred_bytes: i64,
     pub total_chunks: i32,
     pub completed_chunks: Vec<u8>,
+    pub source_path: Option<String>,
 }
 
 impl ActiveModelBehavior for ActiveModel {}
