@@ -223,3 +223,83 @@ export async function rejectReceive(sessionId: string): Promise<void> {
 export async function cancelReceive(sessionId: string): Promise<void> {
   return invoke("cancel_receive", { sessionId });
 }
+
+// === 传输历史 API ===
+
+/** 历史会话状态（对应 Rust SessionStatus） */
+export type HistorySessionStatus =
+  | "transferring"
+  | "paused"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+/** 历史文件状态（对应 Rust FileStatus） */
+export type HistoryFileStatus =
+  | "pending"
+  | "transferring"
+  | "completed"
+  | "failed";
+
+/** 传输历史文件记录 */
+export interface TransferHistoryFile {
+  fileId: number;
+  name: string;
+  relativePath: string;
+  size: number;
+  status: HistoryFileStatus;
+  transferredBytes: number;
+}
+
+/** 传输历史会话记录（对应 Rust TransferHistoryItem） */
+export interface TransferHistoryItem {
+  sessionId: string;
+  direction: TransferDirection;
+  peerId: string;
+  peerName: string;
+  totalSize: number;
+  transferredBytes: number;
+  status: HistorySessionStatus;
+  startedAt: number;
+  updatedAt: number;
+  finishedAt: number | null;
+  errorMessage: string | null;
+  savePath: string | null;
+  files: TransferHistoryFile[];
+}
+
+/** 查询传输历史列表（可选按状态过滤） */
+export async function getTransferHistory(
+  status?: HistorySessionStatus,
+): Promise<TransferHistoryItem[]> {
+  return invoke("get_transfer_history", { status: status ?? null });
+}
+
+/** 查询单个传输会话详情 */
+export async function getTransferSession(
+  sessionId: string,
+): Promise<TransferHistoryItem> {
+  return invoke("get_transfer_session", { sessionId });
+}
+
+/** 删除单个传输会话 */
+export async function deleteTransferSession(
+  sessionId: string,
+): Promise<void> {
+  return invoke("delete_transfer_session", { sessionId });
+}
+
+/** 清空所有传输历史 */
+export async function clearTransferHistory(): Promise<void> {
+  return invoke("clear_transfer_history");
+}
+
+/** 暂停传输 */
+export async function pauseTransfer(sessionId: string): Promise<void> {
+  return invoke("pause_transfer", { sessionId });
+}
+
+/** 恢复传输（断点续传） */
+export async function resumeTransfer(sessionId: string): Promise<void> {
+  return invoke("resume_transfer", { sessionId });
+}

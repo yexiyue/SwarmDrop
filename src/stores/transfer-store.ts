@@ -17,13 +17,17 @@ import type {
   TransferProgressEvent,
   TransferCompleteEvent,
   TransferFailedEvent,
+  TransferHistoryItem,
 } from "@/commands/transfer";
+import { getTransferHistory } from "@/commands/transfer";
 
 interface TransferState {
   /** 活跃传输会话 */
   sessions: Record<string, TransferSession>;
   /** 已完成传输历史（内存中保留，重启后清空） */
   history: TransferSession[];
+  /** 从 DB 加载的持久化传输历史 */
+  dbHistory: TransferHistoryItem[];
   /** 待处理的接收请求队列 */
   pendingOffers: TransferOfferEvent[];
 
@@ -47,6 +51,10 @@ interface TransferState {
   shiftOffer: () => TransferOfferEvent | undefined;
   /** 获取活跃传输数量 */
   getActiveCount: () => number;
+  /** 从 DB 加载传输历史 */
+  loadHistory: () => Promise<void>;
+  /** 设置 DB 历史 */
+  setDbHistory: (items: TransferHistoryItem[]) => void;
 }
 
 // 事件监听清理函数
@@ -55,6 +63,9 @@ let unlistenFns: UnlistenFn[] = [];
 /** 设置传输事件监听 */
 export async function setupTransferListeners() {
   await cleanupTransferListeners();
+
+  // 从 DB 加载持久化传输历史
+  await useTransferStore.getState().loadHistory();
 
   const fns = await Promise.all([
     // 收到传输提议
@@ -67,14 +78,18 @@ export async function setupTransferListeners() {
       useTransferStore.getState().updateProgress(event.payload);
     }),
 
-    // 传输完成
+    // 传输完成 → 刷新 DB 历史
     listen<TransferCompleteEvent>(TRANSFER_COMPLETE, (event) => {
-      useTransferStore.getState().completeSession(event.payload);
+      const store = useTransferStore.getState();
+      store.completeSession(event.payload);
+      store.loadHistory();
     }),
 
-    // 传输失败
+    // 传输失败 → 刷新 DB 历史
     listen<TransferFailedEvent>(TRANSFER_FAILED, (event) => {
-      useTransferStore.getState().failSession(event.payload);
+      const store = useTransferStore.getState();
+      store.failSession(event.payload);
+      store.loadHistory();
     }),
   ]);
 
@@ -92,6 +107,7 @@ export async function cleanupTransferListeners() {
 export const useTransferStore = create<TransferState>()((set, get) => ({
   sessions: {},
   history: [],
+  dbHistory: [],
   pendingOffers: [],
 
   addSession(session) {
@@ -201,5 +217,18 @@ export const useTransferStore = create<TransferState>()((set, get) => ({
 
   getActiveCount() {
     return Object.keys(get().sessions).length;
+  },
+
+  async loadHistory() {
+    try {
+      const items = await getTransferHistory();
+      set({ dbHistory: items });
+    } catch (e) {
+      console.error("加载传输历史失败:", e);
+    }
+  },
+
+  setDbHistory(items) {
+    set({ dbHistory: items });
   },
 }));

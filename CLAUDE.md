@@ -10,7 +10,7 @@ Always respond in Chinese (简体中文). All output, including thinking, planni
 
 SwarmDrop is a decentralized, cross-network, end-to-end encrypted file transfer tool built with Tauri v2. It aims to be a "cross-network version of LocalSend" — no accounts, no servers, supporting both LAN and cross-network peer-to-peer file transfers.
 
-**Current Status:** Phase 2 (Device Pairing) — networking layer complete, pairing system in progress.
+**Current Status:** Phase 3 (File Transfer) — pairing complete, file transfer + database integration in progress (v0.3.2).
 
 ## Build and Development Commands
 
@@ -54,12 +54,13 @@ pnpm build
 |-------|-----------|
 | Frontend | React 19, TypeScript 5.8, Vite 7, Tailwind CSS 4 |
 | Routing | TanStack Router (file-system based, auto code-splitting) |
-| State | Zustand 5 (4 stores: auth, network, preferences, secret) |
+| State | Zustand 5 (stores: auth, network, preferences, secret, pairing, transfer) |
 | UI | shadcn/ui (new-york style), Lucide icons, Radix primitives |
 | i18n | Lingui 5 (8 locales: zh, zh-TW, en, ja, ko, es, fr, de) |
 | Backend | Rust 2021, Tauri 2 |
 | P2P | libp2p 0.56 via `swarm-p2p-core` (git submodule in `libs/`) |
 | Security | Stronghold (encrypted vault), Biometry (FaceID/TouchID/Windows Hello) |
+| Database | SeaORM 2.0 + SQLite (传输历史、断点续传 checkpoint) |
 
 ## Architecture
 
@@ -97,6 +98,7 @@ Route guards use `beforeLoad` + `useAuthStore.getState()` to check auth state sy
 - `secret-store` — Ed25519 keypair. Persisted to Stronghold encrypted vault via `src/lib/stronghold.ts`.
 - `network-store` — runtime-only. Manages P2P node status, peer map (`Map<PeerId, PeerInfo>`), listen addresses, NAT status. Handles `NodeEvent` from Rust via Tauri Channel.
 - `pairing-store` — runtime-only. Manages pairing code and pairing flow state.
+- `transfer-store` — runtime-only. Manages active transfer sessions, pending offers queue, and in-memory history. Listens to `transfer-offer`/`transfer-progress`/`transfer-complete`/`transfer-failed` events.
 - `update-store` / `upgrade-link-store` — app update checking via Tauri updater and UpgradeLink.
 
 **Responsive Design** — 3 breakpoints via `use-breakpoint` hook:
@@ -131,6 +133,19 @@ src-tauri/src/
 │   ├── mod.rs          # Module exports
 │   ├── manager.rs      # Device list management
 │   └── utils.rs        # OsInfo — hostname, platform, agent_version string
+├── transfer/
+│   ├── mod.rs          # 模块导出
+│   ├── session.rs      # TransferSession 状态管理
+│   ├── sender.rs       # 发送端逻辑
+│   ├── receiver.rs     # 接收端逻辑（含断点续传）
+│   ├── chunker.rs      # 文件分块读取（FileChunker）
+│   ├── assembler.rs    # 文件重组写入（FileAssembler）
+│   ├── crypto.rs       # XChaCha20-Poly1305 加密/解密
+│   ├── progress.rs     # 进度追踪 + 速度计算
+│   └── error.rs        # 传输错误类型
+├── database/
+│   ├── mod.rs          # SeaORM 连接初始化
+│   └── entity/         # SeaORM 2.0 实体（transfer_sessions, transfer_files, file_checkpoints）
 ├── protocol.rs         # AppRequest/AppResponse — CBOR over libp2p Request-Response
 └── error.rs            # AppError (thiserror), AppResult
 ```
@@ -209,6 +224,9 @@ Triggered by pushing a `v*` tag. GitHub Actions workflow (`.github/workflows/rel
 | Product requirements | `dev-notes/product-requirements.md` |
 | Implementation roadmap | `dev-notes/roadmap/implementation-roadmap.md` |
 | UI design file | `dev-notes/design/design.pen` |
+| 传输场景设计 | `dev-notes/design/transfer-scenarios-design.md` |
+| 数据库实体设计 | `dev-notes/design/database-entity-design.md` |
+| 文件传输设计 | `dev-notes/design/file-transfer-design.md` |
 | P2P core library | `libs/core/` |
 | Tauri capabilities | `src-tauri/capabilities/default.json` |
 | Release CI workflow | `.github/workflows/release.yml` |
@@ -218,8 +236,8 @@ Triggered by pushing a `v*` tag. GitHub Actions workflow (`.github/workflows/rel
 | Phase | Status | Description |
 |-------|--------|-------------|
 | Phase 1 — Networking | Done | libp2p Swarm, mDNS, DHT, Relay, DCUtR |
-| Phase 2 — Pairing | In Progress | Share codes, device identity, DHT Provider |
-| Phase 3 — File Transfer | Pending | Request-Response, E2E encryption, progress |
+| Phase 2 — Pairing | Done | Share codes, device identity, DHT Provider |
+| Phase 3 — File Transfer | In Progress | Request-Response, E2E encryption, SQLite history, pause/resume |
 | Phase 4 — Mobile | Pending | HTTP bridge or libp2p full-platform, QR code pairing |
 
 Detailed per-phase specs: `dev-notes/roadmap/phase-*.md`

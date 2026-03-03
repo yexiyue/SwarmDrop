@@ -42,6 +42,7 @@ impl std::fmt::Display for PeerId {
 #[derive(
     Clone, Debug, PartialEq, Eq, Serialize, Deserialize, DeriveActiveEnum, strum::EnumIter,
 )]
+#[serde(rename_all = "lowercase")]
 #[sea_orm(rs_type = "String", db_type = "String(StringLen::None)", rename_all = "lowercase")]
 pub enum TransferDirection {
     Send,
@@ -52,6 +53,7 @@ pub enum TransferDirection {
 #[derive(
     Clone, Debug, PartialEq, Eq, Serialize, Deserialize, DeriveActiveEnum, strum::EnumIter,
 )]
+#[serde(rename_all = "lowercase")]
 #[sea_orm(rs_type = "String", db_type = "String(StringLen::None)", rename_all = "lowercase")]
 pub enum SessionStatus {
     Transferring,
@@ -65,6 +67,7 @@ pub enum SessionStatus {
 #[derive(
     Clone, Debug, PartialEq, Eq, Serialize, Deserialize, DeriveActiveEnum, strum::EnumIter,
 )]
+#[serde(rename_all = "lowercase")]
 #[sea_orm(rs_type = "String", db_type = "String(StringLen::None)", rename_all = "lowercase")]
 pub enum FileStatus {
     Pending,

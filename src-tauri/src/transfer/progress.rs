@@ -146,20 +146,52 @@ impl ProgressTracker {
         }
     }
 
-    /// 从文件列表初始化 per-file 状态（全部 pending）
+    /// 从文件列表初始化 per-file 状态（全部 pending，首次传输用）
     pub fn init_files(&mut self, file_descs: &[FileDesc]) {
+        self.init_files_with_resume(file_descs, &std::collections::HashMap::new());
+    }
+
+    /// 从恢复状态初始化 per-file 进度（断点续传用）
+    ///
+    /// `resume_state` 为每个文件的已完成 chunk 数和已传输字节数。
+    /// 首次传输传空 HashMap 即可。初始化后会设置总的 transferred_bytes 和 completed_files。
+    pub fn init_files_with_resume(
+        &mut self,
+        file_descs: &[FileDesc],
+        resume_state: &std::collections::HashMap<u32, (u32, u64)>,
+    ) {
         self.files = file_descs
             .iter()
-            .map(|f| FileProgressInfo {
-                file_id: f.file_id,
-                name: f.name.clone(),
-                size: f.size,
-                transferred: 0,
-                status: FileTransferStatus::Pending,
-                chunks_done: 0,
-                total_chunks: calc_total_chunks(f.size),
+            .map(|f| {
+                let total_chunks = calc_total_chunks(f.size);
+                let (chunks_done, transferred) =
+                    resume_state.get(&f.file_id).copied().unwrap_or((0, 0));
+                let status = if chunks_done >= total_chunks {
+                    FileTransferStatus::Completed
+                } else if chunks_done > 0 {
+                    FileTransferStatus::Transferring
+                } else {
+                    FileTransferStatus::Pending
+                };
+                FileProgressInfo {
+                    file_id: f.file_id,
+                    name: f.name.clone(),
+                    size: f.size,
+                    transferred,
+                    status,
+                    chunks_done,
+                    total_chunks,
+                }
             })
             .collect();
+
+        // 汇总已完成的文件数和字节数
+        self.completed_files = self
+            .files
+            .iter()
+            .filter(|f| f.status == FileTransferStatus::Completed)
+            .count();
+        self.transferred_bytes = self.files.iter().map(|f| f.transferred).sum();
     }
 
     /// 更新指定文件的分块进度
