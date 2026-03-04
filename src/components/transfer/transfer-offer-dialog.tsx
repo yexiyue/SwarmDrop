@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, memo } from "react";
 import { Download, FolderOpen } from "lucide-react";
+import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ui/button";
 import {
   ResponsiveDialog,
@@ -18,19 +19,30 @@ import { pickFolder, getDefaultSavePath, isAndroid } from "@/lib/file-picker";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
-import type { TransferOfferEvent } from "@/commands/transfer";
 
 export function TransferOfferDialog() {
   const navigate = useNavigate();
-  const [currentOffer, setCurrentOffer] = useState<TransferOfferEvent | null>(
-    null,
-  );
   const [savePath, setSavePath] = useState("");
   const [processing, setProcessing] = useState(false);
+  const [dismissedSessionId, setDismissedSessionId] = useState<string | null>(
+    null,
+  );
 
-  const shiftOffer = useTransferStore((s) => s.shiftOffer);
-  const pendingOffers = useTransferStore((s) => s.pendingOffers);
-  const addSession = useTransferStore((s) => s.addSession);
+  const { shiftOffer, pendingOffers, addSession } = useTransferStore(
+    useShallow((s) => ({
+      shiftOffer: s.shiftOffer,
+      pendingOffers: s.pendingOffers,
+      addSession: s.addSession,
+    })),
+  );
+
+  // 获取当前要显示的 offer（队列第一个且未被用户关闭的）
+  const currentOffer = useMemo(() => {
+    if (pendingOffers.length === 0) return null;
+    const first = pendingOffers[0];
+    if (first.sessionId === dismissedSessionId) return null;
+    return first;
+  }, [pendingOffers, dismissedSessionId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,12 +54,15 @@ export function TransferOfferDialog() {
     };
   }, []);
 
+  // 当 dismissedSessionId 对应的 offer 被移除后，清除 dismissedSessionId
   useEffect(() => {
-    if (currentOffer === null && pendingOffers.length > 0) {
-      const offer = shiftOffer();
-      if (offer) setCurrentOffer(offer);
+    if (
+      dismissedSessionId &&
+      !pendingOffers.some((o) => o.sessionId === dismissedSessionId)
+    ) {
+      setDismissedSessionId(null);
     }
-  }, [currentOffer, pendingOffers, shiftOffer]);
+  }, [pendingOffers, dismissedSessionId]);
 
   const treeData = useMemo(() => {
     if (!currentOffer) return null;
@@ -82,7 +97,7 @@ export function TransferOfferDialog() {
         savePath,
       });
 
-      setCurrentOffer(null);
+      // 从队列移除并跳转到详情页
       navigate({
         to: "/transfer/$sessionId",
         params: { sessionId: currentOffer.sessionId },
@@ -91,21 +106,23 @@ export function TransferOfferDialog() {
       toast.error(getErrorMessage(err));
     } finally {
       setProcessing(false);
+      shiftOffer();
     }
-  }, [currentOffer, savePath, addSession, navigate]);
+  }, [currentOffer, savePath, addSession, navigate, shiftOffer]);
 
   const handleReject = useCallback(async () => {
     if (!currentOffer) return;
     setProcessing(true);
     try {
       await rejectReceive(currentOffer.sessionId);
-      setCurrentOffer(null);
+      // 从队列移除
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
       setProcessing(false);
+      shiftOffer();
     }
-  }, [currentOffer]);
+  }, [currentOffer, shiftOffer]);
 
   const handleOpenChange = useCallback(
     (open: boolean) => {

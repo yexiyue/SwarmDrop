@@ -74,7 +74,7 @@ pub async fn create_session(
         );
     }
 
-    session.save(db).await?;
+    session.insert(db).await?;
 
     Ok(())
 }

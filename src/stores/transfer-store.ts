@@ -140,7 +140,11 @@ export const useTransferStore = create<TransferState>()((set, get) => ({
       return {
         sessions: {
           ...state.sessions,
-          [event.sessionId]: { ...session, status: "transferring", progress: event },
+          [event.sessionId]: {
+            ...session,
+            status: "transferring",
+            progress: event,
+          },
         },
       };
     });
