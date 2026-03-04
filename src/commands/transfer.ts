@@ -159,11 +159,31 @@ export type OfferRejectReason =
   | { type: "not_paired" }
   | { type: "user_declined" };
 
-/** 开始发送的结果 */
+/** 开始发送的结果（立即返回 session_id，后续通过事件通知） */
 export interface StartSendResult {
   sessionId: string;
-  accepted: boolean;
+}
+
+/** 对方接受 Offer 的事件 */
+export interface TransferAcceptedEvent {
+  sessionId: string;
+}
+
+/** 对方拒绝 Offer 的事件 */
+export interface TransferRejectedEvent {
+  sessionId: string;
   reason: OfferRejectReason | null;
+}
+
+/** 恢复传输的结果（返回给前端以创建运行时 session） */
+export interface ResumeTransferResult {
+  sessionId: string;
+  direction: string;
+  peerId: string;
+  peerName: string;
+  files: TransferFileInfo[];
+  totalSize: number;
+  transferredBytes: number;
 }
 
 /**
@@ -300,6 +320,8 @@ export async function pauseTransfer(sessionId: string): Promise<void> {
 }
 
 /** 恢复传输（断点续传） */
-export async function resumeTransfer(sessionId: string): Promise<void> {
+export async function resumeTransfer(
+  sessionId: string,
+): Promise<ResumeTransferResult> {
   return invoke("resume_transfer", { sessionId });
 }

@@ -1,8 +1,3 @@
-/**
- * Transfer Store
- * 管理文件传输状态（运行时，不持久化）
- */
-
 import { create } from "zustand";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import {
@@ -10,6 +5,8 @@ import {
   TRANSFER_PROGRESS,
   TRANSFER_COMPLETE,
   TRANSFER_FAILED,
+  TRANSFER_ACCEPTED,
+  TRANSFER_REJECTED,
 } from "@/constants/events";
 import type {
   TransferSession,
@@ -17,86 +14,86 @@ import type {
   TransferProgressEvent,
   TransferCompleteEvent,
   TransferFailedEvent,
+  TransferAcceptedEvent,
+  TransferRejectedEvent,
   TransferHistoryItem,
 } from "@/commands/transfer";
 import { getTransferHistory } from "@/commands/transfer";
+import { toast } from "sonner";
+import { t } from "@lingui/core/macro";
 
 interface TransferState {
-  /** 活跃传输会话 */
   sessions: Record<string, TransferSession>;
-  /** 已完成传输历史（内存中保留，重启后清空） */
-  history: TransferSession[];
-  /** 从 DB 加载的持久化传输历史 */
   dbHistory: TransferHistoryItem[];
-  /** 待处理的接收请求队列 */
   pendingOffers: TransferOfferEvent[];
 
-  // === Actions ===
-
-  /** 添加传输会话 */
   addSession: (session: TransferSession) => void;
-  /** 更新传输进度 */
   updateProgress: (event: TransferProgressEvent) => void;
-  /** 完成传输 */
   completeSession: (event: TransferCompleteEvent) => void;
-  /** 传输失败 */
   failSession: (event: TransferFailedEvent) => void;
-  /** 取消传输 */
   cancelSession: (sessionId: string) => void;
-  /** 移除会话（从活跃列表） */
   removeSession: (sessionId: string) => void;
-  /** 推入接收请求 */
   pushOffer: (offer: TransferOfferEvent) => void;
-  /** 弹出队列首个接收请求 */
   shiftOffer: () => TransferOfferEvent | undefined;
-  /** 获取活跃传输数量 */
   getActiveCount: () => number;
-  /** 从 DB 加载传输历史 */
   loadHistory: () => Promise<void>;
-  /** 设置 DB 历史 */
-  setDbHistory: (items: TransferHistoryItem[]) => void;
 }
 
-// 事件监听清理函数
 let unlistenFns: UnlistenFn[] = [];
 
-/** 设置传输事件监听 */
 export async function setupTransferListeners() {
   await cleanupTransferListeners();
 
-  // 从 DB 加载持久化传输历史
   await useTransferStore.getState().loadHistory();
 
   const fns = await Promise.all([
-    // 收到传输提议
     listen<TransferOfferEvent>(TRANSFER_OFFER, (event) => {
       useTransferStore.getState().pushOffer(event.payload);
     }),
 
-    // 传输进度更新
     listen<TransferProgressEvent>(TRANSFER_PROGRESS, (event) => {
       useTransferStore.getState().updateProgress(event.payload);
     }),
 
-    // 传输完成 → 刷新 DB 历史
     listen<TransferCompleteEvent>(TRANSFER_COMPLETE, (event) => {
-      const store = useTransferStore.getState();
-      store.completeSession(event.payload);
-      store.loadHistory();
+      useTransferStore.getState().completeSession(event.payload);
     }),
 
-    // 传输失败 → 刷新 DB 历史
     listen<TransferFailedEvent>(TRANSFER_FAILED, (event) => {
-      const store = useTransferStore.getState();
-      store.failSession(event.payload);
-      store.loadHistory();
+      useTransferStore.getState().failSession(event.payload);
+    }),
+
+    listen<TransferAcceptedEvent>(TRANSFER_ACCEPTED, (event) => {
+      const { sessionId } = event.payload;
+      useTransferStore.setState((state) => {
+        const session = state.sessions[sessionId];
+        if (!session) return state;
+        return {
+          sessions: {
+            ...state.sessions,
+            [sessionId]: { ...session, status: "transferring" },
+          },
+        };
+      });
+    }),
+
+    listen<TransferRejectedEvent>(TRANSFER_REJECTED, (event) => {
+      const { sessionId, reason } = event.payload;
+      useTransferStore.setState((state) => {
+        const { [sessionId]: _, ...rest } = state.sessions;
+        return { sessions: rest };
+      });
+      if (reason?.type === "not_paired") {
+        toast.error(t`设备已取消配对`);
+      } else {
+        toast.error(t`对方拒绝了请求`);
+      }
     }),
   ]);
 
   unlistenFns = fns;
 }
 
-/** 清理传输事件监听 */
 export async function cleanupTransferListeners() {
   for (const unlisten of unlistenFns) {
     unlisten();
@@ -104,9 +101,17 @@ export async function cleanupTransferListeners() {
   unlistenFns = [];
 }
 
+/** 从活跃 sessions 中移除指定 session，并延迟刷新 DB 历史 */
+function removeAndRefresh(sessionId: string) {
+  useTransferStore.setState((state) => {
+    const { [sessionId]: _, ...rest } = state.sessions;
+    return { sessions: rest };
+  });
+  setTimeout(() => useTransferStore.getState().loadHistory(), 500);
+}
+
 export const useTransferStore = create<TransferState>()((set, get) => ({
   sessions: {},
-  history: [],
   dbHistory: [],
   pendingOffers: [],
 
@@ -123,75 +128,22 @@ export const useTransferStore = create<TransferState>()((set, get) => ({
       return {
         sessions: {
           ...state.sessions,
-          [event.sessionId]: {
-            ...session,
-            status: "transferring",
-            progress: event,
-          },
+          [event.sessionId]: { ...session, status: "transferring", progress: event },
         },
       };
     });
   },
 
   completeSession(event) {
-    set((state) => {
-      const session = state.sessions[event.sessionId];
-      if (!session) return state;
-
-      const completed: TransferSession = {
-        ...session,
-        status: "completed",
-        completedAt: Date.now(),
-        savePath: event.savePath,
-        fileUris: event.fileUris.length > 0 ? event.fileUris : undefined,
-        saveDirUri: event.saveDirUri ?? undefined,
-      };
-
-      const { [event.sessionId]: _, ...rest } = state.sessions;
-      return {
-        sessions: rest,
-        history: [completed, ...state.history],
-      };
-    });
+    removeAndRefresh(event.sessionId);
   },
 
   failSession(event) {
-    set((state) => {
-      const session = state.sessions[event.sessionId];
-      if (!session) return state;
-
-      const failed: TransferSession = {
-        ...session,
-        status: "failed",
-        error: event.error,
-        completedAt: Date.now(),
-      };
-
-      const { [event.sessionId]: _, ...rest } = state.sessions;
-      return {
-        sessions: rest,
-        history: [failed, ...state.history],
-      };
-    });
+    removeAndRefresh(event.sessionId);
   },
 
   cancelSession(sessionId) {
-    set((state) => {
-      const session = state.sessions[sessionId];
-      if (!session) return state;
-
-      const cancelled: TransferSession = {
-        ...session,
-        status: "cancelled",
-        completedAt: Date.now(),
-      };
-
-      const { [sessionId]: _, ...rest } = state.sessions;
-      return {
-        sessions: rest,
-        history: [cancelled, ...state.history],
-      };
-    });
+    removeAndRefresh(sessionId);
   },
 
   removeSession(sessionId) {
@@ -226,9 +178,5 @@ export const useTransferStore = create<TransferState>()((set, get) => ({
     } catch (e) {
       console.error("加载传输历史失败:", e);
     }
-  },
-
-  setDbHistory(items) {
-    set({ dbHistory: items });
   },
 }));

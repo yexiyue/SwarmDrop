@@ -13,3 +13,5 @@ export const TRANSFER_OFFER = "transfer-offer";
 export const TRANSFER_PROGRESS = "transfer-progress";
 export const TRANSFER_COMPLETE = "transfer-complete";
 export const TRANSFER_FAILED = "transfer-failed";
+export const TRANSFER_ACCEPTED = "transfer-accepted";
+export const TRANSFER_REJECTED = "transfer-rejected";

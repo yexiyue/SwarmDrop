@@ -67,16 +67,16 @@ function DevicesPage() {
   }, [devices]);
 
   const handleSend = (device: Device) => {
-    void navigate({ to: "/send", search: { peerId: device.peerId } });
+    navigate({ to: "/send", search: { peerId: device.peerId } });
   };
 
   const handleConnect = (device: Device) => {
-    void directPairing(device.peerId);
+    directPairing(device.peerId);
   };
 
   const handleUnpair = (device: Device) => {
     // 同时更新后端运行时状态（节点未运行时静默成功）
-    void removePairedDevice(device.peerId);
+    removePairedDevice(device.peerId);
     useSecretStore.getState().removePairedDevice(device.peerId);
   };
 

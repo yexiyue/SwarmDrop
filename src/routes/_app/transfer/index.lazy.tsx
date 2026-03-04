@@ -4,16 +4,16 @@
  * 展示活跃传输和持久化历史记录
  */
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { createLazyFileRoute } from "@tanstack/react-router";
 import { ArrowLeftRight, Trash2 } from "lucide-react";
 import { Trans } from "@lingui/react/macro";
+import { t } from "@lingui/core/macro";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { useTransferStore } from "@/stores/transfer-store";
 import { TransferItem } from "./-transfer-item";
 import { HistoryItem } from "./-history-item";
 import type {
-  TransferSession,
   TransferHistoryItem,
   HistorySessionStatus,
 } from "@/commands/transfer";
@@ -26,18 +26,6 @@ export const Route = createLazyFileRoute("/_app/transfer/")({
   component: TransferPage,
 });
 
-/** 状态过滤选项 */
-const STATUS_FILTERS: {
-  value: HistorySessionStatus | "all";
-  label: string;
-}[] = [
-  { value: "all", label: "全部" },
-  { value: "completed", label: "已完成" },
-  { value: "failed", label: "失败" },
-  { value: "paused", label: "已暂停" },
-  { value: "cancelled", label: "已取消" },
-];
-
 function TransferPage() {
   const breakpoint = useBreakpoint();
   const isMobile = breakpoint === "mobile";
@@ -46,28 +34,51 @@ function TransferPage() {
   const dbHistory = useTransferStore((s) => s.dbHistory);
   const loadHistory = useTransferStore((s) => s.loadHistory);
 
+  // 进入传输列表页时主动刷新 DB 历史
+  useEffect(() => {
+    loadHistory();
+  }, [loadHistory]);
+
   const [statusFilter, setStatusFilter] = useState<
     HistorySessionStatus | "all"
   >("all");
 
-  // 活跃传输（按开始时间倒序）
-  const activeSessions = Object.values(sessions).sort(
-    (a, b) => b.startedAt - a.startedAt,
+  const statusFilters: { value: HistorySessionStatus | "all"; label: string }[] = useMemo(
+    () => [
+      { value: "all", label: t`全部` },
+      { value: "completed", label: t`已完成` },
+      { value: "failed", label: t`失败` },
+      { value: "paused", label: t`已暂停` },
+      { value: "cancelled", label: t`已取消` },
+    ],
+    [],
+  );
+
+  // 活跃传输 sessionId 列表（按开始时间倒序）
+  const activeSessionIds = useMemo(
+    () =>
+      Object.values(sessions)
+        .sort((a, b) => b.startedAt - a.startedAt)
+        .map((s) => s.sessionId),
+    [sessions],
   );
 
   // 过滤 DB 历史
-  const filteredHistory =
-    statusFilter === "all"
-      ? dbHistory
-      : dbHistory.filter((item) => item.status === statusFilter);
+  const filteredHistory = useMemo(
+    () =>
+      statusFilter === "all"
+        ? dbHistory
+        : dbHistory.filter((item) => item.status === statusFilter),
+    [dbHistory, statusFilter],
+  );
 
-  const hasContent = activeSessions.length > 0 || filteredHistory.length > 0;
+  const hasContent = activeSessionIds.length > 0 || filteredHistory.length > 0;
 
   const handleClearHistory = async () => {
     try {
       await clearTransferHistory();
       await loadHistory();
-      toast.success("已清空传输历史");
+      toast.success(t`已清空传输历史`);
     } catch (err) {
       toast.error(getErrorMessage(err));
     }
@@ -77,7 +88,7 @@ function TransferPage() {
     <EmptyState />
   ) : (
     <TransferList
-      activeSessions={activeSessions}
+      activeSessionIds={activeSessionIds}
       historyItems={filteredHistory}
     />
   );
@@ -93,7 +104,7 @@ function TransferPage() {
           setStatusFilter(e.target.value as HistorySessionStatus | "all")
         }
       >
-        {STATUS_FILTERS.map((f) => (
+        {statusFilters.map((f) => (
           <option key={f.value} value={f.value}>
             {f.label}
           </option>
@@ -148,23 +159,23 @@ function TransferPage() {
 /* ─────────────────── 传输列表 ─────────────────── */
 
 function TransferList({
-  activeSessions,
+  activeSessionIds,
   historyItems,
 }: {
-  activeSessions: TransferSession[];
+  activeSessionIds: string[];
   historyItems: TransferHistoryItem[];
 }) {
   return (
     <div className="flex flex-col gap-5">
       {/* 活跃传输 */}
-      {activeSessions.length > 0 && (
+      {activeSessionIds.length > 0 && (
         <section className="flex flex-col gap-3">
           <h2 className="text-sm font-semibold text-foreground">
             <Trans>活跃传输</Trans>
           </h2>
           <div className="flex flex-col gap-2.5">
-            {activeSessions.map((session) => (
-              <TransferItem key={session.sessionId} session={session} />
+            {activeSessionIds.map((id) => (
+              <TransferItem key={id} sessionId={id} />
             ))}
           </div>
         </section>

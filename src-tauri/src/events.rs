@@ -15,3 +15,5 @@ pub const TRANSFER_OFFER: &str = "transfer-offer";
 pub const TRANSFER_PROGRESS: &str = "transfer-progress";
 pub const TRANSFER_COMPLETE: &str = "transfer-complete";
 pub const TRANSFER_FAILED: &str = "transfer-failed";
+pub const TRANSFER_ACCEPTED: &str = "transfer-accepted";
+pub const TRANSFER_REJECTED: &str = "transfer-rejected";

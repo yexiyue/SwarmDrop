@@ -1,8 +1,10 @@
 /**
  * TransferItem
  * 传输记录卡片 — 显示传输进度/状态
+ * 通过 sessionId 独立订阅 store，避免父组件重渲染
  */
 
+import { memo, useCallback } from "react";
 import {
   ArrowUp,
   ArrowDown,
@@ -13,8 +15,8 @@ import {
   FolderOpen,
 } from "lucide-react";
 import { Trans } from "@lingui/react/macro";
-import type { TransferSession } from "@/commands/transfer";
 import { cancelSend, cancelReceive } from "@/commands/transfer";
+import { useTransferStore } from "@/stores/transfer-store";
 import {
   formatFileSize,
   formatSpeed,
@@ -30,51 +32,76 @@ import { openTransferResult } from "@/lib/file-picker";
 import { useNavigate } from "@tanstack/react-router";
 
 interface TransferItemProps {
-  session: TransferSession;
+  sessionId: string;
 }
 
-export function TransferItem({ session }: TransferItemProps) {
+export const TransferItem = memo(function TransferItem({
+  sessionId,
+}: TransferItemProps) {
+  const session = useTransferStore(
+    useCallback((s) => s.sessions[sessionId], [sessionId]),
+  );
   const navigate = useNavigate();
+
+  const handleClick = useCallback(() => {
+    navigate({
+      to: "/transfer/$sessionId",
+      params: { sessionId },
+    });
+  }, [navigate, sessionId]);
+
+  const handleCancel = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      // 乐观更新：立即从 UI 移除
+      useTransferStore.getState().cancelSession(sessionId);
+      // 异步通知后端取消
+      try {
+        if (session?.direction === "send") {
+          await cancelSend(sessionId);
+        } else {
+          await cancelReceive(sessionId);
+        }
+      } catch (err) {
+        toast.error(getErrorMessage(err));
+      }
+    },
+    [sessionId, session?.direction],
+  );
+
+  const handleOpenFolder = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const currentSession = useTransferStore.getState().sessions[sessionId];
+      if (!currentSession) return;
+      try {
+        await openTransferResult(currentSession);
+      } catch (err) {
+        toast.error(getErrorMessage(err));
+      }
+    },
+    [sessionId],
+  );
+
+  if (!session) return null;
+
   const isSend = session.direction === "send";
   const isActive =
     session.status === "pending" ||
     session.status === "waiting_accept" ||
     session.status === "transferring";
 
-  const handleClick = () => {
-    void navigate({
-      to: "/transfer/$sessionId",
-      params: { sessionId: session.sessionId },
-    });
-  };
+  const progressPercent =
+    session.progress && session.progress.totalBytes > 0
+      ? Math.round(
+          (session.progress.transferredBytes / session.progress.totalBytes) *
+            100,
+        )
+      : 0;
 
-  const handleCancel = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      if (isSend) {
-        await cancelSend(session.sessionId);
-      } else {
-        await cancelReceive(session.sessionId);
-      }
-    } catch (err) {
-      toast.error(getErrorMessage(err));
-    }
-  };
-
-  const handleOpenFolder = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      await openTransferResult(session);
-    } catch (err) {
-      toast.error(getErrorMessage(err));
-    }
-  };
-
-  const progressPercent = session.progress
-    ? Math.round(
-        (session.progress.transferredBytes / session.progress.totalBytes) * 100,
-      )
-    : 0;
+  const activeFileName = session.progress?.files?.find(
+    (f) => f.status === "transferring",
+  )?.name;
 
   return (
     <div
@@ -149,12 +176,7 @@ export function TransferItem({ session }: TransferItemProps) {
           <Progress value={progressPercent} className="h-1.5" />
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <span>
-              {(() => {
-                const active = session.progress?.files?.find(
-                  (f) => f.status === "transferring",
-                );
-                return active ? <>{active.name} · </> : null;
-              })()}
+              {activeFileName ? `${activeFileName} · ` : null}
               {formatSpeed(session.progress.speed)}
             </span>
             <span>
@@ -183,16 +205,16 @@ export function TransferItem({ session }: TransferItemProps) {
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>{formatRelativeTime(session.completedAt)}</span>
           {session.savePath && (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-6 gap-1 px-2 text-xs"
-                onClick={handleOpenFolder}
-              >
-                <FolderOpen className="size-3" />
-                <Trans>打开文件夹</Trans>
-              </Button>
-            )}
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 gap-1 px-2 text-xs"
+              onClick={handleOpenFolder}
+            >
+              <FolderOpen className="size-3" />
+              <Trans>打开文件夹</Trans>
+            </Button>
+          )}
         </div>
       )}
 
@@ -209,4 +231,4 @@ export function TransferItem({ session }: TransferItemProps) {
       )}
     </div>
   );
-}
+});

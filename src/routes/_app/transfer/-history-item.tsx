@@ -24,21 +24,45 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
 import { useTransferStore } from "@/stores/transfer-store";
+import { useNavigate } from "@tanstack/react-router";
 
 interface HistoryItemProps {
   item: TransferHistoryItem;
 }
 
 export function HistoryItem({ item }: HistoryItemProps) {
+  const navigate = useNavigate();
   const loadHistory = useTransferStore((s) => s.loadHistory);
+  const addSession = useTransferStore((s) => s.addSession);
   const isSend = item.direction === "send";
 
   const handleResume = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try {
-      await resumeTransfer(item.sessionId);
-      toast.success("恢复传输已发起");
+      const result = await resumeTransfer(item.sessionId);
+
+      // 创建运行时 session 并导航到详情页
+      addSession({
+        sessionId: result.sessionId,
+        direction: result.direction as "send" | "receive",
+        peerId: result.peerId,
+        deviceName: result.peerName,
+        files: result.files,
+        totalSize: result.totalSize,
+        status: "transferring",
+        progress: null,
+        error: null,
+        startedAt: Date.now(),
+        completedAt: null,
+      });
+
+      // 刷新历史（恢复的 session 会从 DB 历史中消失）
       await loadHistory();
+
+      navigate({
+        to: "/transfer/$sessionId",
+        params: { sessionId: result.sessionId },
+      });
     } catch (err) {
       toast.error(getErrorMessage(err));
     }

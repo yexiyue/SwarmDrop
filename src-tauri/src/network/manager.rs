@@ -4,6 +4,7 @@ use std::sync::{Arc, RwLock};
 use dashmap::DashMap;
 use swarm_p2p_core::libp2p::{Multiaddr, PeerId};
 use tokio::sync::Mutex;
+use tokio_util::sync::CancellationToken;
 
 use super::{NatStatus, NetworkStatus, NodeStatus};
 use crate::device::{DeviceManager, PairedDeviceInfo};
@@ -21,6 +22,8 @@ pub struct NetManager {
     pairing: Arc<PairingManager>,
     devices: Arc<DeviceManager>,
     transfer: Arc<TransferManager>,
+    /// 全局取消令牌（shutdown 时取消所有后台任务）
+    cancel_token: CancellationToken,
     // 网络状态（Arc<RwLock> 供事件循环并发更新）
     listen_addrs: Arc<RwLock<Vec<Multiaddr>>>,
     nat_status: Arc<RwLock<NatStatus>>,
@@ -53,12 +56,18 @@ impl NetManager {
         ));
         let devices = Arc::new(DeviceManager::new(paired_map));
         let transfer = Arc::new(TransferManager::new(client.clone()));
+        let cancel_token = CancellationToken::new();
+
+        // 启动传输资源超时清理任务
+        transfer.spawn_cleanup_task(cancel_token.clone());
+
         Self {
             client,
             peer_id,
             pairing,
             devices,
             transfer,
+            cancel_token,
             listen_addrs: Arc::new(RwLock::new(Vec::new())),
             nat_status: Arc::new(RwLock::new(NatStatus::Unknown)),
             public_addr: Arc::new(RwLock::new(None)),
@@ -86,6 +95,11 @@ impl NetManager {
 
     pub fn client(&self) -> &AppNetClient {
         &self.client
+    }
+
+    /// 取消所有后台任务（shutdown 时调用）
+    pub fn cancel_background_tasks(&self) {
+        self.cancel_token.cancel();
     }
 
     /// 获取当前网络状态快照

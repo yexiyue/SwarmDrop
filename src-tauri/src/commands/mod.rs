@@ -94,6 +94,8 @@ pub async fn shutdown(app: AppHandle) -> crate::AppResult<()> {
             if let Err(e) = manager.pairing().announce_offline().await {
                 warn!("Failed to announce offline: {}", e);
             }
+            // 取消所有后台任务（超时清理等）
+            manager.cancel_background_tasks();
         }
         guard.take();
     }

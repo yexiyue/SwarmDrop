@@ -1,8 +1,3 @@
-/**
- * TransferOfferDialog
- * 传输请求弹窗 - 显示文件预览、保存路径选择、接收/拒绝按钮
- */
-
 import { useState, useEffect, useMemo, useCallback, memo } from "react";
 import { Download, FolderOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,16 +22,16 @@ import type { TransferOfferEvent } from "@/commands/transfer";
 
 export function TransferOfferDialog() {
   const navigate = useNavigate();
-  const [currentOffer, setCurrentOffer] = useState<TransferOfferEvent | null>(null);
+  const [currentOffer, setCurrentOffer] = useState<TransferOfferEvent | null>(
+    null,
+  );
   const [savePath, setSavePath] = useState("");
   const [processing, setProcessing] = useState(false);
 
-  // 使用细粒度选择器
-  const shiftOffer = useTransferStore(useCallback((s) => s.shiftOffer, []));
-  const pendingOffers = useTransferStore(useCallback((s) => s.pendingOffers, []));
-  const addSession = useTransferStore(useCallback((s) => s.addSession, []));
+  const shiftOffer = useTransferStore((s) => s.shiftOffer);
+  const pendingOffers = useTransferStore((s) => s.pendingOffers);
+  const addSession = useTransferStore((s) => s.addSession);
 
-  // 初始化默认保存路径
   useEffect(() => {
     let cancelled = false;
     getDefaultSavePath().then((path) => {
@@ -47,7 +42,6 @@ export function TransferOfferDialog() {
     };
   }, []);
 
-  // 从队列取出第一个 offer
   useEffect(() => {
     if (currentOffer === null && pendingOffers.length > 0) {
       const offer = shiftOffer();
@@ -88,9 +82,8 @@ export function TransferOfferDialog() {
         savePath,
       });
 
-      // 关闭当前弹窗并跳转到详情页
       setCurrentOffer(null);
-      void navigate({
+      navigate({
         to: "/transfer/$sessionId",
         params: { sessionId: currentOffer.sessionId },
       });
@@ -117,7 +110,7 @@ export function TransferOfferDialog() {
   const handleOpenChange = useCallback(
     (open: boolean) => {
       if (!open && !processing) {
-        void handleReject();
+        handleReject();
       }
     },
     [processing, handleReject],
@@ -144,10 +137,8 @@ export function TransferOfferDialog() {
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
-        {/* 中间内容区域 - 可滚动 */}
         <div className="flex-1 overflow-y-auto px-4 sm:px-0">
-          {/* 文件树预览 */}
-          <div className="max-h-[40vh] min-h-[120px]">
+          <div className="max-h-[40vh] min-h-30">
             <FileTree
               mode="select"
               dataLoader={treeData.dataLoader}
@@ -158,7 +149,6 @@ export function TransferOfferDialog() {
             />
           </div>
 
-          {/* 保存路径（移动端不允许更改） */}
           {!isAndroid() && (
             <div className="mt-4">
               <SavePathSelector
@@ -192,7 +182,6 @@ export function TransferOfferDialog() {
   );
 }
 
-// 拆分为独立组件，避免不必要的渲染
 const SavePathSelector = memo(function SavePathSelector({
   savePath,
   onChangePath,

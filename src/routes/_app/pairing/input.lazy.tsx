@@ -56,7 +56,7 @@ function PairingInputPage() {
   // 配对成功后自动返回
   useEffect(() => {
     if (current.phase === "success") {
-      void navigate({ to: "/devices" });
+      navigate({ to: "/devices" });
     }
   }, [current.phase, navigate]);
 
@@ -64,18 +64,18 @@ function PairingInputPage() {
 
   const handleCodeComplete = (value: string) => {
     if (value.length === 6) {
-      void searchDevice(value);
+      searchDevice(value);
     }
   };
 
   const handleConfirm = () => {
     if (code.length === 6) {
-      void searchDevice(code);
+      searchDevice(code);
     }
   };
 
   const handleBack = () => {
-    void navigate({ to: "/devices" });
+    navigate({ to: "/devices" });
   };
 
   // ─── 设备详情视图 ───
@@ -97,7 +97,7 @@ function PairingInputPage() {
           <DesktopDeviceFoundContent
             deviceInfo={deviceInfo}
             isRequesting={isRequesting}
-            onSendRequest={() => void sendPairingRequest()}
+            onSendRequest={() => sendPairingRequest()}
             onCancel={reset}
           />
         </div>
