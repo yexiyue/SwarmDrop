@@ -175,6 +175,12 @@ export interface TransferRejectedEvent {
   reason: OfferRejectReason | null;
 }
 
+/** DB 操作失败事件（传输记录保存失败时触发） */
+export interface TransferDbErrorEvent {
+  sessionId: string;
+  message: string;
+}
+
 /** 恢复传输的结果（返回给前端以创建运行时 session） */
 export interface ResumeTransferResult {
   sessionId: string;

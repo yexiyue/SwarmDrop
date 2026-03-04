@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 use sea_orm::DatabaseConnection;
 use swarm_p2p_core::libp2p::PeerId;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use tokio::sync::{watch, Mutex, Semaphore};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, warn};
@@ -23,7 +23,7 @@ use crate::protocol::{
     AppNetClient, AppRequest, AppResponse, FileInfo, TransferRequest, TransferResponse,
 };
 use crate::transfer::crypto::TransferCrypto;
-use crate::transfer::progress::{FileDesc, ProgressTracker, TransferDirection};
+use crate::transfer::progress::{FileDesc, ProgressTracker, TransferDbErrorEvent, TransferDirection};
 use crate::{AppError, AppResult};
 
 /// 最大并发拉取数
@@ -286,6 +286,13 @@ impl ReceiveSession {
                 crate::database::ops::mark_session_completed(&db, self.session_id).await
             {
                 warn!("DB 标记接收完成失败: {}", e);
+                let _ = self.app.emit(
+                    crate::events::TRANSFER_DB_ERROR,
+                    TransferDbErrorEvent {
+                        session_id: self.session_id,
+                        message: format!("保存完成状态失败: {e}"),
+                    },
+                );
             }
         }
 

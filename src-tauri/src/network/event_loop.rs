@@ -14,7 +14,7 @@ use crate::protocol::{
     AppRequest, AppResponse, OfferRejectReason, PairingRequest, ResumeRejectReason,
     TransferRequest, TransferResponse,
 };
-use crate::transfer::progress::{TransferDirection, TransferFailedEvent};
+use crate::transfer::progress::{TransferDbErrorEvent, TransferDirection, TransferFailedEvent};
 use swarm_p2p_core::libp2p::PeerId;
 
 /// 配对请求事件 payload
@@ -359,6 +359,13 @@ pub fn spawn_event_loop(
                                     .await
                                     {
                                         warn!("DB 标记发送完成失败: {}", e);
+                                        let _ = app2.emit(
+                                            events::TRANSFER_DB_ERROR,
+                                            TransferDbErrorEvent {
+                                                session_id,
+                                                message: format!("保存完成状态失败: {e}"),
+                                            },
+                                        );
                                     }
                                 }
 

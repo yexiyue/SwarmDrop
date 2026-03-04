@@ -75,6 +75,13 @@ pub struct TransferFailedEvent {
     pub error: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TransferDbErrorEvent {
+    pub session_id: Uuid,
+    pub message: String,
+}
+
 pub struct FileDesc {
     pub file_id: u32,
     pub name: String,

@@ -26,7 +26,7 @@ use crate::protocol::{
     ResumeRejectReason, TransferRequest, TransferResponse,
 };
 use crate::transfer::crypto::generate_key;
-use crate::transfer::progress::{TransferDirection, TransferFailedEvent};
+use crate::transfer::progress::{TransferDbErrorEvent, TransferDirection, TransferFailedEvent};
 use crate::transfer::receiver::ReceiveSession;
 use crate::transfer::sender::SendSession;
 use crate::{events, AppError, AppResult};
@@ -423,6 +423,13 @@ impl TransferManager {
                         .await
                         {
                             warn!("发送方创建 DB 记录失败: {}", e);
+                            let _ = app.emit(
+                                events::TRANSFER_DB_ERROR,
+                                TransferDbErrorEvent {
+                                    session_id,
+                                    message: format!("保存传输记录失败: {e}"),
+                                },
+                            );
                         }
                     }
 
@@ -560,6 +567,13 @@ impl TransferManager {
             .await
             {
                 warn!("接收方创建 DB 记录失败: {}", e);
+                let _ = app.emit(
+                    events::TRANSFER_DB_ERROR,
+                    TransferDbErrorEvent {
+                        session_id: offer.session_id,
+                        message: format!("保存传输记录失败: {e}"),
+                    },
+                );
             }
         }
 

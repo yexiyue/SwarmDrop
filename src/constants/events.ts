@@ -15,3 +15,4 @@ export const TRANSFER_COMPLETE = "transfer-complete";
 export const TRANSFER_FAILED = "transfer-failed";
 export const TRANSFER_ACCEPTED = "transfer-accepted";
 export const TRANSFER_REJECTED = "transfer-rejected";
+export const TRANSFER_DB_ERROR = "transfer-db-error";

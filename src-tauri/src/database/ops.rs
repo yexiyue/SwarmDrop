@@ -61,6 +61,7 @@ pub async fn create_session(
         session = session.add_file(
             entity::transfer_file::ActiveModel::builder()
                 .set_file_id(file.file_id as i32)
+                .set_session_id(session_id)
                 .set_name(file.name.clone())
                 .set_relative_path(file.relative_path.clone())
                 .set_size(file.size as i64)
@@ -97,7 +98,9 @@ pub async fn update_file_checkpoint(
     let mut model = file.into_active_model();
     model.completed_chunks = Set(completed_chunks);
     model.transferred_bytes = Set(transferred_bytes);
-    model.session.as_mut().unwrap().updated_at = Set(now_ms());
+    if let Some(session) = model.session.as_mut() {
+        session.updated_at = Set(now_ms());
+    }
     model.save(db).await?;
 
     Ok(())

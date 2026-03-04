@@ -7,6 +7,7 @@ import {
   TRANSFER_FAILED,
   TRANSFER_ACCEPTED,
   TRANSFER_REJECTED,
+  TRANSFER_DB_ERROR,
 } from "@/constants/events";
 import type {
   TransferSession,
@@ -16,6 +17,7 @@ import type {
   TransferFailedEvent,
   TransferAcceptedEvent,
   TransferRejectedEvent,
+  TransferDbErrorEvent,
   TransferHistoryItem,
 } from "@/commands/transfer";
 import { getTransferHistory } from "@/commands/transfer";
@@ -89,6 +91,11 @@ export async function setupTransferListeners() {
         toast.error(t`对方拒绝了请求`);
       }
     }),
+
+    listen<TransferDbErrorEvent>(TRANSFER_DB_ERROR, (event) => {
+      const { message } = event.payload;
+      toast.error(message);
+    }),
   ]);
 
   unlistenFns = fns;
@@ -101,13 +108,18 @@ export async function cleanupTransferListeners() {
   unlistenFns = [];
 }
 
-/** 从活跃 sessions 中移除指定 session，并延迟刷新 DB 历史 */
+/** 从活跃 sessions 中移除指定 session，并刷新 DB 历史 */
 function removeAndRefresh(sessionId: string) {
-  useTransferStore.setState((state) => {
-    const { [sessionId]: _, ...rest } = state.sessions;
-    return { sessions: rest };
-  });
-  setTimeout(() => useTransferStore.getState().loadHistory(), 500);
+  // 先刷新历史，再移除活跃 session，避免出现空状态闪烁
+  useTransferStore
+    .getState()
+    .loadHistory()
+    .finally(() => {
+      useTransferStore.setState((state) => {
+        const { [sessionId]: _, ...rest } = state.sessions;
+        return { sessions: rest };
+      });
+    });
 }
 
 export const useTransferStore = create<TransferState>()((set, get) => ({
