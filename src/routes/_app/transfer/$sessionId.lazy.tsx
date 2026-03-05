@@ -14,6 +14,7 @@ import {
   ArrowDown,
   Loader2,
   X,
+  Pause,
 } from "lucide-react";
 import { Trans } from "@lingui/react/macro";
 import { t } from "@lingui/core/macro";
@@ -26,7 +27,7 @@ import { cn } from "@/lib/utils";
 import { openTransferResult } from "@/lib/file-picker";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
-import { cancelSend, cancelReceive } from "@/commands/transfer";
+import { cancelSend, cancelReceive, pauseTransfer } from "@/commands/transfer";
 import { FileTree } from "../send/-components/file-tree";
 import { buildTreeDataFromSession } from "../send/-file-tree";
 import type { TransferSession, TransferHistoryItem } from "@/commands/transfer";
@@ -315,10 +316,17 @@ const TransferActions = memo(function TransferActions({
     session.status === "waiting_accept" ||
     session.status === "transferring";
 
-  const handleCancel = useCallback(async () => {
-    // 乐观更新：立即从 UI 移除
+  const handlePause = useCallback(async () => {
     useTransferStore.getState().cancelSession(session.sessionId);
-    // 异步通知后端取消
+    try {
+      await pauseTransfer(session.sessionId);
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    }
+  }, [session.sessionId]);
+
+  const handleCancel = useCallback(async () => {
+    useTransferStore.getState().cancelSession(session.sessionId);
     try {
       if (isSend) {
         await cancelSend(session.sessionId);
@@ -340,14 +348,26 @@ const TransferActions = memo(function TransferActions({
 
   if (isActive) {
     return (
-      <Button
-        variant="outline"
-        onClick={handleCancel}
-        className="w-full"
-      >
-        <X className="mr-2 size-4" />
-        <Trans>取消传输</Trans>
-      </Button>
+      <div className="flex w-full gap-2">
+        {session.status === "transferring" && (
+          <Button
+            variant="secondary"
+            onClick={handlePause}
+            className="flex-1"
+          >
+            <Pause className="mr-2 size-4" />
+            <Trans>暂停传输</Trans>
+          </Button>
+        )}
+        <Button
+          variant="outline"
+          onClick={handleCancel}
+          className="flex-1"
+        >
+          <X className="mr-2 size-4" />
+          <Trans>取消传输</Trans>
+        </Button>
+      </div>
     );
   }
 

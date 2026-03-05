@@ -9,13 +9,14 @@ import {
   ArrowUp,
   ArrowDown,
   X,
+  Pause,
   CheckCircle2,
   XCircle,
   Loader2,
   FolderOpen,
 } from "lucide-react";
 import { Trans } from "@lingui/react/macro";
-import { cancelSend, cancelReceive } from "@/commands/transfer";
+import { cancelSend, cancelReceive, pauseTransfer } from "@/commands/transfer";
 import { useTransferStore } from "@/stores/transfer-store";
 import {
   formatFileSize,
@@ -49,6 +50,19 @@ export const TransferItem = memo(function TransferItem({
       params: { sessionId },
     });
   }, [navigate, sessionId]);
+
+  const handlePause = useCallback(
+    async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      useTransferStore.getState().cancelSession(sessionId);
+      try {
+        await pauseTransfer(sessionId);
+      } catch (err) {
+        toast.error(getErrorMessage(err));
+      }
+    },
+    [sessionId],
+  );
 
   const handleCancel = useCallback(
     async (e: React.MouseEvent) => {
@@ -149,6 +163,16 @@ export const TransferItem = memo(function TransferItem({
         </div>
 
         {/* 状态图标或操作 */}
+        {session.status === "transferring" && (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-7"
+            onClick={handlePause}
+          >
+            <Pause className="size-4" />
+          </Button>
+        )}
         {isActive && (
           <Button
             size="icon"

@@ -359,7 +359,6 @@ msgstr "Enter the following pairing code on the other device"
 msgid "在另一台设备上输入此配对码"
 msgstr "Enter this pairing code on the other device"
 
-#: src/components/layout/sidebar.tsx
 #: src/routes/_app/devices/-components/device-card.tsx
 #: src/routes/_app/devices/-components/device-card.tsx
 msgid "在线"
@@ -633,6 +632,10 @@ msgstr "Cannot retrieve password"
 msgid "无需服务器"
 msgstr "No server required"
 
+#: src/routes/_app/transfer/$sessionId.lazy.tsx
+msgid "暂停传输"
+msgstr "Pause Transfer"
+
 #: src/routes/_app/transfer/index.lazy.tsx
 msgid "暂无传输记录"
 msgstr "No transfer history"
@@ -761,10 +764,12 @@ msgstr "This password protects your device identity. Please keep it safe"
 msgid "活跃传输"
 msgstr "Active Transfers"
 
+#: src/components/layout/sidebar.tsx
 #: src/routes/_app/settings/index.lazy.tsx
 msgid "浅色"
 msgstr "Light"
 
+#: src/components/layout/sidebar.tsx
 #: src/routes/_app/settings/index.lazy.tsx
 msgid "深色"
 msgstr "Dark"
@@ -856,7 +861,6 @@ msgstr "Confirm Unpair"
 msgid "确认密码"
 msgstr "Confirm Password"
 
-#: src/components/layout/sidebar.tsx
 #: src/routes/_app/devices/-components/device-card.tsx
 #: src/routes/_app/devices/-components/device-card.tsx
 msgid "离线"
@@ -1017,6 +1021,7 @@ msgstr "Please start the network node first"
 msgid "请先启动节点"
 msgstr "Please start the node first"
 
+#: src/components/layout/sidebar.tsx
 #: src/routes/_app/settings/index.lazy.tsx
 msgid "跟随系统"
 msgstr "System"
@@ -1070,8 +1075,8 @@ msgid "连接"
 msgstr "Connect"
 
 #: src/components/layout/sidebar.tsx
-msgid "连接中"
-msgstr "Connecting"
+#~ msgid "连接中"
+#~ msgstr "Connecting"
 
 #: src/routes/_app/pairing/input.lazy.tsx
 #: src/routes/_app/pairing/input.lazy.tsx
@@ -1153,7 +1158,6 @@ msgstr "Failed to restart node"
 msgid "重新生成"
 msgstr "Regenerate"
 
-#: src/components/layout/sidebar.tsx
 #: src/components/network/stop-node-sheet.tsx
 msgid "错误"
 msgstr "Error"
