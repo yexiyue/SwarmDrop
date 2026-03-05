@@ -13,7 +13,6 @@ import {
   RefreshCw,
   Sparkles,
 } from "lucide-react";
-import { type } from "@tauri-apps/plugin-os";
 import { getVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useShallow } from "zustand/react/shallow";
@@ -41,7 +40,6 @@ export function AboutSection() {
     progress,
     checkForUpdate,
     executeUpdate,
-    openDownloadPage,
   } = useUpgradeLinkStore(
     useShallow((s) => ({
       status: s.status,
@@ -51,7 +49,6 @@ export function AboutSection() {
       progress: s.progress,
       checkForUpdate: s.checkForUpdate,
       executeUpdate: s.executeUpdate,
-      openDownloadPage: s.openDownloadPage,
     })),
   );
 
@@ -62,8 +59,6 @@ export function AboutSection() {
   }, []);
 
   const currentVersion = storeVersion ?? appVersion;
-
-  const isMobile = type() === "android" || type() === "ios";
 
   return (
     <section className="flex flex-col gap-3">
@@ -92,25 +87,16 @@ export function AboutSection() {
           {/* 分隔线 - 仅小屏幕显示，占满容器宽度 */}
           <div className="relative left-[-1rem] block w-[calc(100%+2rem)] border-t border-border min-[480px]:hidden" />
 
-          {/* 按钮组 - 桌面端显示两个按钮，移动端简化 */}
-          {isMobile ? (
-            <MobileUpdateButton
+          {/* 按钮组 */}
+          <div className="flex flex-wrap items-center justify-around gap-2 min-[480px]:justify-end">
+            <ReleaseNotesButton />
+            <UpdateButton
               status={status}
               latestVersion={latestVersion}
               onCheck={checkForUpdate}
-              onOpenPage={openDownloadPage}
+              onUpdate={executeUpdate}
             />
-          ) : (
-            <div className="flex flex-wrap items-center justify-around gap-2 min-[480px]:justify-end">
-              <ReleaseNotesButton />
-              <DesktopUpdateButton
-                status={status}
-                latestVersion={latestVersion}
-                onCheck={checkForUpdate}
-                onDownload={executeUpdate}
-              />
-            </div>
-          )}
+          </div>
         </div>
 
         {/* Update Banner / Progress */}
@@ -170,17 +156,17 @@ function ReleaseNotesButton() {
   );
 }
 
-/** 桌面端：更新操作按钮 */
-function DesktopUpdateButton({
+/** 更新操作按钮（桌面端 + 移动端统一） */
+function UpdateButton({
   status,
   latestVersion,
   onCheck,
-  onDownload,
+  onUpdate,
 }: {
   status: UpgradeLinkStatus;
   latestVersion: string | null;
   onCheck: () => void;
-  onDownload: () => void;
+  onUpdate: () => void;
 }) {
   switch (status) {
     case "checking":
@@ -199,7 +185,7 @@ function DesktopUpdateButton({
       return (
         <button
           type="button"
-          onClick={onDownload}
+          onClick={onUpdate}
           className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
         >
           <Download className="size-3.5" />
@@ -227,73 +213,6 @@ function DesktopUpdateButton({
           className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90"
         >
           <RefreshCw className="size-3.5" />
-          <Trans>检查更新</Trans>
-        </button>
-      );
-  }
-}
-
-/** 移动端：简化更新按钮（无更新日志按钮） */
-function MobileUpdateButton({
-  status,
-  latestVersion,
-  onCheck,
-  onOpenPage,
-}: {
-  status: UpgradeLinkStatus;
-  latestVersion: string | null;
-  onCheck: () => void;
-  onOpenPage: () => void;
-}) {
-  switch (status) {
-    case "checking":
-      return (
-        <button
-          type="button"
-          disabled
-          className="flex items-center gap-1 rounded-md bg-primary/50 px-2.5 py-1.5 text-[11px] font-medium text-primary-foreground"
-        >
-          <Loader2 className="size-3 animate-spin" />
-          <Trans>检查中</Trans>
-        </button>
-      );
-
-    case "available":
-      return (
-        <button
-          type="button"
-          onClick={onOpenPage}
-          className="flex items-center gap-1 rounded-md bg-primary px-2.5 py-1.5 text-[11px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-        >
-          <ExternalLink className="size-3" />
-          {latestVersion ? (
-            <span>v{latestVersion}</span>
-          ) : (
-            <Trans>前往下载</Trans>
-          )}
-        </button>
-      );
-
-    case "downloading":
-      return (
-        <button
-          type="button"
-          disabled
-          className="flex items-center gap-1 rounded-md bg-muted px-2.5 py-1.5 text-[11px] font-medium text-muted-foreground"
-        >
-          <Loader2 className="size-3 animate-spin" />
-          <Trans>下载中</Trans>
-        </button>
-      );
-
-    default:
-      return (
-        <button
-          type="button"
-          onClick={onCheck}
-          className="flex items-center gap-1 rounded-md bg-primary px-2.5 py-1.5 text-[11px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-        >
-          <RefreshCw className="size-3" />
           <Trans>检查更新</Trans>
         </button>
       );
