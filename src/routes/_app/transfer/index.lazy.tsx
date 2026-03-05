@@ -19,6 +19,13 @@ import type {
 } from "@/commands/transfer";
 import { clearTransferHistory } from "@/commands/transfer";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
 
@@ -97,19 +104,21 @@ function TransferPage() {
   const toolbarActions = dbHistory.length > 0 && (
     <div className="flex items-center gap-2">
       {/* 状态过滤 */}
-      <select
-        className="h-7 rounded-md border border-border bg-background px-2 text-xs text-foreground"
+      <Select
         value={statusFilter}
-        onChange={(e) =>
-          setStatusFilter(e.target.value as HistorySessionStatus | "all")
-        }
+        onValueChange={(v) => setStatusFilter(v as HistorySessionStatus | "all")}
       >
-        {statusFilters.map((f) => (
-          <option key={f.value} value={f.value}>
-            {f.label}
-          </option>
-        ))}
-      </select>
+        <SelectTrigger className="h-7 w-auto gap-1.5 px-2.5 text-xs">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {statusFilters.map((f) => (
+            <SelectItem key={f.value} value={f.value} className="text-xs">
+              {f.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       {/* 清空历史 */}
       <Button
         size="sm"
