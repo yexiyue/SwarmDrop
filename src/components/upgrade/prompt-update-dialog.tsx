@@ -4,6 +4,7 @@
  */
 
 import { Loader2, Download, FileText } from "lucide-react";
+import { MarkdownContent } from "@/components/ui/markdown-content";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -81,8 +82,8 @@ export function PromptUpdateDialog({
                 <Trans>更新内容</Trans>
               </span>
             </div>
-            <div className="max-h-32 overflow-y-auto text-sm leading-relaxed text-foreground">
-              {releaseNotes}
+            <div className="max-h-48 overflow-y-auto">
+              <MarkdownContent content={releaseNotes} />
             </div>
           </div>
         )}

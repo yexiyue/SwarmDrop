@@ -21,6 +21,7 @@ import {
   useUpgradeLinkStore,
   type UpgradeLinkStatus,
 } from "@/stores/upgrade-link-store";
+import { MarkdownContent } from "@/components/ui/markdown-content";
 import { Progress } from "@/components/ui/progress";
 
 /** 格式化字节数为人类可读 */
@@ -316,9 +317,12 @@ function UpdateBanner({
         </span>
       </div>
       {releaseNotes && (
-        <p className="text-xs leading-relaxed text-blue-600 dark:text-blue-400">
-          {releaseNotes}
-        </p>
+        <div className="max-h-48 overflow-y-auto">
+          <MarkdownContent
+            content={releaseNotes}
+            className="prose-headings:text-blue-700 dark:prose-headings:text-blue-300 text-blue-600 dark:text-blue-400"
+          />
+        </div>
       )}
     </div>
   );
