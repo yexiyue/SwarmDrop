@@ -10,7 +10,9 @@
     "tauri": "tauri",
     "android:dev": "node scripts/android.mjs dev",
     "android:build": "node scripts/android.mjs build",
-    "i18n:extract": "lingui extract"
+    "i18n:extract": "lingui extract",
+    "changelog": "git-cliff --output CHANGELOG.md",
+    "changelog:latest": "git-cliff --latest --strip header"
   },
   "dependencies": {
     "@choochmeque/tauri-plugin-biometry-api": "^0.2.6",

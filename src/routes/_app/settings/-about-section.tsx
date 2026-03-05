@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { type } from "@tauri-apps/plugin-os";
 import { getVersion } from "@tauri-apps/api/app";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useShallow } from "zustand/react/shallow";
 import {
   useUpgradeLinkStore,
@@ -159,6 +160,7 @@ function ReleaseNotesButton() {
   return (
     <button
       type="button"
+      onClick={() => openUrl("https://github.com/yexiyue/SwarmDrop/blob/main/CHANGELOG.md")}
       className="flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
     >
       <ExternalLink className="size-3.5" />
