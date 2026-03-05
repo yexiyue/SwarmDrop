@@ -2,10 +2,11 @@
 
 All notable changes to SwarmDrop will be documented in this file.
 
-## Unreleased
+## [0.3.7](https://github.com/yexiyue/SwarmDrop/releases/tag/v0.3.7) - 2026-03-05
 
 ### Features
 
+- 集成 git-cliff 自动生成更新日志
 - 传输暂停按钮 + 侧边栏主题语言切换 + 网络状态栏可点击
 ## [0.3.6](https://github.com/yexiyue/SwarmDrop/releases/tag/v0.3.6) - 2026-03-04
 
