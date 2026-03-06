@@ -35,6 +35,14 @@ impl Default for OsInfo {
 }
 
 impl OsInfo {
+    /// SwarmDrop 客户端 agent_version 前缀
+    pub const AGENT_PREFIX: &str = "swarmdrop/";
+
+    /// 检查 agent_version 是否属于 SwarmDrop 客户端
+    pub fn is_swarmdrop_agent(agent_version: &str) -> bool {
+        agent_version.starts_with(Self::AGENT_PREFIX)
+    }
+
     pub fn to_agent_version(&self) -> String {
         format!(
             "swarmdrop/{}; os={}; platform={}; arch={}; host={}",
