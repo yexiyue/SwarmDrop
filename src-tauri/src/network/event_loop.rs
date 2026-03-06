@@ -221,42 +221,40 @@ pub fn spawn_event_loop(
                     let net_status = shared.build_network_status();
                     let _ = app.emit(events::NETWORK_STATUS_CHANGED, &net_status);
                 }
-                NodeEvent::RelayReservationAccepted { .. } => {
-                    if let Ok(mut rr) = shared.relay_ready.write() {
-                        *rr = true;
+                NodeEvent::RelayReservationAccepted { relay_peer_id, .. } => {
+                    if let Ok(mut rp) = shared.relay_peers.write() {
+                        rp.insert(relay_peer_id);
                     }
                     let net_status = shared.build_network_status();
                     let _ = app.emit(events::NETWORK_STATUS_CHANGED, &net_status);
                 }
 
                 // === 设备事件（handle_event 已在上方处理） ===
-                NodeEvent::PeerConnected { ref peer_id } => {
-                    // 检查是否为引导节点
-                    if shared.bootstrap_peer_ids.contains(peer_id) {
+                NodeEvent::PeerConnected { .. } => {
+                    emit_device_and_status();
+                }
+                NodeEvent::PeerDisconnected { ref peer_id } => {
+                    // 清理中继节点
+                    if let Ok(mut rp) = shared.relay_peers.write() {
+                        rp.remove(peer_id);
+                    }
+                    // 重算 bootstrap_connected：是否还有非 SwarmDrop 的已连接 peer
+                    let any_infra_connected = shared.devices.has_connected_infra_peer();
+                    if let Ok(mut bc) = shared.bootstrap_connected.write() {
+                        *bc = any_infra_connected;
+                    }
+                    emit_device_and_status();
+                }
+                NodeEvent::IdentifyReceived { ref peer_id, .. } => {
+                    // 检查是否为非 SwarmDrop 节点（即基础设施节点）
+                    if !shared.devices.is_swarmdrop_peer(peer_id) {
                         if let Ok(mut bc) = shared.bootstrap_connected.write() {
                             *bc = true;
                         }
                     }
                     emit_device_and_status();
                 }
-                NodeEvent::PeerDisconnected { ref peer_id } => {
-                    // 检查是否为引导节点断开
-                    if shared.bootstrap_peer_ids.contains(peer_id) {
-                        // 检查是否还有其他引导节点连接
-                        let any_connected = shared
-                            .bootstrap_peer_ids
-                            .iter()
-                            .any(|bp| bp != peer_id && shared.devices.is_connected(bp));
-                        if !any_connected {
-                            if let Ok(mut bc) = shared.bootstrap_connected.write() {
-                                *bc = false;
-                            }
-                        }
-                    }
-                    emit_device_and_status();
-                }
                 NodeEvent::PeersDiscovered { .. }
-                | NodeEvent::IdentifyReceived { .. }
                 | NodeEvent::PingSuccess { .. }
                 | NodeEvent::HolePunchSucceeded { .. } => {
                     emit_device_and_status();

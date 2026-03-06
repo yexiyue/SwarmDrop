@@ -28,10 +28,10 @@ pub struct NetManager {
     listen_addrs: Arc<RwLock<Vec<Multiaddr>>>,
     nat_status: Arc<RwLock<NatStatus>>,
     public_addr: Arc<RwLock<Option<Multiaddr>>>,
-    relay_ready: Arc<RwLock<bool>>,
+    /// 当前已连接的中继节点 PeerId 集合
+    relay_peers: Arc<RwLock<HashSet<PeerId>>>,
+    /// 是否至少有一个引导/基础设施节点已连接（基于 agent_version 判断）
     bootstrap_connected: Arc<RwLock<bool>>,
-    /// 引导节点 PeerId 集合，用于判断连接是否为引导节点
-    bootstrap_peer_ids: Arc<HashSet<PeerId>>,
 }
 
 impl NetManager {
@@ -39,7 +39,6 @@ impl NetManager {
         client: AppNetClient,
         peer_id: PeerId,
         paired_devices: Vec<PairedDeviceInfo>,
-        bootstrap_peer_ids: HashSet<PeerId>,
     ) -> Self {
         // 创建共享的已配对设备 Map：PairingManager 读写，DeviceManager 只读
         let paired_map: Arc<DashMap<_, _>> = Arc::new(
@@ -71,9 +70,8 @@ impl NetManager {
             listen_addrs: Arc::new(RwLock::new(Vec::new())),
             nat_status: Arc::new(RwLock::new(NatStatus::Unknown)),
             public_addr: Arc::new(RwLock::new(None)),
-            relay_ready: Arc::new(RwLock::new(false)),
+            relay_peers: Arc::new(RwLock::new(HashSet::new())),
             bootstrap_connected: Arc::new(RwLock::new(false)),
-            bootstrap_peer_ids: Arc::new(bootstrap_peer_ids),
         }
     }
 
@@ -118,9 +116,8 @@ impl NetManager {
             listen_addrs: self.listen_addrs.clone(),
             nat_status: self.nat_status.clone(),
             public_addr: self.public_addr.clone(),
-            relay_ready: self.relay_ready.clone(),
+            relay_peers: self.relay_peers.clone(),
             bootstrap_connected: self.bootstrap_connected.clone(),
-            bootstrap_peer_ids: self.bootstrap_peer_ids.clone(),
         }
     }
 }
@@ -138,14 +135,19 @@ pub(crate) struct SharedNetRefs {
     pub listen_addrs: Arc<RwLock<Vec<Multiaddr>>>,
     pub nat_status: Arc<RwLock<NatStatus>>,
     pub public_addr: Arc<RwLock<Option<Multiaddr>>>,
-    pub relay_ready: Arc<RwLock<bool>>,
+    pub relay_peers: Arc<RwLock<HashSet<PeerId>>>,
     pub bootstrap_connected: Arc<RwLock<bool>>,
-    pub bootstrap_peer_ids: Arc<HashSet<PeerId>>,
 }
 
 impl SharedNetRefs {
     /// 构建当前网络状态快照
     pub fn build_network_status(&self) -> NetworkStatus {
+        let relay_peers_list: Vec<PeerId> = self
+            .relay_peers
+            .read()
+            .map(|g| g.iter().copied().collect())
+            .unwrap_or_default();
+
         NetworkStatus {
             status: NodeStatus::Running,
             peer_id: Some(self.peer_id),
@@ -154,7 +156,8 @@ impl SharedNetRefs {
             public_addr: self.public_addr.read().ok().and_then(|g| g.clone()),
             connected_peers: self.devices.connected_count(),
             discovered_peers: self.devices.discovered_count(),
-            relay_ready: read_or(&self.relay_ready, false),
+            relay_ready: !relay_peers_list.is_empty(),
+            relay_peers: relay_peers_list,
             bootstrap_connected: read_or(&self.bootstrap_connected, false),
         }
     }
