@@ -30,8 +30,6 @@ pub struct NetManager {
     public_addr: Arc<RwLock<Option<Multiaddr>>>,
     /// 当前已连接的中继节点 PeerId 集合
     relay_peers: Arc<RwLock<HashSet<PeerId>>>,
-    /// 是否至少有一个引导/基础设施节点已连接（基于 agent_version 判断）
-    bootstrap_connected: Arc<RwLock<bool>>,
 }
 
 impl NetManager {
@@ -71,7 +69,6 @@ impl NetManager {
             nat_status: Arc::new(RwLock::new(NatStatus::Unknown)),
             public_addr: Arc::new(RwLock::new(None)),
             relay_peers: Arc::new(RwLock::new(HashSet::new())),
-            bootstrap_connected: Arc::new(RwLock::new(false)),
         }
     }
 
@@ -117,7 +114,6 @@ impl NetManager {
             nat_status: self.nat_status.clone(),
             public_addr: self.public_addr.clone(),
             relay_peers: self.relay_peers.clone(),
-            bootstrap_connected: self.bootstrap_connected.clone(),
         }
     }
 }
@@ -136,7 +132,6 @@ pub(crate) struct SharedNetRefs {
     pub nat_status: Arc<RwLock<NatStatus>>,
     pub public_addr: Arc<RwLock<Option<Multiaddr>>>,
     pub relay_peers: Arc<RwLock<HashSet<PeerId>>>,
-    pub bootstrap_connected: Arc<RwLock<bool>>,
 }
 
 impl SharedNetRefs {
@@ -158,7 +153,7 @@ impl SharedNetRefs {
             discovered_peers: self.devices.discovered_count(),
             relay_ready: !relay_peers_list.is_empty(),
             relay_peers: relay_peers_list,
-            bootstrap_connected: read_or(&self.bootstrap_connected, false),
+            bootstrap_connected: self.devices.has_connected_bootstrap_peer(),
         }
     }
 }

@@ -238,23 +238,10 @@ pub fn spawn_event_loop(
                     if let Ok(mut rp) = shared.relay_peers.write() {
                         rp.remove(peer_id);
                     }
-                    // 重算 bootstrap_connected：是否还有非 SwarmDrop 的已连接 peer
-                    let any_infra_connected = shared.devices.has_connected_infra_peer();
-                    if let Ok(mut bc) = shared.bootstrap_connected.write() {
-                        *bc = any_infra_connected;
-                    }
                     emit_device_and_status();
                 }
-                NodeEvent::IdentifyReceived { ref peer_id, .. } => {
-                    // 检查是否为非 SwarmDrop 节点（即基础设施节点）
-                    if !shared.devices.is_swarmdrop_peer(peer_id) {
-                        if let Ok(mut bc) = shared.bootstrap_connected.write() {
-                            *bc = true;
-                        }
-                    }
-                    emit_device_and_status();
-                }
-                NodeEvent::PeersDiscovered { .. }
+                NodeEvent::IdentifyReceived { .. }
+                | NodeEvent::PeersDiscovered { .. }
                 | NodeEvent::PingSuccess { .. }
                 | NodeEvent::HolePunchSucceeded { .. } => {
                     emit_device_and_status();

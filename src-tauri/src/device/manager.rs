@@ -219,16 +219,6 @@ impl DeviceManager {
             .is_some_and(|e| e.value().is_connected)
     }
 
-    /// 检查指定 peer 是否为 SwarmDrop 客户端（而非基础设施节点）
-    pub fn is_swarmdrop_peer(&self, peer_id: &PeerId) -> bool {
-        self.peers.get(peer_id).is_some_and(|e| {
-            e.value()
-                .agent_version
-                .as_deref()
-                .is_some_and(OsInfo::is_swarmdrop_agent)
-        })
-    }
-
     /// 已连接的 SwarmDrop 客户端数量
     pub fn connected_count(&self) -> usize {
         self.peers
@@ -256,15 +246,14 @@ impl DeviceManager {
             .count()
     }
 
-    /// 是否有已连接的基础设施节点（非 SwarmDrop 客户端）
-    pub fn has_connected_infra_peer(&self) -> bool {
+    /// 是否有已连接的引导/中继节点（agent_version 以 swarm-bootstrap/ 开头）
+    pub fn has_connected_bootstrap_peer(&self) -> bool {
         self.peers.iter().any(|e| {
             let p = e.value();
             p.is_connected
-                && !p
-                    .agent_version
+                && p.agent_version
                     .as_deref()
-                    .is_some_and(OsInfo::is_swarmdrop_agent)
+                    .is_some_and(OsInfo::is_bootstrap_agent)
         })
     }
 }
