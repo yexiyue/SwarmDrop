@@ -6,6 +6,8 @@ pub(crate) mod network;
 pub(crate) mod pairing;
 pub mod protocol;
 pub(crate) mod transfer;
+pub(crate) mod database;
+pub(crate) mod mcp;
 pub use error::{AppError, AppResult};
 
 pub mod file_sink;
@@ -57,6 +59,19 @@ pub fn run() {
             let salt_path = app.path().app_local_data_dir()?.join("salt.txt");
             app.handle()
                 .plugin(tauri_plugin_stronghold::Builder::with_argon2(&salt_path).build())?;
+
+            // 初始化数据库（SeaORM + SQLite）
+            let handle = app.handle().clone();
+            let db = tauri::async_runtime::block_on(database::init_database(&handle))?;
+
+            // 启动清理：处理上次运行中断的传输会话
+            tauri::async_runtime::block_on(database::cleanup_stale_sessions(&db))?;
+
+            app.manage(db);
+
+            // 初始化 MCP Server 状态容器
+            app.manage(mcp::server::McpServerState::default());
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -79,6 +94,15 @@ pub fn run() {
             commands::reject_receive,
             commands::cancel_send,
             commands::cancel_receive,
+            commands::get_transfer_history,
+            commands::get_transfer_session,
+            commands::delete_transfer_session,
+            commands::clear_transfer_history,
+            commands::pause_transfer,
+            commands::resume_transfer,
+            commands::get_mcp_status,
+            commands::start_mcp_server,
+            commands::stop_mcp_server,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

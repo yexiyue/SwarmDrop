@@ -159,11 +159,37 @@ export type OfferRejectReason =
   | { type: "not_paired" }
   | { type: "user_declined" };
 
-/** 开始发送的结果 */
+/** 开始发送的结果（立即返回 session_id，后续通过事件通知） */
 export interface StartSendResult {
   sessionId: string;
-  accepted: boolean;
+}
+
+/** 对方接受 Offer 的事件 */
+export interface TransferAcceptedEvent {
+  sessionId: string;
+}
+
+/** 对方拒绝 Offer 的事件 */
+export interface TransferRejectedEvent {
+  sessionId: string;
   reason: OfferRejectReason | null;
+}
+
+/** DB 操作失败事件（传输记录保存失败时触发） */
+export interface TransferDbErrorEvent {
+  sessionId: string;
+  message: string;
+}
+
+/** 恢复传输的结果（返回给前端以创建运行时 session） */
+export interface ResumeTransferResult {
+  sessionId: string;
+  direction: string;
+  peerId: string;
+  peerName: string;
+  files: TransferFileInfo[];
+  totalSize: number;
+  transferredBytes: number;
 }
 
 /**
@@ -222,4 +248,86 @@ export async function rejectReceive(sessionId: string): Promise<void> {
 /** 取消接收 */
 export async function cancelReceive(sessionId: string): Promise<void> {
   return invoke("cancel_receive", { sessionId });
+}
+
+// === 传输历史 API ===
+
+/** 历史会话状态（对应 Rust SessionStatus） */
+export type HistorySessionStatus =
+  | "transferring"
+  | "paused"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+/** 历史文件状态（对应 Rust FileStatus） */
+export type HistoryFileStatus =
+  | "pending"
+  | "transferring"
+  | "completed"
+  | "failed";
+
+/** 传输历史文件记录 */
+export interface TransferHistoryFile {
+  fileId: number;
+  name: string;
+  relativePath: string;
+  size: number;
+  status: HistoryFileStatus;
+  transferredBytes: number;
+}
+
+/** 传输历史会话记录（对应 Rust TransferHistoryItem） */
+export interface TransferHistoryItem {
+  sessionId: string;
+  direction: TransferDirection;
+  peerId: string;
+  peerName: string;
+  totalSize: number;
+  transferredBytes: number;
+  status: HistorySessionStatus;
+  startedAt: number;
+  updatedAt: number;
+  finishedAt: number | null;
+  errorMessage: string | null;
+  savePath: string | null;
+  files: TransferHistoryFile[];
+}
+
+/** 查询传输历史列表（可选按状态过滤） */
+export async function getTransferHistory(
+  status?: HistorySessionStatus,
+): Promise<TransferHistoryItem[]> {
+  return invoke("get_transfer_history", { status: status ?? null });
+}
+
+/** 查询单个传输会话详情 */
+export async function getTransferSession(
+  sessionId: string,
+): Promise<TransferHistoryItem> {
+  return invoke("get_transfer_session", { sessionId });
+}
+
+/** 删除单个传输会话 */
+export async function deleteTransferSession(
+  sessionId: string,
+): Promise<void> {
+  return invoke("delete_transfer_session", { sessionId });
+}
+
+/** 清空所有传输历史 */
+export async function clearTransferHistory(): Promise<void> {
+  return invoke("clear_transfer_history");
+}
+
+/** 暂停传输 */
+export async function pauseTransfer(sessionId: string): Promise<void> {
+  return invoke("pause_transfer", { sessionId });
+}
+
+/** 恢复传输（断点续传） */
+export async function resumeTransfer(
+  sessionId: string,
+): Promise<ResumeTransferResult> {
+  return invoke("resume_transfer", { sessionId });
 }

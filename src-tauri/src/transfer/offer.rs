@@ -4,24 +4,32 @@
 //! 事件循环写入缓存 → 前端操作后通过 Tauri 命令消费缓存。
 
 use std::sync::Arc;
+use std::time::Instant;
 
 use dashmap::DashMap;
 use serde::Serialize;
 use swarm_p2p_core::libp2p::PeerId;
 use tauri::AppHandle;
+use tokio_util::sync::CancellationToken;
 use tracing::{info, warn};
 use uuid::Uuid;
+
+use sea_orm::{DatabaseConnection, EntityTrait};
+use tauri::Manager;
+
+use tauri::Emitter;
 
 use crate::file_sink::FileSink;
 use crate::file_source::{EnumeratedFile, FileSource};
 use crate::protocol::{
-    AppNetClient, AppRequest, AppResponse, FileInfo, OfferRejectReason, TransferRequest,
-    TransferResponse,
+    AppNetClient, AppRequest, AppResponse, FileChecksum, FileInfo, OfferRejectReason,
+    ResumeRejectReason, TransferRequest, TransferResponse,
 };
 use crate::transfer::crypto::generate_key;
+use crate::transfer::progress::{TransferDbErrorEvent, TransferDirection, TransferFailedEvent};
 use crate::transfer::receiver::ReceiveSession;
 use crate::transfer::sender::SendSession;
-use crate::{AppError, AppResult};
+use crate::{events, AppError, AppResult};
 
 /// prepare_send 进度事件（通过 Tauri Channel 实时推送给前端）
 #[derive(Debug, Clone, Serialize)]
@@ -48,6 +56,8 @@ pub struct PreparedTransfer {
     pub files: Vec<PreparedFile>,
     /// 总大小（字节）
     pub total_size: u64,
+    /// 创建时间（用于超时清理）
+    pub created_at: Instant,
 }
 
 /// 准备好的单个文件
@@ -80,16 +90,56 @@ pub struct PendingOffer {
     pub files: Vec<FileInfo>,
     /// 总大小
     pub total_size: u64,
+    /// 创建时间（用于超时清理）
+    pub created_at: Instant,
 }
 
-/// `send_offer` 的返回类型
+/// `send_offer` 的返回类型（立即返回 session_id，后续通过事件通知结果）
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StartSendResult {
     pub session_id: Uuid,
-    pub accepted: bool,
+}
+
+/// 对方接受 Offer 的事件 payload
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TransferAcceptedEvent {
+    pub session_id: Uuid,
+}
+
+/// 对方拒绝 Offer 的事件 payload
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TransferRejectedEvent {
+    pub session_id: Uuid,
     pub reason: Option<OfferRejectReason>,
 }
+
+/// `initiate_resume` 的返回类型（供前端创建运行时 session）
+#[derive(Debug, Clone)]
+pub struct ResumeInfo {
+    pub peer_id: String,
+    pub peer_name: String,
+    pub files: Vec<ResumeFileInfo>,
+    pub total_size: i64,
+    pub transferred_bytes: i64,
+}
+
+/// 恢复传输中的单个文件信息
+#[derive(Debug, Clone)]
+pub struct ResumeFileInfo {
+    pub file_id: i32,
+    pub name: String,
+    pub relative_path: String,
+    pub size: i64,
+}
+
+/// 超时配置常量
+const PREPARED_TIMEOUT_SECS: u64 = 300; // 5 分钟
+const PENDING_OFFER_TIMEOUT_SECS: u64 = 300; // 5 分钟
+const SEND_SESSION_IDLE_TIMEOUT_MS: u64 = 30 * 60 * 1000; // 30 分钟
+const CLEANUP_INTERVAL_SECS: u64 = 60; // 每 60 秒扫描一次
 
 /// 传输管理器（原 OfferManager，扩展为管理完整传输生命周期）
 pub struct TransferManager {
@@ -113,6 +163,75 @@ impl TransferManager {
             pending: DashMap::new(),
             send_sessions: DashMap::new(),
             receive_sessions: Arc::new(DashMap::new()),
+        }
+    }
+
+    /// 启动后台定时清理任务（在 Arc<Self> 上调用，由 NetManager 创建后触发）
+    pub fn spawn_cleanup_task(self: &Arc<Self>, cancel_token: CancellationToken) {
+        let this = Arc::clone(self);
+        tokio::spawn(async move {
+            let mut interval =
+                tokio::time::interval(std::time::Duration::from_secs(CLEANUP_INTERVAL_SECS));
+            loop {
+                tokio::select! {
+                    _ = cancel_token.cancelled() => {
+                        info!("传输资源清理任务已停止");
+                        break;
+                    }
+                    _ = interval.tick() => {
+                        this.run_cleanup();
+                    }
+                }
+            }
+        });
+    }
+
+    /// 执行一次清理扫描
+    fn run_cleanup(&self) {
+        let now = Instant::now();
+
+        // 清理过期的 prepared transfers
+        let expired_prepared: Vec<Uuid> = self
+            .prepared
+            .iter()
+            .filter(|r| now.duration_since(r.value().created_at).as_secs() > PREPARED_TIMEOUT_SECS)
+            .map(|r| *r.key())
+            .collect();
+        for id in &expired_prepared {
+            self.prepared.remove(id);
+        }
+        if !expired_prepared.is_empty() {
+            info!("清理 {} 个过期的 prepared transfers", expired_prepared.len());
+        }
+
+        // 清理过期的 pending offers
+        let expired_pending: Vec<Uuid> = self
+            .pending
+            .iter()
+            .filter(|r| {
+                now.duration_since(r.value().created_at).as_secs() > PENDING_OFFER_TIMEOUT_SECS
+            })
+            .map(|r| *r.key())
+            .collect();
+        for id in &expired_pending {
+            self.pending.remove(id);
+        }
+        if !expired_pending.is_empty() {
+            info!("清理 {} 个过期的 pending offers", expired_pending.len());
+        }
+
+        // 清理空闲超时的 send sessions
+        let idle_sessions: Vec<Uuid> = self
+            .send_sessions
+            .iter()
+            .filter(|r| r.value().idle_ms() > SEND_SESSION_IDLE_TIMEOUT_MS)
+            .map(|r| *r.key())
+            .collect();
+        for id in &idle_sessions {
+            if let Some((_, session)) = self.send_sessions.remove(id) {
+                session.cancel();
+                warn!("清理空闲超时的 send session: {}", id);
+            }
         }
     }
 
@@ -182,29 +301,36 @@ impl TransferManager {
             prepared_id: generate_id(),
             files,
             total_size: total_bytes,
+            created_at: Instant::now(),
         };
 
-        self.prepared
-            .insert(prepared.prepared_id, prepared.clone());
+        self.prepared.insert(prepared.prepared_id, prepared.clone());
 
         Ok(prepared)
     }
 
     // ============ 发送方：发送 Offer + 启动传输 ============
 
-    /// 发送 Offer 到目标 peer，等待接收方回复
+    /// 发送 Offer 到目标 peer（非阻塞）
     ///
-    /// 如果被接受，自动创建 SendSession 并缓存。
-    pub async fn send_offer(
-        &self,
+    /// 立即返回 session_id。后台任务等待对方回复后：
+    /// - 接受 → 创建 SendSession + emit `transfer-accepted`
+    /// - 拒绝 → emit `transfer-rejected`
+    /// - 错误 → emit `transfer-failed`
+    pub fn send_offer(
+        self: &Arc<Self>,
         prepared_id: &Uuid,
         peer_id: &str,
         selected_file_ids: &[u32],
         app: AppHandle,
     ) -> AppResult<StartSendResult> {
-        let prepared = self.take_prepared(prepared_id).ok_or_else(|| {
-            AppError::Transfer(format!("PreparedTransfer not found: {prepared_id}"))
-        })?;
+        let prepared = self
+            .prepared
+            .get(prepared_id)
+            .map(|r| r.value().clone())
+            .ok_or_else(|| {
+                AppError::Transfer(format!("PreparedTransfer not found: {prepared_id}"))
+            })?;
 
         // 筛选选中的文件
         let selected_prepared: Vec<PreparedFile> = prepared
@@ -229,6 +355,10 @@ impl TransferManager {
             .collect();
 
         let total_size: u64 = selected_files.iter().map(|f| f.size).sum();
+        let source_paths: Vec<String> = selected_prepared
+            .iter()
+            .map(|f| source_path_string(&f.source))
+            .collect();
         let session_id = generate_id();
 
         let target_peer: PeerId = peer_id
@@ -242,61 +372,126 @@ impl TransferManager {
             selected_files.len()
         );
 
-        let response = self
-            .client
-            .send_request(
-                target_peer,
-                AppRequest::Transfer(TransferRequest::Offer {
-                    session_id,
-                    files: selected_files,
-                    total_size,
-                }),
-            )
-            .await
-            .map_err(|e| AppError::Transfer(format!("发送 Offer 失败: {e}")))?;
+        // 后台任务：发送 Offer 请求并等待响应
+        let client = self.client.clone();
+        let this = Arc::clone(self);
+        let prepared_id = *prepared_id;
+        let peer_id_str = peer_id.to_string();
+        tokio::spawn(async move {
+            let emit_fail = |error: String| {
+                let _ = app.emit(
+                    events::TRANSFER_FAILED,
+                    TransferFailedEvent {
+                        session_id,
+                        direction: TransferDirection::Send,
+                        error,
+                    },
+                );
+            };
 
-        match response {
-            AppResponse::Transfer(TransferResponse::OfferResult {
-                accepted,
-                key,
-                reason,
-            }) => {
-                if accepted {
-                    if let Some(key) = key {
-                        info!("Offer accepted for session {}, key received", session_id);
+            let result = client
+                .send_request(
+                    target_peer,
+                    AppRequest::Transfer(TransferRequest::Offer {
+                        session_id,
+                        files: selected_files.clone(),
+                        total_size,
+                    }),
+                )
+                .await;
 
-                        // 创建 SendSession
-                        let send_session = Arc::new(SendSession::new(
+            match result {
+                Ok(AppResponse::Transfer(TransferResponse::OfferResult {
+                    accepted: true,
+                    key: Some(key),
+                    ..
+                })) => {
+                    info!("Offer accepted for session {}, key received", session_id);
+
+                    if let Some(db) = app.try_state::<DatabaseConnection>() {
+                        if let Err(e) = crate::database::ops::create_session(
+                            &db,
                             session_id,
-                            selected_prepared,
-                            &key,
-                            app,
-                        ));
-                        self.send_sessions.insert(session_id, send_session);
-                    } else {
-                        warn!(
-                            "Offer accepted but no key received for session {}",
-                            session_id
-                        );
+                            entity::TransferDirection::Send,
+                            &peer_id_str,
+                            &peer_id_str,
+                            &selected_files,
+                            total_size,
+                            None,
+                            Some(&source_paths),
+                        )
+                        .await
+                        {
+                            warn!("发送方创建 DB 记录失败: {}", e);
+                            let _ = app.emit(
+                                events::TRANSFER_DB_ERROR,
+                                TransferDbErrorEvent {
+                                    session_id,
+                                    message: format!("保存传输记录失败: {e}"),
+                                },
+                            );
+                        }
                     }
-                } else {
-                    info!("Offer rejected for session {}: {:?}", session_id, reason);
+
+                    let send_session = Arc::new(SendSession::new(
+                        session_id,
+                        selected_prepared,
+                        &key,
+                        app.clone(),
+                    ));
+                    this.send_sessions.insert(session_id, send_session);
+                    this.prepared.remove(&prepared_id);
+
+                    let _ = app.emit(
+                        events::TRANSFER_ACCEPTED,
+                        TransferAcceptedEvent { session_id },
+                    );
                 }
-                Ok(StartSendResult {
-                    session_id,
-                    accepted,
+                Ok(AppResponse::Transfer(TransferResponse::OfferResult {
+                    accepted: false,
                     reason,
-                })
+                    ..
+                })) => {
+                    info!("Offer rejected for session {}: {:?}", session_id, reason);
+                    let _ = app.emit(
+                        events::TRANSFER_REJECTED,
+                        TransferRejectedEvent { session_id, reason },
+                    );
+                }
+                Ok(AppResponse::Transfer(TransferResponse::OfferResult {
+                    accepted: true,
+                    key: None,
+                    ..
+                })) => {
+                    warn!("Offer accepted 但未收到密钥: session={}", session_id);
+                    emit_fail("对方接受但未提供加密密钥".into());
+                }
+                Ok(other) => {
+                    warn!("意外的响应类型: {:?}", other);
+                    emit_fail(format!("意外的响应类型: {other:?}"));
+                }
+                Err(e) => {
+                    warn!("发送 Offer 失败: {}", e);
+                    emit_fail(format!("发送 Offer 失败: {e}"));
+                }
             }
-            other => Err(AppError::Transfer(format!("意外的响应类型: {other:?}"))),
-        }
+        });
+
+        Ok(StartSendResult { session_id })
     }
 
     // ============ 发送方：响应 ChunkRequest ============
 
     /// 获取发送会话（事件循环调用）
     pub fn get_send_session(&self, session_id: &Uuid) -> Option<Arc<SendSession>> {
-        self.send_sessions.get(session_id).map(|r| r.clone())
+        self.send_sessions
+            .get(session_id)
+            .map(|r| Arc::clone(r.value()))
+    }
+
+    /// 注册外部创建的发送会话（断点续传时由 event_loop 创建后注册）
+    pub fn insert_send_session(&self, session_id: Uuid, session: Arc<SendSession>) {
+        self.send_sessions.insert(session_id, session);
     }
 
     /// 移除发送会话
@@ -323,6 +518,7 @@ impl TransferManager {
                 session_id,
                 files,
                 total_size,
+                created_at: Instant::now(),
             },
         );
     }
@@ -354,29 +550,45 @@ impl TransferManager {
             .await
             .map_err(|e| AppError::Transfer(format!("回复 OfferResult 失败: {e}")))?;
 
-        // 创建 FileSink
-        // Android: 直接写入公共 Download 目录（无需 save_path）
-        // 桌面端: 写入用户指定的本地目录
+        // 持久化接收方会话记录到 DB
+        let peer_name = offer.peer_id.to_string();
+        if let Some(db) = app.try_state::<DatabaseConnection>() {
+            if let Err(e) = crate::database::ops::create_session(
+                &db,
+                offer.session_id,
+                entity::TransferDirection::Receive,
+                &peer_name,
+                &peer_name,
+                &offer.files,
+                offer.total_size,
+                Some(save_path.clone()),
+                None,
+            )
+            .await
+            {
+                warn!("接收方创建 DB 记录失败: {}", e);
+                let _ = app.emit(
+                    events::TRANSFER_DB_ERROR,
+                    TransferDbErrorEvent {
+                        session_id: offer.session_id,
+                        message: format!("保存传输记录失败: {e}"),
+                    },
+                );
+            }
+        }
+
+        // 创建 FileSink 并启动接收
         let sink = build_file_sink(save_path);
-        let receive_session = Arc::new(ReceiveSession::new(
+        self.start_receive_session(
             offer.session_id,
             offer.peer_id,
             offer.files,
             offer.total_size,
             sink,
             &key,
-            self.client.clone(),
             app,
-        ));
-
-        self.receive_sessions
-            .insert(offer.session_id, receive_session.clone());
-
-        // 传输结束后自动从 receive_sessions 中清理
-        let sessions_map = self.receive_sessions.clone();
-        receive_session.start_pulling(move |session_id| {
-            sessions_map.remove(session_id);
-        });
+            std::collections::HashMap::new(),
+        );
 
         Ok(())
     }
@@ -418,12 +630,14 @@ impl TransferManager {
 
     /// 取消接收
     pub async fn cancel_receive(&self, session_id: &Uuid) -> AppResult<()> {
-        let (_, session) = self
+        let session = self
             .receive_sessions
-            .remove(session_id)
+            .get(session_id)
+            .map(|r| Arc::clone(r.value()))
             .ok_or_else(|| AppError::Transfer(format!("接收会话不存在: {session_id}")))?;
 
-        session.cancel();
+        // 取消并等待后台任务完成（含 bitmap 刷写），on_finish 回调会自动从 DashMap 移除
+        session.cancel_and_wait().await;
         session.send_cancel().await;
         session.cleanup_part_files().await;
         info!("Receive session cancelled: session={}", session_id);
@@ -432,7 +646,9 @@ impl TransferManager {
 
     /// 获取接收会话（事件循环调用）
     pub fn get_receive_session(&self, session_id: &Uuid) -> Option<Arc<ReceiveSession>> {
-        self.receive_sessions.get(session_id).map(|r| r.clone())
+        self.receive_sessions
+            .get(session_id)
+            .map(|r| Arc::clone(r.value()))
     }
 
     /// 移除接收会话
@@ -440,10 +656,195 @@ impl TransferManager {
         self.receive_sessions.remove(session_id);
     }
 
+    // ============ 断点续传 ============
+
+    /// 接收方发起断点续传，成功时返回 ResumeInfo 供前端创建运行时 session
+    pub async fn initiate_resume(
+        &self,
+        db: &DatabaseConnection,
+        session_id: Uuid,
+        app: AppHandle,
+    ) -> AppResult<ResumeInfo> {
+        // 从 DB 读取 session 和文件
+        let session = entity::TransferSession::find_by_id(session_id)
+            .one(db)
+            .await?
+            .ok_or_else(|| AppError::Transfer("会话不存在".into()))?;
+
+        if session.status != entity::SessionStatus::Paused
+            && session.status != entity::SessionStatus::Failed
+        {
+            return Err(AppError::Transfer(format!(
+                "会话状态不支持恢复: {:?}",
+                session.status
+            )));
+        }
+
+        let target_peer: PeerId = session
+            .peer_id
+            .as_str()
+            .parse()
+            .map_err(|_| AppError::Transfer("无效的 PeerId".into()))?;
+
+        let files = crate::database::ops::get_session_files(db, session_id).await?;
+
+        // 构造 file checksums
+        let file_checksums: Vec<FileChecksum> = files
+            .iter()
+            .map(|f| FileChecksum {
+                file_id: f.file_id as u32,
+                checksum: f.checksum.clone(),
+            })
+            .collect();
+
+        info!(
+            "发起断点续传: session={}, files={}",
+            session_id,
+            file_checksums.len()
+        );
+
+        // 发送 ResumeRequest
+        let response = self
+            .client
+            .send_request(
+                target_peer,
+                AppRequest::Transfer(TransferRequest::ResumeRequest {
+                    session_id,
+                    file_checksums,
+                }),
+            )
+            .await
+            .map_err(|e| AppError::Transfer(format!("ResumeRequest 发送失败: {e}")))?;
+
+        match response {
+            AppResponse::Transfer(TransferResponse::ResumeResult {
+                accepted: true,
+                key: Some(key),
+                ..
+            }) => {
+                info!("Resume accepted for session {}", session_id);
+
+                crate::database::ops::mark_session_transferring(db, session_id).await?;
+
+                // 在 start_receive_session 消耗 app 之前，将 session 字段 move 出来
+                let total_size = session.total_size;
+                let save_path = session.save_path.unwrap_or_default();
+                let peer_id = session.peer_id.0;
+                let peer_name = session.peer_name;
+
+                // 单次遍历同时构建所有集合
+                let mut file_infos = Vec::with_capacity(files.len());
+                let mut initial_bitmaps =
+                    std::collections::HashMap::with_capacity(files.len());
+                let mut transferred_bytes: i64 = 0;
+                let mut resume_file_infos = Vec::with_capacity(files.len());
+
+                for f in &files {
+                    let fid = f.file_id as u32;
+                    file_infos.push(FileInfo {
+                        file_id: fid,
+                        name: f.name.clone(),
+                        relative_path: f.relative_path.clone(),
+                        size: f.size as u64,
+                        checksum: f.checksum.clone(),
+                    });
+                    initial_bitmaps.insert(fid, f.completed_chunks.clone());
+                    transferred_bytes += f.transferred_bytes;
+                    resume_file_infos.push(ResumeFileInfo {
+                        file_id: f.file_id,
+                        name: f.name.clone(),
+                        relative_path: f.relative_path.clone(),
+                        size: f.size,
+                    });
+                }
+
+                self.start_receive_session(
+                    session_id,
+                    target_peer,
+                    file_infos,
+                    total_size as u64,
+                    build_file_sink(save_path),
+                    &key,
+                    app,
+                    initial_bitmaps,
+                );
+
+                Ok(ResumeInfo {
+                    peer_id,
+                    peer_name,
+                    files: resume_file_infos,
+                    total_size,
+                    transferred_bytes,
+                })
+            }
+            AppResponse::Transfer(TransferResponse::ResumeResult {
+                accepted: true,
+                key: None,
+                ..
+            }) => Err(AppError::Transfer("Resume accepted 但未收到密钥".into())),
+            AppResponse::Transfer(TransferResponse::ResumeResult {
+                accepted: false,
+                reason: Some(ResumeRejectReason::SenderCancelled),
+                ..
+            }) => {
+                info!("Resume rejected for session {}: 发送方已取消传输", session_id);
+                crate::database::ops::mark_session_cancelled(db, session_id).await?;
+                Err(AppError::Transfer("发送方已取消传输".into()))
+            }
+            AppResponse::Transfer(TransferResponse::ResumeResult {
+                accepted: false,
+                reason,
+                ..
+            }) => {
+                let reason_str = match reason {
+                    Some(ResumeRejectReason::FileModified) => "源文件已被修改，无法恢复传输",
+                    Some(ResumeRejectReason::SessionNotFound) => "发送方找不到对应会话",
+                    _ => "未知原因",
+                };
+                info!("Resume rejected for session {}: {}", session_id, reason_str);
+                crate::database::ops::mark_session_failed(db, session_id, reason_str).await?;
+                Err(AppError::Transfer(reason_str.into()))
+            }
+            other => Err(AppError::Transfer(format!("意外的响应类型: {other:?}"))),
+        }
+    }
+
+    /// 获取网络客户端（供 event_loop 中处理 ResumeRequest 时使用）
+    pub fn client(&self) -> &AppNetClient {
+        &self.client
+    }
+
     // ============ 内部方法 ============
 
-    fn take_prepared(&self, prepared_id: &Uuid) -> Option<PreparedTransfer> {
-        self.prepared.remove(prepared_id).map(|(_, v)| v)
+    #[expect(clippy::too_many_arguments, reason = "传输会话初始化需要完整上下文")]
+    fn start_receive_session(
+        &self,
+        session_id: Uuid,
+        peer_id: PeerId,
+        files: Vec<FileInfo>,
+        total_size: u64,
+        sink: FileSink,
+        key: &[u8; 32],
+        app: AppHandle,
+        initial_bitmaps: std::collections::HashMap<u32, Vec<u8>>,
+    ) {
+        let receive_session = Arc::new(ReceiveSession::new(
+            session_id,
+            peer_id,
+            files,
+            total_size,
+            sink,
+            key,
+            self.client.clone(),
+            app,
+            initial_bitmaps,
+        ));
+        self.receive_sessions
+            .insert(session_id, receive_session.clone());
+        let sessions_map = self.receive_sessions.clone();
+        receive_session.start_pulling(move |sid| {
+            sessions_map.remove(sid);
+        });
     }
 }
 
@@ -452,11 +853,23 @@ pub fn generate_id() -> Uuid {
     Uuid::new_v4()
 }
 
+/// 将 `FileSource` 转换为可持久化的路径字符串
+fn source_path_string(source: &FileSource) -> String {
+    match source {
+        FileSource::Path { path } => path.to_string_lossy().into_owned(),
+        #[cfg(target_os = "android")]
+        FileSource::AndroidUri(uri) => serde_json::to_string(uri).unwrap_or_default(),
+    }
+}
+
 /// 根据平台构造 FileSink
 ///
 /// Android 端忽略 `save_path`，直接写入公共 Download/SwarmDrop 目录；
 /// 桌面端写入用户指定的本地目录。
-#[allow(unused_variables)]
+#[cfg_attr(
+    target_os = "android",
+    expect(unused_variables, reason = "Android 端忽略 save_path")
+)]
 fn build_file_sink(save_path: String) -> FileSink {
     #[cfg(target_os = "android")]
     {

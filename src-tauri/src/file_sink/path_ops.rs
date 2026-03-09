@@ -14,24 +14,69 @@ pub(crate) async fn create_part_file(
     relative_path: &str,
     file_size: u64,
 ) -> AppResult<PartFile> {
+    let (part_path, final_path) = resolve_paths(save_dir, relative_path).await?;
+
+    let f = create_new_part(&part_path, file_size).await?;
+    let write_handle = f.into_std().await;
+
+    Ok(PartFile::new_path(part_path, final_path, file_size, write_handle))
+}
+
+/// 打开已有 .part 文件或创建新文件（断点续传用）
+///
+/// 检查 .part 文件是否存在且大小匹配：
+/// - 匹配：以读写模式打开（不截断），保留已有数据
+/// - 不匹配或不存在：创建新文件并预分配大小
+pub(crate) async fn open_or_create_part_file(
+    save_dir: &Path,
+    relative_path: &str,
+    file_size: u64,
+) -> AppResult<PartFile> {
+    let (part_path, final_path) = resolve_paths(save_dir, relative_path).await?;
+
+    // 检查 .part 文件是否存在且大小匹配
+    let existing_ok = tokio::fs::metadata(&part_path)
+        .await
+        .map(|m| m.len() == file_size)
+        .unwrap_or(false);
+
+    let f = if existing_ok {
+        // 以读写模式打开，不截断
+        tokio::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(&part_path)
+            .await?
+    } else {
+        create_new_part(&part_path, file_size).await?
+    };
+
+    let write_handle = f.into_std().await;
+    Ok(PartFile::new_path(part_path, final_path, file_size, write_handle))
+}
+
+/// 解析最终路径和 .part 路径，并确保父目录存在
+async fn resolve_paths(
+    save_dir: &Path,
+    relative_path: &str,
+) -> AppResult<(PathBuf, PathBuf)> {
     let final_path = save_dir.join(relative_path);
     let part_path = compute_part_path(&final_path);
 
-    // 确保父目录存在
     if let Some(parent) = final_path.parent() {
         tokio::fs::create_dir_all(parent).await?;
     }
 
-    // 创建 .part 文件并预分配大小
-    let f = tokio::fs::File::create(&part_path).await?;
+    Ok((part_path, final_path))
+}
+
+/// 创建新的 .part 文件并预分配大小
+async fn create_new_part(part_path: &Path, file_size: u64) -> AppResult<tokio::fs::File> {
+    let f = tokio::fs::File::create(part_path).await?;
     if file_size > 0 {
         f.set_len(file_size).await?;
     }
-
-    // 转换为 std::fs::File，作为后续 pwrite 的写入句柄
-    let write_handle = f.into_std().await;
-
-    Ok(PartFile::new_path(part_path, final_path, file_size, write_handle))
+    Ok(f)
 }
 
 /// 校验 BLAKE3 + 重命名 .part → 最终路径

@@ -119,7 +119,7 @@ pub async fn prepare_send(
     })
 }
 
-/// 开始发送：构造 Offer，通过 libp2p 发送到目标 peer，等待 OfferResult
+/// 开始发送：构造 Offer，发送到目标 peer（非阻塞，通过事件通知结果）
 #[tauri::command]
 pub async fn start_send(
     app: tauri::AppHandle,
@@ -129,9 +129,7 @@ pub async fn start_send(
     selected_file_ids: Vec<u32>,
 ) -> crate::AppResult<StartSendResult> {
     let transfer = get_transfer(&net).await?;
-    transfer
-        .send_offer(&prepared_id, &peer_id, &selected_file_ids, app)
-        .await
+    transfer.send_offer(&prepared_id, &peer_id, &selected_file_ids, app)
 }
 
 /// 确认接收：生成密钥，回复 OfferResult，启动后台拉取
@@ -171,11 +169,123 @@ pub async fn cancel_send(
 /// 取消接收
 #[tauri::command]
 pub async fn cancel_receive(
+    db: State<'_, sea_orm::DatabaseConnection>,
     net: State<'_, NetManagerState>,
     session_id: Uuid,
 ) -> crate::AppResult<()> {
+    // 先取消运行时会话（确保 bitmap 已刷写），再标记 DB 状态
     let transfer = get_transfer(&net).await?;
-    transfer.cancel_receive(&session_id).await
+    transfer.cancel_receive(&session_id).await?;
+
+    crate::database::ops::mark_session_cancelled(&db, session_id).await?;
+    Ok(())
+}
+
+// ============ 传输历史 API ============
+
+/// 查询传输历史列表（可选按状态过滤）
+#[tauri::command]
+pub async fn get_transfer_history(
+    db: State<'_, sea_orm::DatabaseConnection>,
+    status: Option<entity::SessionStatus>,
+) -> crate::AppResult<Vec<crate::database::ops::TransferHistoryItem>> {
+    crate::database::ops::get_transfer_history(&db, status).await
+}
+
+/// 查询单个传输会话详情
+#[tauri::command]
+pub async fn get_transfer_session(
+    db: State<'_, sea_orm::DatabaseConnection>,
+    session_id: Uuid,
+) -> crate::AppResult<crate::database::ops::TransferHistoryItem> {
+    crate::database::ops::get_session_detail(&db, session_id).await
+}
+
+/// 删除单个传输会话
+#[tauri::command]
+pub async fn delete_transfer_session(
+    db: State<'_, sea_orm::DatabaseConnection>,
+    session_id: Uuid,
+) -> crate::AppResult<()> {
+    crate::database::ops::delete_session(&db, session_id).await
+}
+
+/// 清空所有传输历史
+#[tauri::command]
+pub async fn clear_transfer_history(
+    db: State<'_, sea_orm::DatabaseConnection>,
+) -> crate::AppResult<()> {
+    crate::database::ops::clear_all_history(&db).await
+}
+
+/// 暂停传输
+#[tauri::command]
+pub async fn pause_transfer(
+    db: State<'_, sea_orm::DatabaseConnection>,
+    net: State<'_, NetManagerState>,
+    session_id: Uuid,
+) -> crate::AppResult<()> {
+    // 先取消运行时接收会话（确保 bitmap 刷写完成），再写 DB
+    let transfer = get_transfer(&net).await?;
+    if let Some(session) = transfer.get_receive_session(&session_id) {
+        session.cancel_and_wait().await;
+    }
+
+    crate::database::ops::mark_session_paused(&db, session_id).await?;
+
+    // 同步 session 级别的 transferred_bytes（从文件记录汇总）
+    if let Err(e) =
+        crate::database::ops::sync_session_transferred_bytes(&db, session_id).await
+    {
+        tracing::warn!("同步 session 字节数失败: {}", e);
+    }
+
+    Ok(())
+}
+
+/// 恢复传输结果（返回给前端以创建运行时 session）
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ResumeTransferResult {
+    pub session_id: Uuid,
+    pub direction: String,
+    pub peer_id: String,
+    pub peer_name: String,
+    pub files: Vec<TransferFileResult>,
+    pub total_size: u64,
+    pub transferred_bytes: u64,
+}
+
+/// 恢复传输（接收方发起 ResumeRequest）
+#[tauri::command]
+pub async fn resume_transfer(
+    app: tauri::AppHandle,
+    db: State<'_, sea_orm::DatabaseConnection>,
+    net: State<'_, NetManagerState>,
+    session_id: Uuid,
+) -> crate::AppResult<ResumeTransferResult> {
+    let transfer = get_transfer(&net).await?;
+    let resume_info = transfer.initiate_resume(&db, session_id, app).await?;
+
+    Ok(ResumeTransferResult {
+        session_id,
+        direction: "receive".into(),
+        peer_id: resume_info.peer_id,
+        peer_name: resume_info.peer_name,
+        files: resume_info
+            .files
+            .iter()
+            .map(|f| TransferFileResult {
+                file_id: f.file_id as u32,
+                name: f.name.clone(),
+                relative_path: f.relative_path.clone(),
+                size: f.size as u64,
+                is_directory: false,
+            })
+            .collect(),
+        total_size: resume_info.total_size as u64,
+        transferred_bytes: resume_info.transferred_bytes as u64,
+    })
 }
 
 // ============ 辅助函数 ============

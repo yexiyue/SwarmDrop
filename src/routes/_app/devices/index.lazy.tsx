@@ -30,9 +30,8 @@ function DevicesPage() {
   const navigate = useNavigate();
 
   const devices = useNetworkStore((s) => s.devices);
-  const isOnline = useNetworkStore(
-    (s) => s.status === "running" || s.status === "starting",
-  );
+  const status = useNetworkStore((s) => s.status);
+  const isOnline = status === "running" || status === "starting";
   const storedPairedDevices = useSecretStore((state) => state.pairedDevices);
   const directPairing = usePairingStore((state) => state.directPairing);
 
@@ -67,16 +66,16 @@ function DevicesPage() {
   }, [devices]);
 
   const handleSend = (device: Device) => {
-    void navigate({ to: "/send", search: { peerId: device.peerId } });
+    navigate({ to: "/send", search: { peerId: device.peerId } });
   };
 
   const handleConnect = (device: Device) => {
-    void directPairing(device.peerId);
+    directPairing(device.peerId);
   };
 
   const handleUnpair = (device: Device) => {
     // 同时更新后端运行时状态（节点未运行时静默成功）
-    void removePairedDevice(device.peerId);
+    removePairedDevice(device.peerId);
     useSecretStore.getState().removePairedDevice(device.peerId);
   };
 
@@ -92,6 +91,7 @@ function DevicesPage() {
           onUnpair={handleUnpair}
           onStartClick={() => setStartSheetOpen(true)}
           onStopClick={() => setStopSheetOpen(true)}
+          onStatusClick={() => status === "running" ? setStopSheetOpen(true) : setStartSheetOpen(true)}
         />
       ) : (
         <DesktopDevicesView
@@ -103,6 +103,7 @@ function DevicesPage() {
           onUnpair={handleUnpair}
           onStartClick={() => setStartSheetOpen(true)}
           onStopClick={() => setStopSheetOpen(true)}
+          onStatusClick={() => status === "running" ? setStopSheetOpen(true) : setStartSheetOpen(true)}
         />
       )}
 
@@ -124,6 +125,7 @@ interface DevicesViewProps {
   onUnpair: (device: Device) => void;
   onStartClick: () => void;
   onStopClick: () => void;
+  onStatusClick: () => void;
 }
 
 /* ─────────────────── 移动端视图 ─────────────────── */
@@ -137,12 +139,13 @@ function MobileDevicesView({
   onUnpair,
   onStartClick,
   onStopClick,
+  onStatusClick,
 }: DevicesViewProps) {
   return (
     <main className="flex h-full flex-1 flex-col bg-background">
       {/* 网络状态条 */}
       <div className="px-4 pt-3">
-        <NetworkStatusBar onStopClick={onStopClick} />
+        <NetworkStatusBar onStopClick={onStopClick} onStatusClick={onStatusClick} />
       </div>
 
       {/* 内容区域 */}
@@ -219,6 +222,7 @@ function DesktopDevicesView({
   onUnpair,
   onStartClick,
   onStopClick,
+  onStatusClick,
 }: DevicesViewProps) {
   return (
     <main className="flex h-full flex-1 flex-col bg-background">
@@ -239,7 +243,7 @@ function DesktopDevicesView({
         <div className="flex-1 overflow-auto p-5 lg:p-6">
           <div className="flex flex-col gap-6">
             {/* 网络状态栏 */}
-            <NetworkStatusBar onStopClick={onStopClick} />
+            <NetworkStatusBar onStopClick={onStopClick} onStatusClick={onStatusClick} />
 
             {/* Paired Devices Section */}
             <section className="flex flex-col gap-4">

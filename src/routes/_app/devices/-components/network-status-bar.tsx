@@ -11,6 +11,7 @@ import type { NetworkStatus } from "@/commands/network";
 
 interface NetworkStatusBarProps {
   onStopClick?: () => void;
+  onStatusClick?: () => void;
 }
 
 const barStyles: Record<NodeStatus, { bg: string; dotColor: string; textColor: string }> = {
@@ -77,7 +78,7 @@ function NetworkIndicators({ networkStatus }: { networkStatus: NetworkStatus }) 
   );
 }
 
-export function NetworkStatusBar({ onStopClick }: NetworkStatusBarProps) {
+export function NetworkStatusBar({ onStopClick, onStatusClick }: NetworkStatusBarProps) {
   const { status, networkStatus } = useNetworkStore(
     useShallow((s) => ({
       status: s.status,
@@ -89,9 +90,11 @@ export function NetworkStatusBar({ onStopClick }: NetworkStatusBarProps) {
   const connectedCount = networkStatus?.connectedPeers ?? 0;
 
   return (
-    <div
+    <button
+      type="button"
+      onClick={onStatusClick}
       className={cn(
-        "flex flex-col gap-2 rounded-[10px] px-3 py-3",
+        "flex w-full cursor-pointer flex-col gap-2 rounded-[10px] px-3 py-3 text-left transition-opacity hover:opacity-80",
         style.bg,
       )}
     >
@@ -111,13 +114,15 @@ export function NetworkStatusBar({ onStopClick }: NetworkStatusBarProps) {
         </div>
 
         {status === "running" && onStopClick && (
-          <button
-            type="button"
-            onClick={onStopClick}
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={(e) => { e.stopPropagation(); onStopClick(); }}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.stopPropagation(); onStopClick(); } }}
             className="rounded-md bg-red-100 px-2 py-1 text-[11px] font-medium text-red-600 transition-colors hover:bg-red-200 dark:bg-red-900 dark:text-red-300 dark:hover:bg-red-800"
           >
             <Trans>停止</Trans>
-          </button>
+          </span>
         )}
       </div>
 
@@ -125,6 +130,6 @@ export function NetworkStatusBar({ onStopClick }: NetworkStatusBarProps) {
       {status === "running" && networkStatus && (
         <NetworkIndicators networkStatus={networkStatus} />
       )}
-    </div>
+    </button>
   );
 }

@@ -233,7 +233,7 @@ export const usePairingStore = create<PairingState>()(
           }));
           // 若当前仍在展示配对码，自动重新生成
           if (current.phase === "generating") {
-            void get().generateCode();
+            get().generateCode();
           }
         }
       } catch (err) {

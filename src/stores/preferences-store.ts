@@ -25,6 +25,13 @@ interface PreferencesState {
     /** 是否自动接受已配对设备的文件 */
     autoAccept: boolean;
   };
+  /** MCP Server 设置 */
+  mcp: {
+    /** 监听端口 */
+    port: number;
+    /** 是否随节点启动自动启动 MCP Server */
+    autoStart: boolean;
+  };
 
   // === Actions ===
 
@@ -42,6 +49,10 @@ interface PreferencesState {
   setTransferSavePath: (path: string) => void;
   /** 设置自动接收 */
   setTransferAutoAccept: (autoAccept: boolean) => void;
+  /** 设置 MCP 端口 */
+  setMcpPort: (port: number) => void;
+  /** 设置 MCP 自动启动 */
+  setMcpAutoStart: (autoStart: boolean) => void;
 }
 
 /**
@@ -68,6 +79,10 @@ export const usePreferencesStore = create<PreferencesState>()(
       transfer: {
         savePath: "",
         autoAccept: false,
+      },
+      mcp: {
+        port: 19527,
+        autoStart: false,
       },
 
       async setLocale(locale: LocaleKey) {
@@ -106,6 +121,18 @@ export const usePreferencesStore = create<PreferencesState>()(
           transfer: { ...state.transfer, autoAccept },
         }));
       },
+
+      setMcpPort(port: number) {
+        set((state) => ({
+          mcp: { ...state.mcp, port },
+        }));
+      },
+
+      setMcpAutoStart(autoStart: boolean) {
+        set((state) => ({
+          mcp: { ...state.mcp, autoStart },
+        }));
+      },
     }),
     {
       name: "preferences-store",
@@ -116,6 +143,7 @@ export const usePreferencesStore = create<PreferencesState>()(
         autoStart: state.autoStart,
         customBootstrapNodes: state.customBootstrapNodes,
         transfer: state.transfer,
+        mcp: state.mcp,
       }),
       onRehydrateStorage: () => {
         return (state) => {
