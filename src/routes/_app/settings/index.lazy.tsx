@@ -57,7 +57,7 @@ function SettingsPage() {
   const avatarInitials = displayName.slice(0, 2).toUpperCase();
 
   return (
-    <main className="flex h-full flex-1 flex-col bg-background">
+    <main className="flex h-full min-h-0 flex-1 flex-col bg-background">
       {/* Toolbar */}
       <header className="flex h-13 items-center justify-between border-b border-border p-4 md:p-5 lg:p-6">
         <h1 className="text-[15px] font-medium text-foreground">
