@@ -13,6 +13,7 @@ import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { Trans } from "@lingui/react/macro";
 import type { Device } from "@/commands/network";
+import type { FileSource, PrepareProgress } from "@/commands/transfer";
 import { prepareSend, startSend } from "@/commands/transfer";
 import { useTransferStore } from "@/stores/transfer-store";
 import { useNetworkStore } from "@/stores/network-store";
@@ -20,7 +21,9 @@ import { useSecretStore } from "@/stores/secret-store";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { useFileSelection } from "./-use-file-selection";
 import { getErrorMessage } from "@/lib/errors";
+import { formatFileSize } from "@/lib/format";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { FileDropZone } from "./-components/file-drop-zone";
 import { FileTree } from "./-components/file-tree";
 
@@ -37,6 +40,7 @@ function SendPage() {
 
   const fileSelection = useFileSelection();
   const [sending, setSending] = useState(false);
+  const [prepareProgress, setPrepareProgress] = useState<PrepareProgress | null>(null);
 
   // 从 network-store / secret-store 查找目标设备
   const onlineDevice = useNetworkStore(
@@ -59,9 +63,9 @@ function SendPage() {
     };
   }, [onlineDevice, pairedDevices, peerId]);
 
-  const handleFilesSelected = async (paths: string[]) => {
+  const handleSourcesSelected = async (sources: FileSource[]) => {
     try {
-      await fileSelection.addPaths(paths);
+      await fileSelection.addSources(sources);
     } catch (err) {
       toast.error(getErrorMessage(err));
     }
@@ -71,9 +75,11 @@ function SendPage() {
     if (!device || !fileSelection.hasFiles) return;
 
     setSending(true);
+    setPrepareProgress(null);
     try {
-      const filePaths = fileSelection.getFilePaths();
-      const prepared = await prepareSend(filePaths);
+      // 将扫描到的文件列表传给后端计算 hash
+      const scannedFiles = fileSelection.getScannedFiles();
+      const prepared = await prepareSend(scannedFiles, setPrepareProgress);
       const fileIds = prepared.files.map((f) => f.fileId);
       const result = await startSend(
         prepared.preparedId,
@@ -81,11 +87,7 @@ function SendPage() {
         fileIds,
       );
 
-      if (!result.accepted) {
-        toast.error(result.reason ?? "对方拒绝了传输请求");
-        return;
-      }
-
+      // startSend 立即返回 session_id，后续通过事件通知结果
       useTransferStore.getState().addSession({
         sessionId: result.sessionId,
         direction: "send",
@@ -93,18 +95,22 @@ function SendPage() {
         deviceName: device.hostname,
         files: prepared.files,
         totalSize: prepared.totalSize,
-        status: "transferring",
+        status: "waiting_accept",
         progress: null,
         error: null,
         startedAt: Date.now(),
         completedAt: null,
       });
 
-      void navigate({ to: "/transfer" });
+      navigate({
+        to: "/transfer/$sessionId",
+        params: { sessionId: result.sessionId },
+      });
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
       setSending(false);
+      setPrepareProgress(null);
     }
   };
 
@@ -112,7 +118,7 @@ function SendPage() {
     if (router.history.length > 1) {
       router.history.back();
     } else {
-      void navigate({ to: "/devices" });
+      navigate({ to: "/devices" });
     }
   };
 
@@ -135,7 +141,8 @@ function SendPage() {
         device={device}
         fileSelection={fileSelection}
         sending={sending}
-        onFilesSelected={handleFilesSelected}
+        prepareProgress={prepareProgress}
+        onSourcesSelected={handleSourcesSelected}
         onSend={handleSend}
         onBack={handleBack}
       />
@@ -147,7 +154,8 @@ function SendPage() {
       device={device}
       fileSelection={fileSelection}
       sending={sending}
-      onFilesSelected={handleFilesSelected}
+      prepareProgress={prepareProgress}
+      onSourcesSelected={handleSourcesSelected}
       onSend={handleSend}
       onBack={handleBack}
     />
@@ -160,7 +168,8 @@ interface SendViewProps {
   device: Device;
   fileSelection: ReturnType<typeof useFileSelection>;
   sending: boolean;
-  onFilesSelected: (paths: string[]) => void;
+  prepareProgress: PrepareProgress | null;
+  onSourcesSelected: (sources: FileSource[]) => void;
   onSend: () => void;
   onBack: () => void;
 }
@@ -170,11 +179,11 @@ interface SendViewProps {
 function SendContent({
   fileSelection,
   sending,
-  onFilesSelected,
-}: Pick<SendViewProps, "fileSelection" | "sending" | "onFilesSelected">) {
+  onSourcesSelected,
+}: Pick<SendViewProps, "fileSelection" | "sending" | "onSourcesSelected">) {
   return (
     <>
-      <FileDropZone onFilesSelected={onFilesSelected} disabled={sending} />
+      <FileDropZone onSourcesSelected={onSourcesSelected} disabled={sending} />
       {fileSelection.hasFiles && (
         <FileTree
           mode="select"
@@ -182,7 +191,7 @@ function SendContent({
           rootChildren={fileSelection.rootChildren}
           totalCount={fileSelection.totalCount}
           totalSize={fileSelection.totalSize}
-          onRemoveFile={fileSelection.removePath}
+          onRemoveFile={fileSelection.removeFile}
         />
       )}
     </>
@@ -195,7 +204,8 @@ function MobileSendView({
   device,
   fileSelection,
   sending,
-  onFilesSelected,
+  prepareProgress,
+  onSourcesSelected,
   onSend,
   onBack,
 }: SendViewProps) {
@@ -226,21 +236,25 @@ function MobileSendView({
           <SendContent
             fileSelection={fileSelection}
             sending={sending}
-            onFilesSelected={onFilesSelected}
+            onSourcesSelected={onSourcesSelected}
           />
         </div>
       </div>
 
-      {/* 底部发送按钮 */}
+      {/* 底部发送按钮 / 进度 */}
       <div className="border-t border-border px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-        <Button
-          className="w-full"
-          size="lg"
-          onClick={onSend}
-          disabled={!fileSelection.hasFiles || sending}
-        >
-          {sending ? <Trans>发送中...</Trans> : <Trans>发送</Trans>}
-        </Button>
+        {prepareProgress ? (
+          <PrepareProgressBar progress={prepareProgress} />
+        ) : (
+          <Button
+            className="w-full"
+            size="lg"
+            onClick={onSend}
+            disabled={!fileSelection.hasFiles || sending}
+          >
+            {sending ? <Trans>发送中...</Trans> : <Trans>发送</Trans>}
+          </Button>
+        )}
       </div>
     </main>
   );
@@ -252,7 +266,8 @@ function DesktopSendView({
   device,
   fileSelection,
   sending,
-  onFilesSelected,
+  prepareProgress,
+  onSourcesSelected,
   onSend,
   onBack,
 }: SendViewProps) {
@@ -276,7 +291,7 @@ function DesktopSendView({
       <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-5 overflow-hidden p-5 lg:p-6">
         {/* 可滚动区域：拖放区 + 文件树 */}
         <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-auto">
-          <FileDropZone onFilesSelected={onFilesSelected} disabled={sending} />
+          <FileDropZone onSourcesSelected={onSourcesSelected} disabled={sending} />
           {fileSelection.hasFiles && (
             <FileTree
               mode="select"
@@ -284,24 +299,61 @@ function DesktopSendView({
               rootChildren={fileSelection.rootChildren}
               totalCount={fileSelection.totalCount}
               totalSize={fileSelection.totalSize}
-              onRemoveFile={fileSelection.removePath}
+              onRemoveFile={fileSelection.removeFile}
             />
           )}
         </div>
 
         {/* 操作栏：固定在底部 */}
-        <div className="flex shrink-0 justify-end gap-3">
-          <Button variant="outline" onClick={onBack} disabled={sending}>
-            <Trans>取消</Trans>
-          </Button>
-          <Button
-            onClick={onSend}
-            disabled={!fileSelection.hasFiles || sending}
-          >
-            {sending ? <Trans>发送中...</Trans> : <Trans>发送</Trans>}
-          </Button>
-        </div>
+        {prepareProgress ? (
+          <div className="shrink-0">
+            <PrepareProgressBar progress={prepareProgress} />
+          </div>
+        ) : (
+          <div className="flex shrink-0 justify-end gap-3">
+            <Button variant="outline" onClick={onBack} disabled={sending}>
+              <Trans>取消</Trans>
+            </Button>
+            <Button
+              onClick={onSend}
+              disabled={!fileSelection.hasFiles || sending}
+            >
+              {sending ? <Trans>发送中...</Trans> : <Trans>发送</Trans>}
+            </Button>
+          </div>
+        )}
       </div>
     </main>
+  );
+}
+
+/* ─────────────────── 准备进度条 ─────────────────── */
+
+function PrepareProgressBar({ progress }: { progress: PrepareProgress }) {
+  const percent =
+    progress.totalBytes > 0
+      ? Math.round((progress.bytesHashed / progress.totalBytes) * 100)
+      : 0;
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <span className="truncate">
+          <Trans>
+            正在计算校验和 ({progress.completedFiles}/{progress.totalFiles})
+          </Trans>
+        </span>
+        <span className="ml-2 shrink-0">
+          {formatFileSize(progress.bytesHashed)} /{" "}
+          {formatFileSize(progress.totalBytes)}
+        </span>
+      </div>
+      <Progress value={percent} className="h-2" />
+      {progress.currentFile && (
+        <p className="truncate text-xs text-muted-foreground">
+          {progress.currentFile}
+        </p>
+      )}
+    </div>
   );
 }

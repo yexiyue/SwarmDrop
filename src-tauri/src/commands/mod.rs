@@ -5,12 +5,14 @@
 //! [`device`](crate::device) 和 [`pairing`](crate::pairing) 模块。
 
 mod identity;
+mod mcp;
 mod pairing;
 mod transfer;
 
 // glob re-export：Tauri 的 #[tauri::command] 宏会生成 __cmd__* 隐藏符号，
 // generate_handler! 需要通过模块路径访问这些符号，显式导出无法覆盖。
 pub use identity::*;
+pub use mcp::*;
 pub use pairing::*;
 pub use transfer::*;
 
@@ -33,33 +35,44 @@ pub async fn start(
     app: AppHandle,
     keypair: State<'_, Keypair>,
     paired_devices: Vec<PairedDeviceInfo>,
+    custom_bootstrap_nodes: Option<Vec<String>>,
 ) -> crate::AppResult<()> {
     let agent_version = crate::device::OsInfo::default().to_agent_version();
-    let config = crate::network::config::create_node_config(agent_version);
+    let config = crate::network::config::create_node_config(
+        agent_version,
+        &custom_bootstrap_nodes.unwrap_or_default(),
+    );
 
     let (client, receiver) =
         swarm_p2p_core::start::<AppRequest, AppResponse>((*keypair).clone(), config)
             .map_err(|e| AppError::Network(e.to_string()))?;
 
-    // 异步执行 DHT bootstrap（填充路由表）
-    let bootstrap_client = client.clone();
-    tokio::spawn(async move {
-        match bootstrap_client.bootstrap().await {
-            Ok(result) => info!("DHT bootstrap completed: {:?}", result),
-            Err(e) => warn!("DHT bootstrap failed: {}", e),
-        }
-    });
-
     let peer_id = PeerId::from_public_key(&keypair.public());
-    let net_manager = NetManager::new(client, peer_id, paired_devices);
+    let net_manager = NetManager::new(
+        client.clone(),
+        peer_id,
+        paired_devices,
+    );
 
-    // 宣布上线
+    // 宣布上线（bootstrap 前发布，尽早让对方发现）
     if let Err(e) = net_manager.pairing().announce_online().await {
         warn!("Failed to announce online: {}", e);
     }
 
     // 获取事件循环需要的共享引用（在存入 state 之前）
     let shared = net_manager.shared_refs();
+
+    // DHT bootstrap → 完成后检查已配对设备是否在线
+    let bootstrap_client = client.clone();
+    let pairing_for_startup = shared.pairing.clone();
+    tokio::spawn(async move {
+        match bootstrap_client.bootstrap().await {
+            Ok(result) => info!("DHT bootstrap completed: {:?}", result),
+            Err(e) => warn!("DHT bootstrap failed: {}", e),
+        }
+        // bootstrap 完成后，查询已配对设备的在线记录并注册地址
+        pairing_for_startup.check_paired_online().await;
+    });
 
     // 存入 Tauri state
     if let Some(state) = app.try_state::<NetManagerState>() {
@@ -82,6 +95,8 @@ pub async fn shutdown(app: AppHandle) -> crate::AppResult<()> {
             if let Err(e) = manager.pairing().announce_offline().await {
                 warn!("Failed to announce offline: {}", e);
             }
+            // 取消所有后台任务（超时清理等）
+            manager.cancel_background_tasks();
         }
         guard.take();
     }

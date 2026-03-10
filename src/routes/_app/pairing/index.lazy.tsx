@@ -47,13 +47,13 @@ function MobilePairingPage() {
   // 桌面端重定向到 /pairing/generate
   useEffect(() => {
     if (breakpoint !== "mobile") {
-      void navigate({ to: "/pairing/generate", replace: true });
+      navigate({ to: "/pairing/generate", replace: true });
     }
   }, [breakpoint, navigate]);
 
   // 进入页面时生成配对码
   useEffect(() => {
-    void generateCode();
+    generateCode();
     return () => {
       usePairingStore.getState().reset();
     };
@@ -62,12 +62,12 @@ function MobilePairingPage() {
   // 配对成功后自动返回
   useEffect(() => {
     if (current.phase === "success") {
-      void navigate({ to: "/devices" });
+      navigate({ to: "/devices" });
     }
   }, [current.phase, navigate]);
 
   const handleClose = () => {
-    void navigate({ to: "/devices" });
+    navigate({ to: "/devices" });
   };
 
   const handleTabChange = (value: string) => {
@@ -75,7 +75,7 @@ function MobilePairingPage() {
     setActiveTab(tab);
     reset();
     if (tab === "generate") {
-      void generateCode();
+      generateCode();
     } else {
       openInput();
     }
@@ -93,7 +93,7 @@ function MobilePairingPage() {
         <MobileDeviceFoundView
           deviceInfo={deviceInfo}
           isRequesting={isRequesting}
-          onSendRequest={() => void sendPairingRequest()}
+          onSendRequest={() => sendPairingRequest()}
           onBack={reset}
         />
       </div>

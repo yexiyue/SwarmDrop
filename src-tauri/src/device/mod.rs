@@ -35,6 +35,22 @@ impl Default for OsInfo {
 }
 
 impl OsInfo {
+    /// SwarmDrop 客户端 agent_version 前缀
+    pub const AGENT_PREFIX: &str = "swarmdrop/";
+
+    /// 引导/中继节点 agent_version 前缀（swarm-bootstrap）
+    pub const BOOTSTRAP_AGENT_PREFIX: &str = "swarm-bootstrap/";
+
+    /// 检查 agent_version 是否属于 SwarmDrop 客户端
+    pub fn is_swarmdrop_agent(agent_version: &str) -> bool {
+        agent_version.starts_with(Self::AGENT_PREFIX)
+    }
+
+    /// 检查 agent_version 是否属于引导/中继节点
+    pub fn is_bootstrap_agent(agent_version: &str) -> bool {
+        agent_version.starts_with(Self::BOOTSTRAP_AGENT_PREFIX)
+    }
+
     pub fn to_agent_version(&self) -> String {
         format!(
             "swarmdrop/{}; os={}; platform={}; arch={}; host={}",
@@ -46,11 +62,11 @@ impl OsInfo {
         )
     }
 
-    /// 无法解析 agent_version 时的回退值，用 PeerId 前 8 位作为 hostname
+    /// 无法解析 agent_version 时的回退值，用 PeerId 末尾 8 位作为 hostname
     pub fn unknown_from_peer_id(peer_id: &PeerId) -> Self {
         let s = peer_id.to_string();
         Self {
-            hostname: s[..8.min(s.len())].to_string(),
+            hostname: s[s.len().saturating_sub(8)..].to_string(),
             os: "unknown".to_string(),
             platform: "unknown".to_string(),
             arch: "unknown".to_string(),

@@ -1,58 +1,78 @@
 //! 发送方会话
 //!
 //! 管理单个发送传输的生命周期：响应 ChunkRequest、处理 Complete/Cancel。
-//! 文件读取在 `spawn_blocking` 中执行，加密使用 [`TransferCrypto`]。
+//! 文件读取通过 [`file_source`](crate::file_source) 模块完成，加密使用 [`TransferCrypto`]。
+//! 使用 `Arc<std::sync::Mutex<ProgressTracker>>` 实现并发安全的进度追踪。
 
-use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+use tauri::AppHandle;
 use tokio_util::sync::CancellationToken;
 use tracing::{info, warn};
+use uuid::Uuid;
 
+use crate::file_source::calc_total_chunks;
 use crate::protocol::TransferResponse;
 use crate::transfer::crypto::TransferCrypto;
 use crate::transfer::offer::PreparedFile;
+use crate::transfer::progress::{FileDesc, ProgressTracker, TransferDirection};
 use crate::{AppError, AppResult};
-
-/// 分块大小：256 KB
-pub const CHUNK_SIZE: usize = 256 * 1024;
 
 /// 发送方会话
 pub struct SendSession {
     /// 传输会话 ID
-    pub session_id: String,
-    /// 准备好的文件列表（含绝对路径）
+    pub session_id: Uuid,
+    /// 准备好的文件列表（含文件来源）
     files: Vec<PreparedFile>,
     /// 加密器
     crypto: TransferCrypto,
+    /// Tauri 应用句柄（文件读取时传递给 FileSource + 进度事件发射）
+    app: AppHandle,
+    /// 进度追踪器（Arc<Mutex> 供并发 ChunkRequest 任务共享）
+    progress: Arc<Mutex<ProgressTracker>>,
     /// 取消令牌
     cancel_token: CancellationToken,
     /// 会话创建时间（用于统计传输耗时）
     created_at: Instant,
-    /// 已发送字节数（原子计数）
-    bytes_sent: AtomicU64,
+    /// 最后活动时间戳（毫秒，从 created_at 起算，用于空闲超时清理）
+    last_activity_ms: Arc<AtomicU64>,
 }
 
 impl SendSession {
     pub fn new(
-        session_id: String,
+        session_id: Uuid,
         files: Vec<PreparedFile>,
         key: &[u8; 32],
+        app: AppHandle,
     ) -> Self {
+        let total_bytes: u64 = files.iter().map(|f| f.size).sum();
+        let total_files = files.len();
+
+        let mut tracker =
+            ProgressTracker::new(session_id, TransferDirection::Send, total_bytes, total_files);
+
+        let file_descs: Vec<FileDesc> = files
+            .iter()
+            .map(|f| FileDesc {
+                file_id: f.file_id,
+                name: f.name.clone(),
+                size: f.size,
+            })
+            .collect();
+        tracker.init_files(&file_descs);
+
         Self {
             session_id,
             files,
             crypto: TransferCrypto::new(key),
+            app,
+            progress: Arc::new(Mutex::new(tracker)),
             cancel_token: CancellationToken::new(),
             created_at: Instant::now(),
-            bytes_sent: AtomicU64::new(0),
+            last_activity_ms: Arc::new(AtomicU64::new(0)),
         }
-    }
-
-    /// 获取传输的总字节数
-    pub fn total_bytes_sent(&self) -> u64 {
-        self.bytes_sent.load(Ordering::Relaxed)
     }
 
     /// 获取传输耗时（毫秒）
@@ -60,7 +80,12 @@ impl SendSession {
         self.created_at.elapsed().as_millis() as u64
     }
 
-    /// 处理 ChunkRequest：读取文件分块 → 加密 → 返回 Chunk 响应
+    /// 获取已发送总字节数（从 ProgressTracker 读取）
+    pub fn total_bytes_sent(&self) -> u64 {
+        self.progress.lock().map_or(0, |p| p.transferred_bytes())
+    }
+
+    /// 处理 ChunkRequest：读取文件分块 → 加密 → 上报进度 → 返回 Chunk 响应
     pub async fn handle_chunk_request(
         &self,
         file_id: u32,
@@ -78,32 +103,34 @@ impl SendSession {
                 AppError::Transfer(format!("文件不存在: file_id={file_id}"))
             })?;
 
-        let path = file.absolute_path.clone();
-        let size = file.size;
-        let session_id = self.session_id.clone();
+        // 通过 FileSource 异步读取分块（内部已处理 spawn_blocking）
+        let plaintext = file.source.read_chunk(file.size, chunk_index, &self.app).await?;
 
-        // 在 blocking 线程中读取文件分块
-        let plaintext = tokio::task::spawn_blocking(move || {
-            read_chunk(&path, size, chunk_index)
-        })
-        .await??;
-
-        // 统计已发送字节数
-        self.bytes_sent
-            .fetch_add(plaintext.len() as u64, Ordering::Relaxed);
+        let plaintext_len = plaintext.len() as u64;
 
         // 加密
         let data = self
             .crypto
-            .encrypt_chunk(&session_id, file_id, chunk_index, &plaintext)
+            .encrypt_chunk(&self.session_id, file_id, chunk_index, &plaintext)
             .map_err(|e| AppError::Transfer(format!("加密失败: {e}")))?;
 
+        // 更新最后活动时间戳
+        self.last_activity_ms
+            .store(self.created_at.elapsed().as_millis() as u64, Ordering::Relaxed);
+
+        // 上报进度（锁内操作极短：VecDeque push + 200ms 节流检查）
+        if let Ok(mut p) = self.progress.lock() {
+            p.add_bytes(plaintext_len);
+            p.update_file_chunk(file_id, plaintext_len);
+            p.emit_progress(&self.app);
+        }
+
         // 计算 is_last
-        let total_chunks = calc_total_chunks(size);
+        let total_chunks = calc_total_chunks(file.size);
         let is_last = chunk_index + 1 >= total_chunks;
 
         Ok(TransferResponse::Chunk {
-            session_id: self.session_id.clone(),
+            session_id: self.session_id,
             file_id,
             chunk_index,
             data,
@@ -137,35 +164,11 @@ impl SendSession {
     pub fn cancel(&self) {
         self.cancel_token.cancel();
     }
-}
 
-/// 同步读取文件的指定分块
-fn read_chunk(path: &str, file_size: u64, chunk_index: u32) -> AppResult<Vec<u8>> {
-    use std::io::{Read, Seek, SeekFrom};
-
-    let offset = chunk_index as u64 * CHUNK_SIZE as u64;
-    if offset >= file_size {
-        return Err(AppError::Transfer(format!(
-            "chunk_index 超出范围: offset={offset}, file_size={file_size}"
-        )));
+    /// 返回自上次活动以来的空闲时间（毫秒）
+    pub fn idle_ms(&self) -> u64 {
+        let elapsed = self.created_at.elapsed().as_millis() as u64;
+        let last = self.last_activity_ms.load(Ordering::Relaxed);
+        elapsed.saturating_sub(last)
     }
-
-    let remaining = file_size - offset;
-    let read_size = (remaining as usize).min(CHUNK_SIZE);
-
-    let mut file = std::fs::File::open(Path::new(path))?;
-    file.seek(SeekFrom::Start(offset))?;
-
-    let mut buf = vec![0u8; read_size];
-    file.read_exact(&mut buf)?;
-
-    Ok(buf)
-}
-
-/// 计算文件的总分块数
-pub fn calc_total_chunks(file_size: u64) -> u32 {
-    if file_size == 0 {
-        return 1; // 空文件也算一个块
-    }
-    file_size.div_ceil(CHUNK_SIZE as u64) as u32
 }

@@ -33,12 +33,12 @@ export function ConnectionRequestDialog() {
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
-      void rejectRequest();
+      rejectRequest();
     }
   };
 
   return (
-    <ResponsiveDialog open={isOpen} onOpenChange={handleOpenChange}>
+    <ResponsiveDialog open={isOpen} onOpenChange={handleOpenChange} forceDialog>
       <ResponsiveDialogContent className="sm:max-w-md" showCloseButton={false}>
         <ResponsiveDialogHeader className="flex flex-col items-center gap-2">
           <div className="flex size-12 items-center justify-center rounded-full bg-primary/10">
@@ -82,10 +82,10 @@ export function ConnectionRequestDialog() {
         )}
 
         <ResponsiveDialogFooter className="flex-row justify-center gap-3 sm:justify-center">
-          <Button variant="outline" onClick={() => void rejectRequest()}>
+          <Button variant="outline" onClick={() => rejectRequest()}>
             <Trans>拒绝</Trans>
           </Button>
-          <Button onClick={() => void acceptRequest()}>
+          <Button onClick={() => acceptRequest()}>
             <Trans>接受配对</Trans>
           </Button>
         </ResponsiveDialogFooter>

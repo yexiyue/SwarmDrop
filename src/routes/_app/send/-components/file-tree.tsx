@@ -36,6 +36,8 @@ interface FileTreeProps {
   onRemoveFile?: (absolutePath: string) => void;
   /** 重试文件回调（transfer 模式） */
   onRetryFile?: (fileId: number) => void;
+  /** 是否显示头部（默认 true） */
+  showHeader?: boolean;
 }
 
 /** 行高（px） */
@@ -54,6 +56,7 @@ export function FileTree({
   errorFileIds,
   onRemoveFile,
   onRetryFile,
+  showHeader = true,
 }: FileTreeProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -96,26 +99,28 @@ export function FileTree({
   return (
     <div className="flex flex-col gap-2 md:min-h-0 md:flex-1">
       {/* 头部 */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-foreground">
-          {mode === "select" ? (
-            <Trans>已选文件</Trans>
-          ) : (
-            <Trans>文件</Trans>
-          )}
-        </h3>
-        <span className="text-xs text-muted-foreground">
-          {mode === "select" ? (
-            <Trans>
-              共 {totalCount} 项 · {formatFileSize(totalSize)}
-            </Trans>
-          ) : (
-            <Trans>
-              {progress?.completedFiles ?? 0}/{totalCount}
-            </Trans>
-          )}
-        </span>
-      </div>
+      {showHeader && (
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-medium text-foreground">
+            {mode === "select" ? (
+              <Trans>已选文件</Trans>
+            ) : (
+              <Trans>文件</Trans>
+            )}
+          </h3>
+          <span className="text-xs text-muted-foreground">
+            {mode === "select" ? (
+              <Trans>
+                共 {totalCount} 项 · {formatFileSize(totalSize)}
+              </Trans>
+            ) : (
+              <Trans>
+                {progress?.completedFiles ?? 0}/{totalCount}
+              </Trans>
+            )}
+          </span>
+        </div>
+      )}
 
       {/* 树列表（虚拟滚动） */}
       <div
@@ -233,11 +238,17 @@ function getFileStatus(
   errorFileIds?: Set<number>,
 ): FileStatus {
   if (mode === "select") return "select";
-  if (!data.fileId) return "waiting";
+  if (data.fileId == null) return "waiting";
 
   if (errorFileIds?.has(data.fileId)) return "error";
   if (completedFileIds?.has(data.fileId)) return "completed";
-  if (progress?.currentFile?.fileId === data.fileId) return "transferring";
+
+  // 从 per-file 进度中查找状态
+  const fileProgress = progress?.files?.find((f) => f.fileId === data.fileId);
+  if (fileProgress) {
+    if (fileProgress.status === "completed") return "completed";
+    if (fileProgress.status === "transferring") return "transferring";
+  }
   return "waiting";
 }
 
@@ -246,9 +257,8 @@ function getFileProgress(
   data: TreeNodeData,
   progress?: TransferProgressEvent | null,
 ): number {
-  if (!progress?.currentFile || progress.currentFile.fileId !== data.fileId) {
-    return 0;
-  }
-  const { transferred, size } = progress.currentFile;
-  return size > 0 ? (transferred / size) * 100 : 0;
+  if (data.fileId == null || !progress?.files) return 0;
+  const fileProgress = progress.files.find((f) => f.fileId === data.fileId);
+  if (!fileProgress || fileProgress.size <= 0) return 0;
+  return (fileProgress.transferred / fileProgress.size) * 100;
 }

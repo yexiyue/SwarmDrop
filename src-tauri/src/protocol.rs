@@ -5,6 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 use swarm_p2p_core::NetClient;
+use uuid::Uuid;
 
 use crate::device::OsInfo;
 
@@ -25,11 +26,19 @@ pub enum PairingMethod {
     Direct,
 }
 
+/// 配对被拒绝的原因（类型化，供前端 i18n 使用）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "type")]
+pub enum PairingRefuseReason {
+    /// 接收方用户主动拒绝
+    UserRejected,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "status")]
 pub enum PairingResponse {
     Success,
-    Refused { reason: String },
+    Refused { reason: PairingRefuseReason },
 }
 
 // ============ Transfer 协议 ============
@@ -50,29 +59,65 @@ pub struct FileInfo {
     pub checksum: String,
 }
 
+/// 文件校验和（断点续传请求中携带）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileChecksum {
+    pub file_id: u32,
+    pub checksum: String,
+}
+
+/// 断点续传被拒绝的原因
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "type")]
+pub enum ResumeRejectReason {
+    /// 源文件已被修改
+    FileModified,
+    /// 发送方找不到对应会话
+    SessionNotFound,
+    /// 发送方已取消传输
+    SenderCancelled,
+}
+
 /// 传输请求
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "kind")]
 pub enum TransferRequest {
     /// 发送方向接收方提出文件传输请求
     Offer {
-        session_id: String,
+        session_id: Uuid,
         files: Vec<FileInfo>,
         total_size: u64,
     },
     /// 接收方向发送方请求一个分块
     ChunkRequest {
-        session_id: String,
+        session_id: Uuid,
         file_id: u32,
         chunk_index: u32,
     },
     /// 接收方通知发送方传输完成
-    Complete { session_id: String },
+    Complete { session_id: Uuid },
     /// 任一方取消传输
     Cancel {
-        session_id: String,
+        session_id: Uuid,
         reason: String,
     },
+    /// 接收方向发送方请求断点续传
+    ResumeRequest {
+        session_id: Uuid,
+        /// 每个文件的校验和（用于验证源文件是否被修改）
+        file_checksums: Vec<FileChecksum>,
+    },
+}
+
+/// Offer 被拒绝的原因（类型化，供前端 i18n 使用）
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "type")]
+pub enum OfferRejectReason {
+    /// 发送方不在接收方的已配对设备列表中
+    NotPaired,
+    /// 接收方用户主动拒绝
+    UserDeclined,
 }
 
 /// 传输响应
@@ -88,12 +133,12 @@ pub enum TransferResponse {
             deserialize_with = "deserialize_opt_key"
         )]
         key: Option<[u8; 32]>,
-        /// 拒绝时的原因
-        reason: Option<String>,
+        /// 拒绝时的原因（类型化）
+        reason: Option<OfferRejectReason>,
     },
     /// 发送方回复 ChunkRequest，返回加密后的分块数据
     Chunk {
-        session_id: String,
+        session_id: Uuid,
         file_id: u32,
         chunk_index: u32,
         /// 加密后的分块数据（CBOR bytes 优化）
@@ -102,7 +147,27 @@ pub enum TransferResponse {
         is_last: bool,
     },
     /// 发送方确认传输完成
-    Ack { session_id: String },
+    Ack { session_id: Uuid },
+    /// 发送方处理 ChunkRequest 失败时返回的错误
+    ChunkError {
+        session_id: Uuid,
+        file_id: u32,
+        chunk_index: u32,
+        error: String,
+    },
+    /// 发送方回复断点续传请求
+    ResumeResult {
+        session_id: Uuid,
+        accepted: bool,
+        /// 拒绝时的原因
+        reason: Option<ResumeRejectReason>,
+        /// 接受时由接收方原始生成的对称加密密钥（发送方不持有，接收方重新提供）
+        #[serde(
+            serialize_with = "serialize_opt_key",
+            deserialize_with = "deserialize_opt_key"
+        )]
+        key: Option<[u8; 32]>,
+    },
 }
 
 /// 将 `Option<[u8; 32]>` 序列化为 bytes array（CBOR 友好）

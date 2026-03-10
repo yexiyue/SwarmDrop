@@ -55,6 +55,10 @@ pub enum AppError {
     /// 文件传输错误
     #[error("Transfer error: {0}")]
     Transfer(String),
+
+    /// 数据库错误
+    #[error("Database error: {0}")]
+    Database(#[from] sea_orm::DbErr),
 }
 
 /// 传递给前端的序列化错误格式
@@ -79,6 +83,7 @@ impl Serialize for AppError {
             AppError::InvalidCode => ("InvalidCode", self.to_string()),
             AppError::TaskJoin(e) => ("TaskJoin", e.to_string()),
             AppError::Transfer(msg) => ("Transfer", msg.clone()),
+            AppError::Database(e) => ("Database", e.to_string()),
         };
 
         state.serialize_field("kind", kind)?;

@@ -3,7 +3,8 @@
  * 提示升级弹窗 - 用户可选择更新或稍后提醒
  */
 
-import { Loader2, Download } from "lucide-react";
+import { Loader2, Download, FileText } from "lucide-react";
+import { MarkdownContent } from "@/components/ui/markdown-content";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -31,19 +32,17 @@ export function PromptUpdateDialog({
     status,
     latestVersion,
     currentVersion,
-    promptContent,
+    releaseNotes,
     progress,
     executeUpdate,
-    reset,
   } = useUpgradeLinkStore(
     useShallow((s) => ({
       status: s.status,
       latestVersion: s.latestVersion,
       currentVersion: s.currentVersion,
-      promptContent: s.promptContent,
+      releaseNotes: s.releaseNotes,
       progress: s.progress,
       executeUpdate: s.executeUpdate,
-      reset: s.reset,
     })),
   );
 
@@ -51,8 +50,13 @@ export function PromptUpdateDialog({
   const isReady = status === "ready";
 
   const handleLater = () => {
+    // 仅关闭弹窗，不清空状态，保留更新提示在设置页面
     onOpenChange(false);
-    reset();
+  };
+
+  const handleUpdate = async () => {
+    onOpenChange(false);
+    await executeUpdate();
   };
 
   return (
@@ -70,9 +74,17 @@ export function PromptUpdateDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {promptContent && (
-          <div className="rounded-lg bg-muted p-3 text-sm">
-            {promptContent}
+        {releaseNotes && (
+          <div className="rounded-lg bg-muted p-4">
+            <div className="mb-2 flex items-center gap-2">
+              <FileText className="size-4 text-muted-foreground" />
+              <span className="text-xs font-medium text-muted-foreground">
+                <Trans>更新内容</Trans>
+              </span>
+            </div>
+            <div className="max-h-48 overflow-y-auto">
+              <MarkdownContent content={releaseNotes} />
+            </div>
           </div>
         )}
 
@@ -97,7 +109,7 @@ export function PromptUpdateDialog({
             <Trans>稍后提醒</Trans>
           </Button>
           <Button
-            onClick={executeUpdate}
+            onClick={handleUpdate}
             disabled={isDownloading || isReady}
             className="bg-blue-600 hover:bg-blue-700"
           >
