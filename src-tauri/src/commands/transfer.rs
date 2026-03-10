@@ -138,11 +138,11 @@ pub async fn accept_receive(
     app: tauri::AppHandle,
     net: State<'_, NetManagerState>,
     session_id: Uuid,
-    save_path: String,
+    save_location: entity::SaveLocation,
 ) -> crate::AppResult<()> {
     let transfer = get_transfer(&net).await?;
     transfer
-        .accept_and_start_receive(&session_id, save_path, app)
+        .accept_and_start_receive(&session_id, save_location, app)
         .await
 }
 

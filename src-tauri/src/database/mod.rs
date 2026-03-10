@@ -142,8 +142,8 @@ pub async fn cleanup_stale_sessions(db: &DatabaseConnection) -> AppResult<()> {
             .await?;
 
         for file in files {
-            if let Some(ref dir) = session.save_path {
-                let final_path = std::path::Path::new(dir).join(&file.relative_path);
+            if let Some(entity::SaveLocation::Path { ref path }) = session.save_path {
+                let final_path = std::path::Path::new(path).join(&file.relative_path);
                 let part_path = crate::file_sink::compute_part_path(&final_path);
                 if let Err(e) = tokio::fs::remove_file(&part_path).await {
                     if e.kind() != std::io::ErrorKind::NotFound {

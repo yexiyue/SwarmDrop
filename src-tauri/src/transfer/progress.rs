@@ -1,8 +1,8 @@
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
+use entity::SaveLocation;
 use serde::Serialize;
-use serde_json::Value;
 use tauri::{AppHandle, Emitter};
 use uuid::Uuid;
 
@@ -60,11 +60,7 @@ pub struct TransferCompleteEvent {
     pub direction: TransferDirection,
     pub total_bytes: u64,
     pub elapsed_ms: u64,
-    pub save_path: Option<String>,
-    /// Android 端已保存文件的 FileUri 列表（桌面端为空数组）
-    pub file_uris: Vec<Value>,
-    /// Android 端保存目录的 FileUri（桌面端为 null）
-    pub save_dir_uri: Option<Value>,
+    pub save_location: Option<SaveLocation>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -263,18 +259,14 @@ impl ProgressTracker {
     pub fn emit_complete(
         &self,
         app: &AppHandle,
-        save_path: Option<String>,
-        file_uris: Vec<Value>,
-        save_dir_uri: Option<Value>,
+        save_location: Option<SaveLocation>,
     ) {
         let event = TransferCompleteEvent {
             session_id: self.session_id,
             direction: self.direction,
             total_bytes: self.transferred_bytes,
             elapsed_ms: self.elapsed_ms(),
-            save_path,
-            file_uris,
-            save_dir_uri,
+            save_location,
         };
         let _ = app.emit(events::TRANSFER_COMPLETE, &event);
     }

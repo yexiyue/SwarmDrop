@@ -74,3 +74,18 @@ pub enum FileStatus {
     Completed,
     Failed,
 }
+
+/// 保存位置（跨平台）
+///
+/// 桌面端使用文件系统绝对路径，Android 端使用公共目录子目录名。
+/// 数据库中以 JSON 形式存储在 `save_path` 列，通过 `FromJsonQueryResult` 自动序列化/反序列化。
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, FromJsonQueryResult)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum SaveLocation {
+    /// 桌面端：文件系统绝对路径
+    #[serde(rename_all = "camelCase")]
+    Path { path: String },
+    /// Android 端：公共目录子目录（如 `"SwarmDrop"` → `Download/SwarmDrop`）
+    #[serde(rename_all = "camelCase")]
+    AndroidPublicDir { subdir: String },
+}

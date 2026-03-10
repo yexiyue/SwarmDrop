@@ -2,7 +2,7 @@
 //!
 //! 封装传输会话和文件记录的 CRUD 操作，供传输模块和命令层调用。
 
-use entity::{FileStatus, SessionStatus, TransferDirection};
+use entity::{FileStatus, SaveLocation, SessionStatus, TransferDirection};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityLoaderTrait, EntityTrait,
     IntoActiveModel, QueryFilter, QueryOrder, Set,
@@ -30,7 +30,7 @@ pub async fn create_session(
     peer_name: &str,
     files: &[FileInfo],
     total_size: u64,
-    save_path: Option<String>,
+    save_path: Option<SaveLocation>,
     source_paths: Option<&[String]>,
 ) -> AppResult<()> {
     let now = now_ms();
@@ -242,7 +242,7 @@ pub struct TransferHistoryItem {
     pub updated_at: i64,
     pub finished_at: Option<i64>,
     pub error_message: Option<String>,
-    pub save_path: Option<String>,
+    pub save_path: Option<SaveLocation>,
     pub files: Vec<TransferHistoryFile>,
 }
 

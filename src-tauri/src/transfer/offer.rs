@@ -527,7 +527,7 @@ impl TransferManager {
     pub async fn accept_and_start_receive(
         &self,
         session_id: &Uuid,
-        save_path: String,
+        save_location: entity::SaveLocation,
         app: AppHandle,
     ) -> AppResult<()> {
         let (_, offer) = self
@@ -561,7 +561,7 @@ impl TransferManager {
                 &peer_name,
                 &offer.files,
                 offer.total_size,
-                Some(save_path.clone()),
+                Some(save_location.clone()),
                 None,
             )
             .await
@@ -577,8 +577,8 @@ impl TransferManager {
             }
         }
 
-        // 创建 FileSink 并启动接收
-        let sink = build_file_sink(save_path);
+        // 根据 SaveLocation 构造 FileSink 并启动接收
+        let sink = build_file_sink(&save_location);
         self.start_receive_session(
             offer.session_id,
             offer.peer_id,
@@ -728,7 +728,9 @@ impl TransferManager {
 
                 // 在 start_receive_session 消耗 app 之前，将 session 字段 move 出来
                 let total_size = session.total_size;
-                let save_path = session.save_path.unwrap_or_default();
+                let save_location = session.save_path.unwrap_or(entity::SaveLocation::Path {
+                    path: String::new(),
+                });
                 let peer_id = session.peer_id.0;
                 let peer_name = session.peer_name;
 
@@ -763,7 +765,7 @@ impl TransferManager {
                     target_peer,
                     file_infos,
                     total_size as u64,
-                    build_file_sink(save_path),
+                    build_file_sink(&save_location),
                     &key,
                     app,
                     initial_bitmaps,
@@ -862,25 +864,19 @@ fn source_path_string(source: &FileSource) -> String {
     }
 }
 
-/// 根据平台构造 FileSink
-///
-/// Android 端忽略 `save_path`，直接写入公共 Download/SwarmDrop 目录；
-/// 桌面端写入用户指定的本地目录。
-#[cfg_attr(
-    target_os = "android",
-    expect(unused_variables, reason = "Android 端忽略 save_path")
-)]
-fn build_file_sink(save_path: String) -> FileSink {
-    #[cfg(target_os = "android")]
-    {
-        FileSink::AndroidPublicDir {
-            subdir: "SwarmDrop".into(),
-        }
-    }
-    #[cfg(not(target_os = "android"))]
-    {
-        FileSink::Path {
-            save_dir: std::path::PathBuf::from(save_path),
+/// 根据 SaveLocation 构造 FileSink
+fn build_file_sink(save_location: &entity::SaveLocation) -> FileSink {
+    match save_location {
+        entity::SaveLocation::Path { path } => FileSink::Path {
+            save_dir: std::path::PathBuf::from(path),
+        },
+        #[cfg(target_os = "android")]
+        entity::SaveLocation::AndroidPublicDir { subdir } => FileSink::AndroidPublicDir {
+            subdir: subdir.clone(),
+        },
+        #[cfg(not(target_os = "android"))]
+        entity::SaveLocation::AndroidPublicDir { .. } => {
+            unreachable!("AndroidPublicDir 不应出现在非 Android 平台")
         }
     }
 }

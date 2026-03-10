@@ -171,7 +171,6 @@ impl ReceiveSession {
         tracker.init_files_with_resume(&file_descs, &resume_state);
 
         let progress = Arc::new(Mutex::new(tracker));
-        let mut file_uris: Vec<serde_json::Value> = Vec::new();
 
         for file_info in &self.files {
             if self.cancel_token.is_cancelled() {
@@ -237,9 +236,6 @@ impl ReceiveSession {
                 .await
             {
                 Ok(_final_path) => {
-                    if let Some(value) = part_file.to_uri_value() {
-                        file_uris.push(value);
-                    }
                     self.remove_created_part(&part_file).await;
                 }
                 Err(e) => {
@@ -296,12 +292,9 @@ impl ReceiveSession {
             }
         }
 
-        let save_dir_uri = self.sink.resolve_save_dir_uri(&self.app).await;
         progress.lock().await.emit_complete(
             &self.app,
-            Some(self.sink.save_dir_display().into_owned()),
-            file_uris,
-            save_dir_uri,
+            Some(self.sink.to_save_location()),
         );
 
         Ok(true)

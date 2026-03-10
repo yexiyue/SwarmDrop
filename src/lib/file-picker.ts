@@ -9,7 +9,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { type } from "@tauri-apps/plugin-os";
 import { downloadDir, join } from "@tauri-apps/api/path";
 import type { AndroidFsUri } from "tauri-plugin-android-fs-api";
-import type { FileSource } from "@/commands/transfer";
+import type { FileSource, SaveLocation } from "@/commands/transfer";
 
 // 动态导入 Android FS API（仅在 Android 平台）
 async function getAndroidFs() {
@@ -167,43 +167,39 @@ export async function revealFile(
 
 /**
  * 打开传输完成后的文件/文件夹
- * 统一处理 Android/桌面、单文件/多文件的打开逻辑
- *
- * Android 多文件场景：PublicStorage 目录 URI（resolve_initial_location）不具备
- * readable 权限，showViewDirDialog 会失败。回退策略：打开第一个文件 URI。
+ * 根据 SaveLocation 类型分支处理：
+ * - Path：桌面端，使用文件路径打开
+ * - AndroidPublicDir：Android 端，拼接 downloadDir 路径打开
  */
 export async function openTransferResult(session: {
-  savePath?: string;
+  saveLocation?: SaveLocation;
   files: { relativePath: string }[];
-  fileUris?: AndroidFsUri[];
-  saveDirUri?: AndroidFsUri;
 }): Promise<void> {
-  if (!session.savePath) return;
+  if (!session.saveLocation) return;
 
-  // 单文件：直接打开文件
-  if (session.files.length === 1 && session.fileUris?.[0]) {
-    await openFile(session.fileUris[0]);
-    return;
-  }
-  if (session.files.length === 1) {
-    const filePath = await join(session.savePath, session.files[0].relativePath);
-    await revealFile(filePath);
-    return;
-  }
+  const loc = session.saveLocation;
 
-  // 多文件：尝试打开文件夹
-  if (session.saveDirUri) {
-    const opened = await openFolder(session.saveDirUri);
-    if (opened) return;
-    // Android 回退：打开第一个文件 URI
-    if (session.fileUris?.[0]) {
-      await openFile(session.fileUris[0]);
-      return;
+  if (loc.type === "path") {
+    // 桌面端：使用文件系统路径
+    if (session.files.length === 1) {
+      const filePath = await join(loc.path, session.files[0].relativePath);
+      await revealFile(filePath);
+    } else {
+      await openFolder(loc.path);
     }
+    return;
   }
 
-  if (session.savePath) {
-    await openFolder(session.savePath);
+  if (loc.type === "androidPublicDir") {
+    // Android 端：通过 downloadDir + subdir 构建路径打开
+    try {
+      const dir = await downloadDir();
+      const fullPath = await join(dir, loc.subdir);
+      const { openPath } = await import("@tauri-apps/plugin-opener");
+      await openPath(fullPath);
+    } catch {
+      console.warn("Android 打开保存目录失败");
+    }
   }
 }
 

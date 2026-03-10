@@ -1,6 +1,6 @@
 use sea_orm::entity::prelude::*;
 
-use crate::{PeerId, SessionStatus, TransferDirection};
+use crate::{PeerId, SaveLocation, SessionStatus, TransferDirection};
 
 #[sea_orm::model]
 #[derive(Clone, Debug, PartialEq, Eq, DeriveEntityModel)]
@@ -30,8 +30,9 @@ pub struct Model {
     pub finished_at: Option<i64>,
     /// 失败原因（status=failed 时有值）
     pub error_message: Option<String>,
-    /// 接收方保存目录（direction=receive 时有值）
-    pub save_path: Option<String>,
+    /// 接收方保存位置（direction=receive 时有值）
+    /// JSON 序列化的 SaveLocation 枚举
+    pub save_path: Option<SaveLocation>,
     #[sea_orm(has_many)]
     pub files: HasMany<super::transfer_file::Entity>,
 }

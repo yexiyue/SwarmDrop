@@ -360,9 +360,7 @@ pub fn spawn_event_loop(
                                     direction: TransferDirection::Send,
                                     total_bytes,
                                     elapsed_ms,
-                                    save_path: None,
-                                    file_uris: Vec::new(),
-                                    save_dir_uri: None,
+                                    save_location: None,
                                 };
                                 let _ = app2.emit(events::TRANSFER_COMPLETE, &event);
                             });

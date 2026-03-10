@@ -22,6 +22,18 @@ import {
 } from "@/commands/mcp";
 
 export function McpSection() {
+  // platform() 是同步函数，直接在顶层调用，避免违反 React Hooks 规则
+  const isMobile = platform() === "android" || platform() === "ios";
+
+  // 移动端不显示 MCP 配置（必须在所有 hooks 之前 return）
+  if (isMobile) {
+    return null;
+  }
+
+  return <McpSectionContent />;
+}
+
+function McpSectionContent() {
   const { t } = useLingui();
   const mcpPort = usePreferencesStore((s) => s.mcp.port);
   const setMcpPort = usePreferencesStore((s) => s.setMcpPort);
@@ -35,18 +47,6 @@ export function McpSection() {
   const [loading, setLoading] = useState(false);
   const [portInput, setPortInput] = useState(String(mcpPort));
   const [copied, setCopied] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-
-  // 检测是否为移动端（Android/iOS）
-  useEffect(() => {
-    const p = platform();
-    setIsMobile(p === "android" || p === "ios");
-  }, []);
-
-  // 移动端不显示 MCP 配置
-  if (isMobile) {
-    return null;
-  }
 
   // 挂载时查询后端真实状态
   useEffect(() => {
