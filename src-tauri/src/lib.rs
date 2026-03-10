@@ -7,6 +7,7 @@ pub(crate) mod pairing;
 pub mod protocol;
 pub(crate) mod transfer;
 pub(crate) mod database;
+pub(crate) mod mcp;
 pub use error::{AppError, AppResult};
 
 pub mod file_sink;
@@ -68,6 +69,9 @@ pub fn run() {
 
             app.manage(db);
 
+            // 初始化 MCP Server 状态容器
+            app.manage(mcp::server::McpServerState::default());
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -96,6 +100,9 @@ pub fn run() {
             commands::clear_transfer_history,
             commands::pause_transfer,
             commands::resume_transfer,
+            commands::get_mcp_status,
+            commands::start_mcp_server,
+            commands::stop_mcp_server,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

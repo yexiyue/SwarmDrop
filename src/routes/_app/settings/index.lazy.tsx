@@ -25,6 +25,7 @@ import { AboutSection } from "./-about-section";
 import { NetworkSettingsSection } from "./-network-settings-section";
 import { BootstrapNodesSection } from "./-bootstrap-nodes-section";
 import { TransferSettingsSection } from "./-transfer-settings-section";
+import { McpSection } from "./-mcp-section";
 
 export const Route = createLazyFileRoute("/_app/settings/")({
   component: SettingsPage,
@@ -159,6 +160,9 @@ function SettingsPage() {
 
           {/* 文件传输设置 */}
           <TransferSettingsSection />
+
+          {/* MCP Server */}
+          <McpSection />
         </div>
       </div>
     </main>

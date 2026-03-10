@@ -108,7 +108,7 @@ export function MobileGenerateCodeView() {
 
       {/* 重新生成按钮 */}
       <Button
-        onClick={() => void regenerateCode()}
+        onClick={() => regenerateCode()}
         className="w-full bg-blue-600 hover:bg-blue-700"
         size="lg"
       >

@@ -14,8 +14,10 @@ import {
   ArrowDown,
   Loader2,
   X,
+  Pause,
 } from "lucide-react";
 import { Trans } from "@lingui/react/macro";
+import { t } from "@lingui/core/macro";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useTransferStore } from "@/stores/transfer-store";
@@ -25,27 +27,48 @@ import { cn } from "@/lib/utils";
 import { openTransferResult } from "@/lib/file-picker";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
-import { cancelSend, cancelReceive } from "@/commands/transfer";
+import { cancelSend, cancelReceive, pauseTransfer } from "@/commands/transfer";
 import { FileTree } from "../send/-components/file-tree";
 import { buildTreeDataFromSession } from "../send/-file-tree";
-import type { TransferSession } from "@/commands/transfer";
+import type { TransferSession, TransferHistoryItem } from "@/commands/transfer";
 
 export const Route = createLazyFileRoute("/_app/transfer/$sessionId")({
   component: TransferDetailPage,
 });
 
-// 静态配置对象 - 避免每次渲染重新创建
-const STATUS_CONFIG = {
-  pending: { label: "等待中", className: "bg-gray-100 text-gray-600" },
-  waiting_accept: {
-    label: "等待确认",
-    className: "bg-yellow-100 text-yellow-600",
-  },
-  transferring: { label: "传输中", className: "bg-blue-100 text-blue-600" },
-  completed: { label: "已完成", className: "bg-green-100 text-green-600" },
-  failed: { label: "失败", className: "bg-red-100 text-red-600" },
-  cancelled: { label: "已取消", className: "bg-gray-100 text-gray-600" },
-} as const;
+// className 静态配置 - 不含 i18n 文本
+const STATUS_CLASSNAMES: Record<TransferSession["status"], string> = {
+  pending: "bg-gray-100 text-gray-600",
+  waiting_accept: "bg-yellow-100 text-yellow-600",
+  transferring: "bg-blue-100 text-blue-600",
+  completed: "bg-green-100 text-green-600",
+  failed: "bg-red-100 text-red-600",
+  cancelled: "bg-gray-100 text-gray-600",
+};
+
+/** 将 DB 历史记录映射为 TransferSession 形状（供详情页组件复用） */
+function historyToSession(item: TransferHistoryItem): TransferSession {
+  return {
+    sessionId: item.sessionId,
+    direction: item.direction,
+    peerId: item.peerId,
+    deviceName: item.peerName,
+    files: item.files.map((f) => ({
+      fileId: f.fileId,
+      name: f.name,
+      relativePath: f.relativePath,
+      size: f.size,
+      isDirectory: false,
+    })),
+    totalSize: item.totalSize,
+    status: item.status as TransferSession["status"],
+    progress: null,
+    error: item.errorMessage,
+    startedAt: item.startedAt,
+    completedAt: item.finishedAt,
+    savePath: item.savePath ?? undefined,
+  };
+}
 
 function TransferDetailPage() {
   const { sessionId } = Route.useParams();
@@ -53,18 +76,26 @@ function TransferDetailPage() {
   const breakpoint = useBreakpoint();
   const isMobile = breakpoint === "mobile";
 
-  // 使用细粒度选择器，只订阅需要的 state
-  const session = useTransferStore(
+  // 拆分 selector：分别订阅原始数据，避免 historyToSession 每次创建新对象
+  const activeSession = useTransferStore(
+    useCallback((s) => s.sessions[sessionId], [sessionId]),
+  );
+  const historyItem = useTransferStore(
     useCallback(
       (s) =>
-        s.sessions[sessionId] ??
-        s.history.find((h) => h.sessionId === sessionId),
+        s.sessions[sessionId]
+          ? undefined
+          : s.dbHistory.find((h) => h.sessionId === sessionId),
       [sessionId],
     ),
   );
+  const session = useMemo(
+    () => activeSession ?? (historyItem ? historyToSession(historyItem) : undefined),
+    [activeSession, historyItem],
+  );
 
   const handleBack = useCallback(() => {
-    void navigate({ to: "/transfer" });
+    navigate({ to: "/transfer" });
   }, [navigate]);
 
   if (!session) {
@@ -80,11 +111,13 @@ function TransferDetailPage() {
     );
   }
 
-  if (isMobile) {
-    return <MobileTransferDetailView session={session} onBack={handleBack} />;
-  }
-
-  return <DesktopTransferDetailView session={session} onBack={handleBack} />;
+  return (
+    <TransferDetailContent
+      session={session}
+      onBack={handleBack}
+      isMobile={isMobile}
+    />
+  );
 }
 
 /* ─────────────────── 共享组件 ─────────────────── */
@@ -137,16 +170,23 @@ const StatusBadge = memo(function StatusBadge({
 }: {
   status: TransferSession["status"];
 }) {
-  const config = STATUS_CONFIG[status];
+  const labels: Record<TransferSession["status"], string> = {
+    pending: t`等待中`,
+    waiting_accept: t`等待确认`,
+    transferring: t`传输中`,
+    completed: t`已完成`,
+    failed: t`失败`,
+    cancelled: t`已取消`,
+  };
 
   return (
     <span
       className={cn(
         "rounded-full px-2.5 py-0.5 text-xs font-medium",
-        config.className,
+        STATUS_CLASSNAMES[status],
       )}
     >
-      <Trans>{config.label}</Trans>
+      {labels[status]}
     </span>
   );
 });
@@ -156,9 +196,13 @@ const TransferProgress = memo(function TransferProgress({
 }: {
   session: TransferSession;
 }) {
-  const progressPercent = session.progress
-    ? Math.round((session.progress.transferredBytes / session.progress.totalBytes) * 100)
-    : 0;
+  const progressPercent =
+    session.progress && session.progress.totalBytes > 0
+      ? Math.round(
+          (session.progress.transferredBytes / session.progress.totalBytes) *
+            100,
+        )
+      : 0;
 
   if (session.status === "transferring" && session.progress) {
     return (
@@ -272,7 +316,17 @@ const TransferActions = memo(function TransferActions({
     session.status === "waiting_accept" ||
     session.status === "transferring";
 
+  const handlePause = useCallback(async () => {
+    useTransferStore.getState().cancelSession(session.sessionId);
+    try {
+      await pauseTransfer(session.sessionId);
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    }
+  }, [session.sessionId]);
+
   const handleCancel = useCallback(async () => {
+    useTransferStore.getState().cancelSession(session.sessionId);
     try {
       if (isSend) {
         await cancelSend(session.sessionId);
@@ -294,14 +348,26 @@ const TransferActions = memo(function TransferActions({
 
   if (isActive) {
     return (
-      <Button
-        variant="outline"
-        onClick={handleCancel}
-        className="w-full"
-      >
-        <X className="mr-2 size-4" />
-        <Trans>取消传输</Trans>
-      </Button>
+      <div className="flex w-full gap-2">
+        {session.status === "transferring" && (
+          <Button
+            variant="secondary"
+            onClick={handlePause}
+            className="flex-1"
+          >
+            <Pause className="mr-2 size-4" />
+            <Trans>暂停传输</Trans>
+          </Button>
+        )}
+        <Button
+          variant="outline"
+          onClick={handleCancel}
+          className="flex-1"
+        >
+          <X className="mr-2 size-4" />
+          <Trans>取消传输</Trans>
+        </Button>
+      </div>
     );
   }
 
@@ -317,105 +383,63 @@ const TransferActions = memo(function TransferActions({
   return null;
 });
 
-/* ─────────────────── 移动端视图 ─────────────────── */
+/* ─────────────────── 统一详情视图 ─────────────────── */
 
-const MobileTransferDetailView = memo(function MobileTransferDetailView({
+const TransferDetailContent = memo(function TransferDetailContent({
   session,
   onBack,
+  isMobile,
 }: {
   session: TransferSession;
   onBack: () => void;
+  isMobile: boolean;
 }) {
   const treeData = useMemo(() => {
     return buildTreeDataFromSession(session);
   }, [session]);
 
   return (
-    <main className="flex h-full flex-col bg-background">
+    <main className={cn("flex h-full flex-col bg-background", !isMobile && "flex-1")}>
       {/* 头部 */}
-      <header className="flex items-center gap-3 border-b border-border px-4 py-3">
+      <header
+        className={cn(
+          "flex items-center border-b border-border",
+          isMobile ? "gap-3 px-4 py-3" : "h-13 gap-2 px-4 lg:px-5",
+        )}
+      >
         <button
           type="button"
           onClick={onBack}
-          className="flex size-9 items-center justify-center rounded-full hover:bg-muted"
+          className={cn(
+            "flex items-center justify-center",
+            isMobile
+              ? "size-9 rounded-full hover:bg-muted"
+              : "size-8 rounded-md hover:bg-muted",
+          )}
         >
-          <ArrowLeft className="size-5" />
+          <ArrowLeft className={isMobile ? "size-5" : "size-4"} />
         </button>
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate text-base font-semibold text-foreground">
+        {isMobile ? (
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-base font-semibold text-foreground">
+              <Trans>传输详情</Trans>
+            </h1>
+          </div>
+        ) : (
+          <h1 className="text-[15px] font-medium text-foreground">
             <Trans>传输详情</Trans>
           </h1>
-        </div>
+        )}
       </header>
 
       {/* 内容 */}
-      <div className="flex-1 overflow-auto px-4 py-4">
-        <div className="flex flex-col gap-5">
+      <div className={cn("flex-1 overflow-auto", isMobile ? "px-4 py-4" : "p-5 lg:p-6")}>
+        <div className={cn("flex flex-col", isMobile ? "gap-5" : "mx-auto max-w-2xl gap-6")}>
           <TransferStatusHeader session={session} />
 
           <TransferProgress session={session} />
 
-          <div className="flex flex-col gap-2">
-            <h3 className="text-sm font-semibold text-foreground">
-              <Trans>传输详情</Trans>
-            </h3>
-            <FileTree
-              mode={session.status === "transferring" ? "transfer" : "select"}
-              dataLoader={treeData.dataLoader}
-              rootChildren={treeData.rootChildren}
-              totalCount={session.files.length}
-              totalSize={session.totalSize}
-              progress={session.progress}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* 底部操作 */}
-      <div className="border-t border-border px-4 py-3">
-        <TransferActions session={session} />
-      </div>
-    </main>
-  );
-});
-
-/* ─────────────────── 桌面端视图 ─────────────────── */
-
-const DesktopTransferDetailView = memo(function DesktopTransferDetailView({
-  session,
-  onBack,
-}: {
-  session: TransferSession;
-  onBack: () => void;
-}) {
-  const treeData = useMemo(() => {
-    return buildTreeDataFromSession(session);
-  }, [session]);
-
-  return (
-    <main className="flex h-full flex-1 flex-col bg-background">
-      {/* Toolbar */}
-      <header className="flex h-13 items-center gap-2 border-b border-border px-4 lg:px-5">
-        <button
-          type="button"
-          onClick={onBack}
-          className="flex size-8 items-center justify-center rounded-md hover:bg-muted"
-        >
-          <ArrowLeft className="size-4" />
-        </button>
-        <h1 className="text-[15px] font-medium text-foreground">
-          <Trans>传输详情</Trans>
-        </h1>
-      </header>
-
-      {/* Content */}
-      <div className="flex-1 overflow-auto p-5 lg:p-6">
-        <div className="mx-auto flex max-w-2xl flex-col gap-6">
-          <TransferStatusHeader session={session} />
-
-          <TransferProgress session={session} />
-
-          <div className="flex flex-col gap-3">
+          <div className={cn("flex flex-col", isMobile ? "gap-2" : "gap-3")}>
             <h3 className="text-sm font-semibold text-foreground">
               <Trans>传输详情</Trans>
             </h3>
@@ -429,11 +453,20 @@ const DesktopTransferDetailView = memo(function DesktopTransferDetailView({
             />
           </div>
 
-          <div className="flex justify-end">
-            <TransferActions session={session} />
-          </div>
+          {!isMobile && (
+            <div className="flex justify-end">
+              <TransferActions session={session} />
+            </div>
+          )}
         </div>
       </div>
+
+      {/* 移动端底部操作栏 */}
+      {isMobile && (
+        <div className="border-t border-border px-4 py-3">
+          <TransferActions session={session} />
+        </div>
+      )}
     </main>
   );
 });

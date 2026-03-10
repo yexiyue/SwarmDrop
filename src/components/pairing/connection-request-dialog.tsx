@@ -33,7 +33,7 @@ export function ConnectionRequestDialog() {
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
-      void rejectRequest();
+      rejectRequest();
     }
   };
 
@@ -82,10 +82,10 @@ export function ConnectionRequestDialog() {
         )}
 
         <ResponsiveDialogFooter className="flex-row justify-center gap-3 sm:justify-center">
-          <Button variant="outline" onClick={() => void rejectRequest()}>
+          <Button variant="outline" onClick={() => rejectRequest()}>
             <Trans>拒绝</Trans>
           </Button>
-          <Button onClick={() => void acceptRequest()}>
+          <Button onClick={() => acceptRequest()}>
             <Trans>接受配对</Trans>
           </Button>
         </ResponsiveDialogFooter>

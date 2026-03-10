@@ -9,6 +9,7 @@ use sea_orm::{
 };
 use uuid::Uuid;
 
+use crate::file_source::calc_total_chunks;
 use crate::protocol::FileInfo;
 use crate::AppResult;
 
@@ -16,22 +17,11 @@ pub(crate) fn now_ms() -> i64 {
     chrono::Utc::now().timestamp_millis()
 }
 
-/// chunk 大小（与 file_source::CHUNK_SIZE 保持一致）
-const CHUNK_SIZE: u64 = 256 * 1024;
-
-fn calc_total_chunks(file_size: u64) -> i32 {
-    if file_size == 0 {
-        1
-    } else {
-        file_size.div_ceil(CHUNK_SIZE) as i32
-    }
-}
-
-#[expect(clippy::too_many_arguments, reason = "DB 写入需要完整上下文")]
 /// 创建传输会话 + 关联的文件记录
 ///
 /// `source_paths`：发送方传入每个文件的绝对路径（与 `files` 一一对应），
 /// 接收方传 `None`。用于断点续传时重建 `FileSource`。
+#[expect(clippy::too_many_arguments, reason = "DB 写入需要完整上下文")]
 pub async fn create_session(
     db: &DatabaseConnection,
     session_id: Uuid,
@@ -58,12 +48,12 @@ pub async fn create_session(
         .set_save_path(save_path);
 
     for (idx, file) in files.iter().enumerate() {
-        let total_chunks = calc_total_chunks(file.size);
+        let total_chunks = calc_total_chunks(file.size) as i32;
         let bitmap_len = (total_chunks as usize).div_ceil(8);
         let completed_chunks = if direction == TransferDirection::Receive {
-            vec![0u8; bitmap_len] // 接收方：全零 bitmap
+            vec![0u8; bitmap_len]
         } else {
-            vec![] // 发送方：空 vec
+            vec![]
         };
 
         let source_path = source_paths.and_then(|paths| paths.get(idx).cloned());
@@ -71,6 +61,7 @@ pub async fn create_session(
         session = session.add_file(
             entity::transfer_file::ActiveModel::builder()
                 .set_file_id(file.file_id as i32)
+                .set_session_id(session_id)
                 .set_name(file.name.clone())
                 .set_relative_path(file.relative_path.clone())
                 .set_size(file.size as i64)
@@ -83,7 +74,7 @@ pub async fn create_session(
         );
     }
 
-    session.save(db).await?;
+    session.insert(db).await?;
 
     Ok(())
 }
@@ -107,14 +98,15 @@ pub async fn update_file_checkpoint(
     let mut model = file.into_active_model();
     model.completed_chunks = Set(completed_chunks);
     model.transferred_bytes = Set(transferred_bytes);
-    model.session.as_mut().unwrap().updated_at = Set(now_ms());
+    if let Some(session) = model.session.as_mut() {
+        session.updated_at = Set(now_ms());
+    }
     model.save(db).await?;
 
     Ok(())
 }
 
 /// 更新 session 的已传输字节数
-#[expect(dead_code, reason = "预留给未来直接更新 session 字节数的场景")]
 pub async fn update_session_transferred_bytes(
     db: &DatabaseConnection,
     session_id: Uuid,
@@ -132,11 +124,20 @@ pub async fn update_session_transferred_bytes(
     Ok(())
 }
 
+/// 从文件记录汇总已传输字节数，同步到 session 级别
+pub async fn sync_session_transferred_bytes(
+    db: &DatabaseConnection,
+    session_id: Uuid,
+) -> AppResult<()> {
+    let files = get_session_files(db, session_id).await?;
+    let total_transferred: i64 = files.iter().map(|f| f.transferred_bytes).sum();
+    update_session_transferred_bytes(db, session_id, total_transferred).await
+}
+
 /// 标记传输完成
 pub async fn mark_session_completed(db: &DatabaseConnection, session_id: Uuid) -> AppResult<()> {
     let now = now_ms();
 
-    // 批量更新所有文件为 completed（单条 UPDATE SQL）
     entity::TransferFile::update_many()
         .col_expr(
             entity::transfer_file::Column::Status,
@@ -146,8 +147,6 @@ pub async fn mark_session_completed(db: &DatabaseConnection, session_id: Uuid) -
         .exec(db)
         .await?;
 
-    // 更新 session
-    // session 可能未持久化（DB 可选），不存在时静默跳过
     if let Some(session) = entity::TransferSession::find_by_id(session_id)
         .one(db)
         .await?
@@ -169,68 +168,58 @@ pub async fn mark_session_failed(
     session_id: Uuid,
     error_message: &str,
 ) -> AppResult<()> {
-    let now = now_ms();
-
-    // session 可能未持久化（DB 可选），不存在时静默跳过
-    if let Some(session) = entity::TransferSession::find_by_id(session_id)
-        .one(db)
-        .await?
-    {
-        let mut model = session.into_active_model();
+    update_session_terminal(db, session_id, |model, now| {
         model.status = Set(SessionStatus::Failed);
         model.error_message = Set(Some(error_message.to_string()));
         model.finished_at = Set(Some(now));
         model.updated_at = Set(now);
-        model.update(db).await?;
-    }
-
-    Ok(())
+    })
+    .await
 }
 
 /// 标记传输取消
 pub async fn mark_session_cancelled(db: &DatabaseConnection, session_id: Uuid) -> AppResult<()> {
-    let now = now_ms();
-
-    // session 可能未持久化（DB 可选），不存在时静默跳过
-    if let Some(session) = entity::TransferSession::find_by_id(session_id)
-        .one(db)
-        .await?
-    {
-        let mut model = session.into_active_model();
+    update_session_terminal(db, session_id, |model, now| {
         model.status = Set(SessionStatus::Cancelled);
         model.finished_at = Set(Some(now));
         model.updated_at = Set(now);
-        model.update(db).await?;
-    }
-
-    Ok(())
+    })
+    .await
 }
 
 /// 标记传输暂停
 pub async fn mark_session_paused(db: &DatabaseConnection, session_id: Uuid) -> AppResult<()> {
-    // session 可能未持久化（DB 可选），不存在时静默跳过
-    if let Some(session) = entity::TransferSession::find_by_id(session_id)
-        .one(db)
-        .await?
-    {
-        let mut model = session.into_active_model();
+    update_session_terminal(db, session_id, |model, now| {
         model.status = Set(SessionStatus::Paused);
-        model.updated_at = Set(now_ms());
-        model.update(db).await?;
-    }
-    Ok(())
+        model.updated_at = Set(now);
+    })
+    .await
 }
 
 /// 恢复传输：paused/failed → transferring
 pub async fn mark_session_transferring(db: &DatabaseConnection, session_id: Uuid) -> AppResult<()> {
-    // session 可能未持久化（DB 可选），不存在时静默跳过
+    update_session_terminal(db, session_id, |model, now| {
+        model.status = Set(SessionStatus::Transferring);
+        model.updated_at = Set(now);
+    })
+    .await
+}
+
+/// 查找 session 并应用状态更新，不存在时静默跳过（DB 可选场景）
+async fn update_session_terminal<F>(
+    db: &DatabaseConnection,
+    session_id: Uuid,
+    apply: F,
+) -> AppResult<()>
+where
+    F: FnOnce(&mut entity::transfer_session::ActiveModel, i64),
+{
     if let Some(session) = entity::TransferSession::find_by_id(session_id)
         .one(db)
         .await?
     {
         let mut model = session.into_active_model();
-        model.status = Set(SessionStatus::Transferring);
-        model.updated_at = Set(now_ms());
+        apply(&mut model, now_ms());
         model.update(db).await?;
     }
     Ok(())
@@ -358,9 +347,8 @@ pub async fn get_session_files(
     db: &DatabaseConnection,
     session_id: Uuid,
 ) -> AppResult<Vec<entity::transfer_file::Model>> {
-    let files = entity::TransferFile::find()
+    Ok(entity::TransferFile::find()
         .filter(entity::transfer_file::Column::SessionId.eq(session_id))
         .all(db)
-        .await?;
-    Ok(files)
+        .await?)
 }

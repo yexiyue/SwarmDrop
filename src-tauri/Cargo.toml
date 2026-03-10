@@ -19,7 +19,7 @@ migration = { path = "migration" }
 
 [package]
 name = "swarmdrop"
-version = "0.3.2"
+version = "0.4.0"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -72,6 +72,8 @@ sea-orm = { workspace = true }
 sea-orm-migration = { workspace = true }
 entity = { workspace = true }
 migration = { workspace = true }
+rmcp = { version = "1.1.0", features = ["server", "transport-streamable-http-server"] }
+axum = "0.8"
 
 # 桌面端启用 DNS 解析（Android 上 /etc/resolv.conf 不存在，不启用）
 [target.'cfg(not(target_os = "android"))'.dependencies]

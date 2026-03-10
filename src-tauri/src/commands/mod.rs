@@ -5,12 +5,14 @@
 //! [`device`](crate::device) 和 [`pairing`](crate::pairing) 模块。
 
 mod identity;
+mod mcp;
 mod pairing;
 mod transfer;
 
 // glob re-export：Tauri 的 #[tauri::command] 宏会生成 __cmd__* 隐藏符号，
 // generate_handler! 需要通过模块路径访问这些符号，显式导出无法覆盖。
 pub use identity::*;
+pub use mcp::*;
 pub use pairing::*;
 pub use transfer::*;
 
@@ -36,13 +38,13 @@ pub async fn start(
     custom_bootstrap_nodes: Option<Vec<String>>,
 ) -> crate::AppResult<()> {
     let agent_version = crate::device::OsInfo::default().to_agent_version();
-    let result = crate::network::config::create_node_config(
+    let config = crate::network::config::create_node_config(
         agent_version,
         &custom_bootstrap_nodes.unwrap_or_default(),
     );
 
     let (client, receiver) =
-        swarm_p2p_core::start::<AppRequest, AppResponse>((*keypair).clone(), result.config)
+        swarm_p2p_core::start::<AppRequest, AppResponse>((*keypair).clone(), config)
             .map_err(|e| AppError::Network(e.to_string()))?;
 
     let peer_id = PeerId::from_public_key(&keypair.public());
@@ -50,7 +52,6 @@ pub async fn start(
         client.clone(),
         peer_id,
         paired_devices,
-        result.bootstrap_peer_ids,
     );
 
     // 宣布上线（bootstrap 前发布，尽早让对方发现）
@@ -94,6 +95,8 @@ pub async fn shutdown(app: AppHandle) -> crate::AppResult<()> {
             if let Err(e) = manager.pairing().announce_offline().await {
                 warn!("Failed to announce offline: {}", e);
             }
+            // 取消所有后台任务（超时清理等）
+            manager.cancel_background_tasks();
         }
         guard.take();
     }

@@ -150,7 +150,15 @@ impl DeviceManager {
                 let connected_only = matches!(filter, DeviceFilter::Connected);
                 self.peers
                     .iter()
-                    .filter(|entry| !connected_only || entry.value().is_connected)
+                    .filter(|entry| {
+                        let peer = entry.value();
+                        // 只返回 SwarmDrop 客户端（过滤掉引导/中继等基础设施节点）
+                        let is_app_peer = peer
+                            .agent_version
+                            .as_deref()
+                            .is_some_and(OsInfo::is_swarmdrop_agent);
+                        is_app_peer && (!connected_only || peer.is_connected)
+                    })
                     .map(|entry| self.peer_to_device(entry.value()))
                     .collect()
             }
@@ -211,14 +219,42 @@ impl DeviceManager {
             .is_some_and(|e| e.value().is_connected)
     }
 
-    /// 已连接 peer 数量
+    /// 已连接的 SwarmDrop 客户端数量
     pub fn connected_count(&self) -> usize {
-        self.peers.iter().filter(|e| e.value().is_connected).count()
+        self.peers
+            .iter()
+            .filter(|e| {
+                let p = e.value();
+                p.is_connected
+                    && p.agent_version
+                        .as_deref()
+                        .is_some_and(OsInfo::is_swarmdrop_agent)
+            })
+            .count()
     }
 
-    /// 已发现 peer 数量
+    /// 已发现的 SwarmDrop 客户端数量
     pub fn discovered_count(&self) -> usize {
-        self.peers.len()
+        self.peers
+            .iter()
+            .filter(|e| {
+                e.value()
+                    .agent_version
+                    .as_deref()
+                    .is_some_and(OsInfo::is_swarmdrop_agent)
+            })
+            .count()
+    }
+
+    /// 是否有已连接的引导/中继节点（agent_version 以 swarm-bootstrap/ 开头）
+    pub fn has_connected_bootstrap_peer(&self) -> bool {
+        self.peers.iter().any(|e| {
+            let p = e.value();
+            p.is_connected
+                && p.agent_version
+                    .as_deref()
+                    .is_some_and(OsInfo::is_bootstrap_agent)
+        })
     }
 }
 

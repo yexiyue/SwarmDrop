@@ -14,7 +14,7 @@ use crate::protocol::{
     AppRequest, AppResponse, OfferRejectReason, PairingRequest, ResumeRejectReason,
     TransferRequest, TransferResponse,
 };
-use crate::transfer::progress::{TransferDirection, TransferFailedEvent};
+use crate::transfer::progress::{TransferDbErrorEvent, TransferDirection, TransferFailedEvent};
 use swarm_p2p_core::libp2p::PeerId;
 
 /// 配对请求事件 payload
@@ -118,17 +118,14 @@ async fn handle_resume_request(
     // 从 DB 文件记录重建 PreparedFile 列表
     let mut prepared_files = Vec::with_capacity(db_files.len());
     for db_file in &db_files {
-        let source_path = match &db_file.source_path {
-            Some(sp) => sp.clone(),
-            None => {
-                warn!("文件缺少 source_path: file_id={}", db_file.file_id);
-                return reject_resume(session_id, ResumeRejectReason::SessionNotFound);
-            }
+        let Some(source_path) = &db_file.source_path else {
+            warn!("文件缺少 source_path: file_id={}", db_file.file_id);
+            return reject_resume(session_id, ResumeRejectReason::SessionNotFound);
         };
 
         // 验证源文件仍存在且大小匹配
         let path = PathBuf::from(&source_path);
-        match std::fs::metadata(&path) {
+        match tokio::fs::metadata(&path).await {
             Ok(meta) if meta.len() == db_file.size as u64 => {}
             _ => {
                 warn!("源文件不存在或大小不匹配: {}", source_path);
@@ -224,42 +221,27 @@ pub fn spawn_event_loop(
                     let net_status = shared.build_network_status();
                     let _ = app.emit(events::NETWORK_STATUS_CHANGED, &net_status);
                 }
-                NodeEvent::RelayReservationAccepted { .. } => {
-                    if let Ok(mut rr) = shared.relay_ready.write() {
-                        *rr = true;
+                NodeEvent::RelayReservationAccepted { relay_peer_id, .. } => {
+                    if let Ok(mut rp) = shared.relay_peers.write() {
+                        rp.insert(relay_peer_id);
                     }
                     let net_status = shared.build_network_status();
                     let _ = app.emit(events::NETWORK_STATUS_CHANGED, &net_status);
                 }
 
                 // === 设备事件（handle_event 已在上方处理） ===
-                NodeEvent::PeerConnected { ref peer_id } => {
-                    // 检查是否为引导节点
-                    if shared.bootstrap_peer_ids.contains(peer_id) {
-                        if let Ok(mut bc) = shared.bootstrap_connected.write() {
-                            *bc = true;
-                        }
-                    }
+                NodeEvent::PeerConnected { .. } => {
                     emit_device_and_status();
                 }
                 NodeEvent::PeerDisconnected { ref peer_id } => {
-                    // 检查是否为引导节点断开
-                    if shared.bootstrap_peer_ids.contains(peer_id) {
-                        // 检查是否还有其他引导节点连接
-                        let any_connected = shared
-                            .bootstrap_peer_ids
-                            .iter()
-                            .any(|bp| bp != peer_id && shared.devices.is_connected(bp));
-                        if !any_connected {
-                            if let Ok(mut bc) = shared.bootstrap_connected.write() {
-                                *bc = false;
-                            }
-                        }
+                    // 清理中继节点
+                    if let Ok(mut rp) = shared.relay_peers.write() {
+                        rp.remove(peer_id);
                     }
                     emit_device_and_status();
                 }
-                NodeEvent::PeersDiscovered { .. }
-                | NodeEvent::IdentifyReceived { .. }
+                NodeEvent::IdentifyReceived { .. }
+                | NodeEvent::PeersDiscovered { .. }
                 | NodeEvent::PingSuccess { .. }
                 | NodeEvent::HolePunchSucceeded { .. } => {
                     emit_device_and_status();
@@ -308,15 +290,23 @@ pub fn spawn_event_loop(
                                             Ok(resp) => AppResponse::Transfer(resp),
                                             Err(e) => {
                                                 warn!("ChunkRequest 处理失败: {}", e);
-                                                AppResponse::Transfer(TransferResponse::Ack {
+                                                AppResponse::Transfer(TransferResponse::ChunkError {
                                                     session_id,
+                                                    file_id,
+                                                    chunk_index,
+                                                    error: e.to_string(),
                                                 })
                                             }
                                         }
                                     }
                                     None => {
                                         warn!("未知的发送会话: {}", session_id);
-                                        AppResponse::Transfer(TransferResponse::Ack { session_id })
+                                        AppResponse::Transfer(TransferResponse::ChunkError {
+                                            session_id,
+                                            file_id,
+                                            chunk_index,
+                                            error: "发送会话不存在".into(),
+                                        })
                                     }
                                 };
                                 if let Err(e) = client.send_response(pending_id, response).await {
@@ -354,6 +344,13 @@ pub fn spawn_event_loop(
                                     .await
                                     {
                                         warn!("DB 标记发送完成失败: {}", e);
+                                        let _ = app2.emit(
+                                            events::TRANSFER_DB_ERROR,
+                                            TransferDbErrorEvent {
+                                                session_id,
+                                                message: format!("保存完成状态失败: {e}"),
+                                            },
+                                        );
                                     }
                                 }
 
@@ -385,10 +382,10 @@ pub fn spawn_event_loop(
 
                             // 检查是否有接收会话
                             if let Some(s) = shared.transfer.get_receive_session(&session_id) {
-                                s.cancel();
                                 shared.transfer.remove_receive_session(&session_id);
-                                // 在 spawn 中异步清理 .part 文件
+                                // 先等待 bitmap 刷写完成，再清理 .part 文件
                                 tokio::spawn(async move {
+                                    s.cancel_and_wait().await;
                                     s.cleanup_part_files().await;
                                 });
                             }

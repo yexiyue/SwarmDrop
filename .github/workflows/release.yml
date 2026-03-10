@@ -16,7 +16,25 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # 生成当前版本的 changelog，供后续 job 使用
+  generate-changelog:
+    runs-on: ubuntu-latest
+    outputs:
+      changelog: ${{ steps.cliff.outputs.content }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate changelog
+        id: cliff
+        uses: orhun/git-cliff-action@v4
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+
   build-tauri:
+    needs: [generate-changelog]
     permissions:
       contents: write
     outputs:
@@ -83,7 +101,7 @@ jobs:
         with:
           tagName: v__VERSION__
           releaseName: 'SwarmDrop v__VERSION__'
-          releaseBody: 'See the assets to download and install this version.'
+          releaseBody: ${{ needs.generate-changelog.outputs.changelog }}
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
@@ -286,7 +304,7 @@ jobs:
 
   upgradeLink-upload:
     name: Sync to UpgradeLink
-    needs: [publish-release]
+    needs: [publish-release, generate-changelog]
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -334,6 +352,6 @@ jobs:
                 "app_key": "${{ secrets.UPGRADE_LINK_APK_KEY }}",
                 "version": "${{ steps.release.outputs.version }}",
                 "url": "https://github.com/${{ github.repository }}/releases/download/${{ steps.release.outputs.tag }}/swarmdrop_${{ steps.release.outputs.version }}_aarch64.apk",
-                "prompt_upgrade_content": "SwarmDrop ${{ steps.release.outputs.version }} 已发布"
+                "prompt_upgrade_content": ${{ toJSON(needs.generate-changelog.outputs.changelog) }}
               }
             }

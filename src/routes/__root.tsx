@@ -34,7 +34,7 @@ function RootLayout() {
       }
     };
 
-    void setup();
+    setup();
 
     return () => {
       unlisten?.();
@@ -45,7 +45,7 @@ function RootLayout() {
   useEffect(() => {
     // 延迟检查，避免影响启动速度
     const timer = setTimeout(() => {
-      void checkForUpdate();
+      checkForUpdate();
     }, 3000);
     return () => clearTimeout(timer);
   }, [checkForUpdate]);

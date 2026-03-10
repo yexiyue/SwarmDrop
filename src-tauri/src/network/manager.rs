@@ -4,6 +4,7 @@ use std::sync::{Arc, RwLock};
 use dashmap::DashMap;
 use swarm_p2p_core::libp2p::{Multiaddr, PeerId};
 use tokio::sync::Mutex;
+use tokio_util::sync::CancellationToken;
 
 use super::{NatStatus, NetworkStatus, NodeStatus};
 use crate::device::{DeviceManager, PairedDeviceInfo};
@@ -21,14 +22,14 @@ pub struct NetManager {
     pairing: Arc<PairingManager>,
     devices: Arc<DeviceManager>,
     transfer: Arc<TransferManager>,
+    /// 全局取消令牌（shutdown 时取消所有后台任务）
+    cancel_token: CancellationToken,
     // 网络状态（Arc<RwLock> 供事件循环并发更新）
     listen_addrs: Arc<RwLock<Vec<Multiaddr>>>,
     nat_status: Arc<RwLock<NatStatus>>,
     public_addr: Arc<RwLock<Option<Multiaddr>>>,
-    relay_ready: Arc<RwLock<bool>>,
-    bootstrap_connected: Arc<RwLock<bool>>,
-    /// 引导节点 PeerId 集合，用于判断连接是否为引导节点
-    bootstrap_peer_ids: Arc<HashSet<PeerId>>,
+    /// 当前已连接的中继节点 PeerId 集合
+    relay_peers: Arc<RwLock<HashSet<PeerId>>>,
 }
 
 impl NetManager {
@@ -36,7 +37,6 @@ impl NetManager {
         client: AppNetClient,
         peer_id: PeerId,
         paired_devices: Vec<PairedDeviceInfo>,
-        bootstrap_peer_ids: HashSet<PeerId>,
     ) -> Self {
         // 创建共享的已配对设备 Map：PairingManager 读写，DeviceManager 只读
         let paired_map: Arc<DashMap<_, _>> = Arc::new(
@@ -53,18 +53,22 @@ impl NetManager {
         ));
         let devices = Arc::new(DeviceManager::new(paired_map));
         let transfer = Arc::new(TransferManager::new(client.clone()));
+        let cancel_token = CancellationToken::new();
+
+        // 启动传输资源超时清理任务
+        transfer.spawn_cleanup_task(cancel_token.clone());
+
         Self {
             client,
             peer_id,
             pairing,
             devices,
             transfer,
+            cancel_token,
             listen_addrs: Arc::new(RwLock::new(Vec::new())),
             nat_status: Arc::new(RwLock::new(NatStatus::Unknown)),
             public_addr: Arc::new(RwLock::new(None)),
-            relay_ready: Arc::new(RwLock::new(false)),
-            bootstrap_connected: Arc::new(RwLock::new(false)),
-            bootstrap_peer_ids: Arc::new(bootstrap_peer_ids),
+            relay_peers: Arc::new(RwLock::new(HashSet::new())),
         }
     }
 
@@ -88,6 +92,11 @@ impl NetManager {
         &self.client
     }
 
+    /// 取消所有后台任务（shutdown 时调用）
+    pub fn cancel_background_tasks(&self) {
+        self.cancel_token.cancel();
+    }
+
     /// 获取当前网络状态快照
     pub fn get_network_status(&self) -> NetworkStatus {
         self.shared_refs().build_network_status()
@@ -104,9 +113,7 @@ impl NetManager {
             listen_addrs: self.listen_addrs.clone(),
             nat_status: self.nat_status.clone(),
             public_addr: self.public_addr.clone(),
-            relay_ready: self.relay_ready.clone(),
-            bootstrap_connected: self.bootstrap_connected.clone(),
-            bootstrap_peer_ids: self.bootstrap_peer_ids.clone(),
+            relay_peers: self.relay_peers.clone(),
         }
     }
 }
@@ -124,14 +131,18 @@ pub(crate) struct SharedNetRefs {
     pub listen_addrs: Arc<RwLock<Vec<Multiaddr>>>,
     pub nat_status: Arc<RwLock<NatStatus>>,
     pub public_addr: Arc<RwLock<Option<Multiaddr>>>,
-    pub relay_ready: Arc<RwLock<bool>>,
-    pub bootstrap_connected: Arc<RwLock<bool>>,
-    pub bootstrap_peer_ids: Arc<HashSet<PeerId>>,
+    pub relay_peers: Arc<RwLock<HashSet<PeerId>>>,
 }
 
 impl SharedNetRefs {
     /// 构建当前网络状态快照
     pub fn build_network_status(&self) -> NetworkStatus {
+        let relay_peers_list: Vec<PeerId> = self
+            .relay_peers
+            .read()
+            .map(|g| g.iter().copied().collect())
+            .unwrap_or_default();
+
         NetworkStatus {
             status: NodeStatus::Running,
             peer_id: Some(self.peer_id),
@@ -140,8 +151,9 @@ impl SharedNetRefs {
             public_addr: self.public_addr.read().ok().and_then(|g| g.clone()),
             connected_peers: self.devices.connected_count(),
             discovered_peers: self.devices.discovered_count(),
-            relay_ready: read_or(&self.relay_ready, false),
-            bootstrap_connected: read_or(&self.bootstrap_connected, false),
+            relay_ready: !relay_peers_list.is_empty(),
+            relay_peers: relay_peers_list,
+            bootstrap_connected: self.devices.has_connected_bootstrap_peer(),
         }
     }
 }

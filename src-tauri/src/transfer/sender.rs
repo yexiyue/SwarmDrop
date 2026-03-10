@@ -4,6 +4,7 @@
 //! 文件读取通过 [`file_source`](crate::file_source) 模块完成，加密使用 [`TransferCrypto`]。
 //! 使用 `Arc<std::sync::Mutex<ProgressTracker>>` 实现并发安全的进度追踪。
 
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
@@ -35,6 +36,8 @@ pub struct SendSession {
     cancel_token: CancellationToken,
     /// 会话创建时间（用于统计传输耗时）
     created_at: Instant,
+    /// 最后活动时间戳（毫秒，从 created_at 起算，用于空闲超时清理）
+    last_activity_ms: Arc<AtomicU64>,
 }
 
 impl SendSession {
@@ -50,7 +53,6 @@ impl SendSession {
         let mut tracker =
             ProgressTracker::new(session_id, TransferDirection::Send, total_bytes, total_files);
 
-        // 初始化 per-file 追踪
         let file_descs: Vec<FileDesc> = files
             .iter()
             .map(|f| FileDesc {
@@ -69,6 +71,7 @@ impl SendSession {
             progress: Arc::new(Mutex::new(tracker)),
             cancel_token: CancellationToken::new(),
             created_at: Instant::now(),
+            last_activity_ms: Arc::new(AtomicU64::new(0)),
         }
     }
 
@@ -79,10 +82,7 @@ impl SendSession {
 
     /// 获取已发送总字节数（从 ProgressTracker 读取）
     pub fn total_bytes_sent(&self) -> u64 {
-        self.progress
-            .lock()
-            .map(|p| p.transferred_bytes())
-            .unwrap_or(0)
+        self.progress.lock().map_or(0, |p| p.transferred_bytes())
     }
 
     /// 处理 ChunkRequest：读取文件分块 → 加密 → 上报进度 → 返回 Chunk 响应
@@ -113,6 +113,10 @@ impl SendSession {
             .crypto
             .encrypt_chunk(&self.session_id, file_id, chunk_index, &plaintext)
             .map_err(|e| AppError::Transfer(format!("加密失败: {e}")))?;
+
+        // 更新最后活动时间戳
+        self.last_activity_ms
+            .store(self.created_at.elapsed().as_millis() as u64, Ordering::Relaxed);
 
         // 上报进度（锁内操作极短：VecDeque push + 200ms 节流检查）
         if let Ok(mut p) = self.progress.lock() {
@@ -159,5 +163,12 @@ impl SendSession {
     /// 主动取消
     pub fn cancel(&self) {
         self.cancel_token.cancel();
+    }
+
+    /// 返回自上次活动以来的空闲时间（毫秒）
+    pub fn idle_ms(&self) -> u64 {
+        let elapsed = self.created_at.elapsed().as_millis() as u64;
+        let last = self.last_activity_ms.load(Ordering::Relaxed);
+        elapsed.saturating_sub(last)
     }
 }

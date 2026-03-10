@@ -148,6 +148,13 @@ pub enum TransferResponse {
     },
     /// 发送方确认传输完成
     Ack { session_id: Uuid },
+    /// 发送方处理 ChunkRequest 失败时返回的错误
+    ChunkError {
+        session_id: Uuid,
+        file_id: u32,
+        chunk_index: u32,
+        error: String,
+    },
     /// 发送方回复断点续传请求
     ResumeResult {
         session_id: Uuid,

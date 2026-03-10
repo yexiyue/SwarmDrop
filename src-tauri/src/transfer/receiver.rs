@@ -11,8 +11,8 @@ use std::sync::Arc;
 
 use sea_orm::DatabaseConnection;
 use swarm_p2p_core::libp2p::PeerId;
-use tauri::{AppHandle, Manager};
-use tokio::sync::{Mutex, Semaphore};
+use tauri::{AppHandle, Emitter, Manager};
+use tokio::sync::{watch, Mutex, Semaphore};
 use tokio_util::sync::CancellationToken;
 use tracing::{error, info, warn};
 use uuid::Uuid;
@@ -23,7 +23,7 @@ use crate::protocol::{
     AppNetClient, AppRequest, AppResponse, FileInfo, TransferRequest, TransferResponse,
 };
 use crate::transfer::crypto::TransferCrypto;
-use crate::transfer::progress::{FileDesc, ProgressTracker, TransferDirection};
+use crate::transfer::progress::{FileDesc, ProgressTracker, TransferDbErrorEvent, TransferDirection};
 use crate::{AppError, AppResult};
 
 /// 最大并发拉取数
@@ -62,6 +62,8 @@ pub struct ReceiveSession {
     created_parts: Mutex<Vec<Arc<PartFile>>>,
     /// 断点续传初始 bitmap（file_id → completed_chunks bitmap），首次传输为空
     initial_bitmaps: HashMap<u32, Vec<u8>>,
+    /// 传输完成信号（start_pulling 结束后发送 true）
+    finished_tx: watch::Sender<bool>,
 }
 
 impl ReceiveSession {
@@ -77,6 +79,7 @@ impl ReceiveSession {
         app: AppHandle,
         initial_bitmaps: HashMap<u32, Vec<u8>>,
     ) -> Self {
+        let (finished_tx, _) = watch::channel(false);
         Self {
             session_id,
             peer_id,
@@ -89,6 +92,7 @@ impl ReceiveSession {
             cancel_token: CancellationToken::new(),
             created_parts: Mutex::new(Vec::new()),
             initial_bitmaps,
+            finished_tx,
         }
     }
 
@@ -101,32 +105,39 @@ impl ReceiveSession {
     where
         F: FnOnce(&Uuid) + Send + 'static,
     {
-        let session = self;
         tokio::spawn(async move {
-            let result = session.run_transfer().await;
-
-            match result {
-                Ok(()) => {
-                    info!(
-                        "Transfer completed successfully: session={}",
-                        session.session_id
-                    );
-                }
-                Err(e) => {
-                    error!(
-                        "Transfer failed: session={}, error={}",
-                        session.session_id, e
-                    );
-                }
+            match self.run_transfer().await {
+                Ok(true) => info!(
+                    "Transfer completed successfully: session={}",
+                    self.session_id
+                ),
+                Ok(false) => info!(
+                    "Transfer cancelled: session={}",
+                    self.session_id
+                ),
+                Err(e) => error!(
+                    "Transfer failed: session={}, error={}",
+                    self.session_id, e
+                ),
             }
 
-            // 通知外部清理会话
-            on_finish(&session.session_id);
+            let _ = self.finished_tx.send(true);
+            on_finish(&self.session_id);
         });
     }
 
-    /// 主传输逻辑
-    async fn run_transfer(self: &Arc<Self>) -> AppResult<()> {
+    /// 等待传输任务完成（含最终 bitmap 刷写）
+    pub async fn wait_finished(&self) {
+        let mut rx = self.finished_tx.subscribe();
+        while !*rx.borrow_and_update() {
+            if rx.changed().await.is_err() {
+                break;
+            }
+        }
+    }
+
+    /// 主传输逻辑，返回 true 表示正常完成，false 表示被取消
+    async fn run_transfer(self: &Arc<Self>) -> AppResult<bool> {
         // Android 端在首次写入前请求存储权限
         self.sink.ensure_permission(&self.app).await?;
 
@@ -139,7 +150,6 @@ impl ReceiveSession {
             self.files.len(),
         );
 
-        // 初始化 per-file 追踪（从 bitmap 计算恢复状态，首次传输时为空）
         let file_descs: Vec<FileDesc> = self
             .files
             .iter()
@@ -154,24 +164,19 @@ impl ReceiveSession {
             .iter()
             .filter_map(|f| {
                 let bm = self.initial_bitmaps.get(&f.file_id)?;
-                let total_chunks = calc_total_chunks(f.size);
-                let chunks_done = count_completed_in_bitmap(bm, total_chunks);
-                let transferred = bytes_from_bitmap(bm, f.size, total_chunks);
-                Some((f.file_id, (chunks_done, transferred)))
+                let total = calc_total_chunks(f.size);
+                Some((f.file_id, (count_completed_in_bitmap(bm, total), bytes_from_bitmap(bm, f.size, total))))
             })
             .collect();
         tracker.init_files_with_resume(&file_descs, &resume_state);
 
         let progress = Arc::new(Mutex::new(tracker));
-
-        // 收集已完成文件的 URI（Android 端用于前端打开文件）
         let mut file_uris: Vec<serde_json::Value> = Vec::new();
 
         for file_info in &self.files {
             if self.cancel_token.is_cancelled() {
-                let p = progress.lock().await;
-                p.emit_failed(&self.app, "用户取消".into());
-                return Ok(());
+                progress.lock().await.emit_failed(&self.app, "用户取消".into());
+                return Ok(false);
             }
 
             let total_chunks = calc_total_chunks(file_info.size);
@@ -188,20 +193,17 @@ impl ReceiveSession {
                 }
             }
 
-            // 获取此文件的初始 bitmap
             let initial_bitmap = self.initial_bitmaps.get(&file_info.file_id);
             let is_fully_complete = initial_bitmap
                 .map(|bm| count_completed_in_bitmap(bm, total_chunks) >= total_chunks)
                 .unwrap_or(false);
 
-            // 更新进度：标记当前文件为 transferring
             if !is_fully_complete {
                 let mut p = progress.lock().await;
                 p.set_file_transferring(file_info.file_id);
                 p.emit_progress(&self.app);
             }
 
-            // 创建/打开 PartFile
             let part_file = Arc::new(if is_resume {
                 self.sink
                     .open_or_create_part_file(&file_info.relative_path, file_info.size, &self.app)
@@ -212,12 +214,10 @@ impl ReceiveSession {
                     .await?
             });
 
-            // 跟踪已创建的临时文件（用于取消时清理）
             self.created_parts.lock().await.push(part_file.clone());
 
-            // 并发拉取未完成的分块
             let pull_result = if is_fully_complete {
-                Ok(()) // 所有 chunk 已接收，直接进入校验
+                Ok(())
             } else {
                 self.pull_file_chunks(
                     file_info, total_chunks, &part_file, &progress, initial_bitmap,
@@ -232,17 +232,14 @@ impl ReceiveSession {
                 return Err(e);
             }
 
-            // 校验 BLAKE3 并最终化（内部自动关闭写入句柄）
             match part_file
                 .verify_and_finalize(&file_info.checksum, &self.app)
                 .await
             {
                 Ok(_final_path) => {
-                    // 收集 Android 文件 URI（桌面端返回 None，自动跳过）
                     if let Some(value) = part_file.to_uri_value() {
                         file_uris.push(value);
                     }
-                    // 文件已最终化，从跟踪列表移除
                     self.remove_created_part(&part_file).await;
                 }
                 Err(e) => {
@@ -262,7 +259,6 @@ impl ReceiveSession {
             );
         }
 
-        // 所有文件完成，发送 Complete 消息
         let complete_result = self
             .client
             .send_request(
@@ -285,28 +281,30 @@ impl ReceiveSession {
             }
         }
 
-        // DB: 标记接收方会话完成
         if let Some(db) = self.app.try_state::<DatabaseConnection>() {
             if let Err(e) =
                 crate::database::ops::mark_session_completed(&db, self.session_id).await
             {
                 warn!("DB 标记接收完成失败: {}", e);
+                let _ = self.app.emit(
+                    crate::events::TRANSFER_DB_ERROR,
+                    TransferDbErrorEvent {
+                        session_id: self.session_id,
+                        message: format!("保存完成状态失败: {e}"),
+                    },
+                );
             }
         }
 
-        // 获取 Android 保存目录 URI（桌面端返回 None）
         let save_dir_uri = self.sink.resolve_save_dir_uri(&self.app).await;
-
-        // 发射完成事件（含 Android 文件 URI 和目录 URI）
-        let p = progress.lock().await;
-        p.emit_complete(
+        progress.lock().await.emit_complete(
             &self.app,
             Some(self.sink.save_dir_display().into_owned()),
             file_uris,
             save_dir_uri,
         );
 
-        Ok(())
+        Ok(true)
     }
 
     /// 并发拉取单个文件的所有分块
@@ -320,17 +318,32 @@ impl ReceiveSession {
     ) -> AppResult<()> {
         let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_CHUNKS));
         let has_error = Arc::new(AtomicBool::new(false));
-        let error_flag = Arc::new(tokio::sync::Mutex::new(None::<AppError>));
+        let first_error: Arc<tokio::sync::Mutex<Option<AppError>>> =
+            Arc::new(tokio::sync::Mutex::new(None));
 
-        // Bitmap checkpoint 追踪（断点续传：从已有 bitmap 恢复）
         let bitmap_len = (total_chunks as usize).div_ceil(8);
-        let (bitmap, initial_completed, initial_bytes) = if let Some(bm) = initial_bitmap {
-            let completed = count_completed_in_bitmap(bm, total_chunks);
-            let bytes = bytes_from_bitmap(bm, file_info.size, total_chunks);
-            (Arc::new(tokio::sync::Mutex::new(bm.clone())), completed, bytes)
-        } else {
-            (Arc::new(tokio::sync::Mutex::new(vec![0u8; bitmap_len])), 0, 0)
-        };
+        // 验证 DB 恢复的 bitmap 长度，不匹配时重置为全零（防止 DB 损坏或 CHUNK_SIZE 变更）
+        let valid_bitmap = initial_bitmap.filter(|bm| bm.len() == bitmap_len);
+        if initial_bitmap.is_some() && valid_bitmap.is_none() {
+            warn!(
+                "Bitmap 长度不匹配: expected={}, actual={}, 重置为全零 (file_id={})",
+                bitmap_len,
+                initial_bitmap.unwrap().len(),
+                file_info.file_id
+            );
+        }
+        let (initial_completed, initial_bytes) = valid_bitmap
+            .map(|bm| {
+                (
+                    count_completed_in_bitmap(bm, total_chunks),
+                    bytes_from_bitmap(bm, file_info.size, total_chunks),
+                )
+            })
+            .unwrap_or((0, 0));
+        let initial_bm = valid_bitmap
+            .cloned()
+            .unwrap_or_else(|| vec![0u8; bitmap_len]);
+        let bitmap = Arc::new(tokio::sync::Mutex::new(initial_bm));
         let completed_count = Arc::new(AtomicU32::new(initial_completed));
         let file_transferred = Arc::new(AtomicU64::new(initial_bytes));
 
@@ -338,7 +351,7 @@ impl ReceiveSession {
 
         for chunk_index in 0..total_chunks {
             // 跳过已完成的 chunk（断点续传）
-            if let Some(bm) = initial_bitmap {
+            if let Some(bm) = valid_bitmap {
                 if is_chunk_completed(bm, chunk_index) {
                     continue;
                 }
@@ -357,8 +370,8 @@ impl ReceiveSession {
             let file_id = file_info.file_id;
             let part_file = part_file.clone();
             let progress = progress.clone();
-            let err_flag = error_flag.clone();
-            let has_err = has_error.clone();
+            let has_error = has_error.clone();
+            let first_error = first_error.clone();
             let cancel = self.cancel_token.clone();
             let bitmap = bitmap.clone();
             let completed_count = completed_count.clone();
@@ -367,12 +380,7 @@ impl ReceiveSession {
             let handle = tokio::spawn(async move {
                 let _permit = permit;
 
-                if cancel.is_cancelled() {
-                    return;
-                }
-
-                // 快速检查是否已有错误（无锁路径）
-                if has_err.load(Ordering::Relaxed) {
+                if cancel.is_cancelled() || has_error.load(Ordering::Relaxed) {
                     return;
                 }
 
@@ -382,35 +390,37 @@ impl ReceiveSession {
 
                 match result {
                     Ok(chunk_size) => {
-                        let mut p = progress.lock().await;
-                        p.add_bytes(chunk_size as u64);
-                        p.update_file_chunk(file_id, chunk_size as u64);
-                        p.emit_progress(&session.app);
-                        drop(p);
-
-                        // 更新 bitmap（标记此 chunk 完成）
                         {
+                            let mut p = progress.lock().await;
+                            p.add_bytes(chunk_size as u64);
+                            p.update_file_chunk(file_id, chunk_size as u64);
+                            p.emit_progress(&session.app);
+                        }
+
+                        // 单次锁获取：标记 bitmap + 可选 checkpoint 克隆
+                        let checkpoint_bm = {
                             let mut bm = bitmap.lock().await;
                             mark_chunk_completed(&mut bm, chunk_index);
-                        }
-                        file_transferred.fetch_add(chunk_size as u64, Ordering::Relaxed);
+                            file_transferred.fetch_add(chunk_size as u64, Ordering::Relaxed);
+                            let count = completed_count.fetch_add(1, Ordering::Relaxed) + 1;
+                            if count.is_multiple_of(CHECKPOINT_INTERVAL) {
+                                Some(bm.clone())
+                            } else {
+                                None
+                            }
+                        };
 
-                        // 每 CHECKPOINT_INTERVAL 个 chunk 刷写 bitmap 到 DB
-                        let count = completed_count.fetch_add(1, Ordering::Relaxed) + 1;
-                        if count.is_multiple_of(CHECKPOINT_INTERVAL) {
+                        if let Some(bm) = checkpoint_bm {
                             if let Some(db) = session.app.try_state::<DatabaseConnection>() {
-                                let bm = bitmap.lock().await.clone();
-                                let bytes =
-                                    file_transferred.load(Ordering::Relaxed);
-                                if let Err(e) =
-                                    crate::database::ops::update_file_checkpoint(
-                                        &db,
-                                        session.session_id,
-                                        file_id as i32,
-                                        bm,
-                                        bytes as i64,
-                                    )
-                                    .await
+                                let bytes = file_transferred.load(Ordering::Relaxed);
+                                if let Err(e) = crate::database::ops::update_file_checkpoint(
+                                    &db,
+                                    session.session_id,
+                                    file_id as i32,
+                                    bm,
+                                    bytes as i64,
+                                )
+                                .await
                                 {
                                     warn!("Bitmap checkpoint 刷写失败: {}", e);
                                 }
@@ -418,8 +428,8 @@ impl ReceiveSession {
                         }
                     }
                     Err(e) => {
-                        has_err.store(true, Ordering::Relaxed);
-                        let mut flag = err_flag.lock().await;
+                        has_error.store(true, Ordering::Relaxed);
+                        let mut flag = first_error.lock().await;
                         if flag.is_none() {
                             *flag = Some(e);
                         }
@@ -431,13 +441,13 @@ impl ReceiveSession {
             handles.push(handle);
         }
 
-        // 等待所有任务完成
         for handle in handles {
             let _ = handle.await;
         }
 
-        // 如果被取消/暂停，最终刷写 bitmap（确保进度不丢失）
-        if self.cancel_token.is_cancelled() {
+        // 无论是取消、错误还是正常完成，都刷写最终 bitmap，确保已完成的 chunk 不丢失
+        let has_error = first_error.lock().await.is_some();
+        if self.cancel_token.is_cancelled() || has_error {
             if let Some(db) = self.app.try_state::<DatabaseConnection>() {
                 let bm = bitmap.lock().await.clone();
                 let bytes = file_transferred.load(Ordering::Relaxed);
@@ -450,14 +460,12 @@ impl ReceiveSession {
                 )
                 .await
                 {
-                    warn!("暂停/取消 bitmap 最终刷写失败: {}", e);
+                    warn!("bitmap 最终刷写失败: {}", e);
                 }
             }
         }
 
-        // 检查错误
-        let error = error_flag.lock().await.take();
-        if let Some(e) = error {
+        if let Some(e) = first_error.lock().await.take() {
             return Err(e);
         }
 
@@ -506,15 +514,23 @@ impl ReceiveSession {
                 Ok(AppResponse::Transfer(TransferResponse::Chunk {
                     data, ..
                 })) => {
-                    // 解密
-                    let plaintext = self
+                    // 解密——失败时纳入重试（数据可能在传输中损坏）
+                    let plaintext = match self
                         .crypto
                         .decrypt_chunk(&self.session_id, file_id, chunk_index, &data)
-                        .map_err(|e| {
-                            AppError::Transfer(format!(
+                    {
+                        Ok(p) => p,
+                        Err(e) => {
+                            warn!(
+                                "解密失败，将重试: file_id={}, chunk={}, {}",
+                                file_id, chunk_index, e
+                            );
+                            last_error = Some(AppError::Transfer(format!(
                                 "解密失败: file_id={file_id}, chunk={chunk_index}, {e}"
-                            ))
-                        })?;
+                            )));
+                            continue;
+                        }
+                    };
 
                     let chunk_size = plaintext.len();
 
@@ -522,6 +538,11 @@ impl ReceiveSession {
                     part_file.write_chunk(chunk_index, &plaintext).await?;
 
                     return Ok(chunk_size);
+                }
+                Ok(AppResponse::Transfer(TransferResponse::ChunkError { error, .. })) => {
+                    last_error = Some(AppError::Transfer(format!(
+                        "发送方报告错误: {error}"
+                    )));
                 }
                 Ok(other) => {
                     last_error = Some(AppError::Transfer(format!(
@@ -560,6 +581,16 @@ impl ReceiveSession {
     /// 主动取消
     pub fn cancel(&self) {
         self.cancel_token.cancel();
+    }
+
+    /// 取消并等待后台任务完成（含最终 bitmap 刷写），最多等 5 秒
+    pub async fn cancel_and_wait(&self) {
+        self.cancel_token.cancel();
+        let _ = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            self.wait_finished(),
+        )
+        .await;
     }
 
     /// 获取取消令牌

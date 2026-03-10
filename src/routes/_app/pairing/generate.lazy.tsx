@@ -37,7 +37,7 @@ function PairingGeneratePage() {
 
   // 进入页面时生成配对码
   useEffect(() => {
-    void generateCode();
+    generateCode();
     return () => {
       usePairingStore.getState().reset();
     };
@@ -46,7 +46,7 @@ function PairingGeneratePage() {
   // 配对成功后自动返回
   useEffect(() => {
     if (current.phase === "success") {
-      void navigate({ to: "/devices" });
+      navigate({ to: "/devices" });
     }
   }, [current.phase, navigate]);
 
@@ -92,7 +92,7 @@ function PairingGeneratePage() {
   }, [codeInfo]);
 
   const handleBack = () => {
-    void navigate({ to: "/devices" });
+    navigate({ to: "/devices" });
   };
 
   const codeDigits = codeInfo?.code.split("") ?? [];
@@ -182,7 +182,7 @@ function PairingGeneratePage() {
             </Button>
             {isExpired || errorMessage ? (
               <Button
-                onClick={() => void regenerateCode()}
+                onClick={() => regenerateCode()}
                 className="bg-blue-600 hover:bg-blue-700"
               >
                 <RefreshCw className="size-4" />
@@ -190,7 +190,7 @@ function PairingGeneratePage() {
               </Button>
             ) : (
               <Button
-                onClick={() => void handleCopy()}
+                onClick={() => handleCopy()}
                 disabled={isLoading || !codeInfo}
                 className="bg-blue-600 hover:bg-blue-700"
               >

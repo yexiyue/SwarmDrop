@@ -13,10 +13,8 @@ msgstr ""
 "Language-Team: \n"
 "Plural-Forms: \n"
 
-#. placeholder {0}: config.label
 #. placeholder {0}: feature.text
 #: src/components/network/start-node-sheet.tsx
-#: src/routes/_app/transfer/$sessionId.lazy.tsx
 msgid "{0}"
 msgstr "{0}"
 
@@ -94,6 +92,7 @@ msgstr "Downloading..."
 #~ msgid "下载完成后将自动安装并重启"
 #~ msgstr "Will auto-install and restart after download"
 
+#: src/routes/_app/transfer/-history-item.tsx
 #: src/routes/_app/transfer/-transfer-item.tsx
 #: src/routes/_app/transfer/$sessionId.lazy.tsx
 msgid "个文件"
@@ -119,6 +118,15 @@ msgid "传输"
 msgstr "Transfer"
 
 #: src/routes/_app/transfer/$sessionId.lazy.tsx
+msgid "传输中"
+msgstr "Transferring"
+
+#: src/routes/_app/transfer/index.lazy.tsx
+msgid "传输历史"
+msgstr "Transfer History"
+
+#: src/routes/_app/transfer/-history-item.tsx
+#: src/routes/_app/transfer/$sessionId.lazy.tsx
 msgid "传输失败"
 msgstr "Transfer Failed"
 
@@ -126,7 +134,6 @@ msgstr "Transfer Failed"
 msgid "传输记录不存在"
 msgstr "Transfer record not found"
 
-#: src/routes/_app/transfer/$sessionId.lazy.tsx
 #: src/routes/_app/transfer/$sessionId.lazy.tsx
 #: src/routes/_app/transfer/$sessionId.lazy.tsx
 #: src/routes/_app/transfer/$sessionId.lazy.tsx
@@ -154,7 +161,6 @@ msgid "保存位置"
 msgstr "Save Location"
 
 #: src/components/transfer/transfer-offer-dialog.tsx
-#: src/routes/_app/receive/index.lazy.tsx
 msgid "保存到"
 msgstr "Save to"
 
@@ -178,6 +184,10 @@ msgstr ""
 #: src/components/network/stop-node-sheet.tsx
 msgid "停止节点"
 msgstr "Stop Node"
+
+#: src/routes/_app/transfer/index.lazy.tsx
+msgid "全部"
+msgstr "All"
 
 #: src/components/transfer/file-list.tsx
 #: src/routes/_app/receive.lazy.tsx
@@ -206,8 +216,8 @@ msgstr "Enter password again"
 #~ msgstr "Latest Version"
 
 #: src/routes/_app/transfer/index.lazy.tsx
-msgid "最近完成"
-msgstr "Recently Completed"
+#~ msgid "最近完成"
+#~ msgstr "Recently Completed"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "创建中..."
@@ -237,8 +247,8 @@ msgid "包含字母和数字"
 msgstr "Contains letters and numbers"
 
 #: src/routes/_app/send/index.lazy.tsx
-msgid "去配对"
-msgstr "Pair Again"
+#~ msgid "去配对"
+#~ msgstr "Pair Again"
 
 #: src/components/upgrade/prompt-update-dialog.tsx
 msgid "发现新版本"
@@ -259,7 +269,9 @@ msgstr "Send"
 msgid "发送中..."
 msgstr "Sending..."
 
+#. placeholder {0}: item.peerName
 #. placeholder {0}: session.deviceName
+#: src/routes/_app/transfer/-history-item.tsx
 #: src/routes/_app/transfer/-transfer-item.tsx
 #: src/routes/_app/transfer/$sessionId.lazy.tsx
 msgid "发送到 {0}"
@@ -347,7 +359,6 @@ msgstr "Enter the following pairing code on the other device"
 msgid "在另一台设备上输入此配对码"
 msgstr "Enter this pairing code on the other device"
 
-#: src/components/layout/sidebar.tsx
 #: src/routes/_app/devices/-components/device-card.tsx
 #: src/routes/_app/devices/-components/device-card.tsx
 msgid "在线"
@@ -362,8 +373,6 @@ msgid "地址需以 / 开头且包含 /p2p/ 部分"
 msgstr "Address must start with / and contain /p2p/"
 
 #: src/components/transfer/transfer-offer-dialog.tsx
-#: src/routes/_app/receive/index.lazy.tsx
-#: src/routes/_app/receive/index.lazy.tsx
 msgid "处理中..."
 msgstr "Processing..."
 
@@ -376,6 +385,8 @@ msgid "外观"
 msgstr "Appearance"
 
 #: src/routes/_app/send/-components/file-tree-item.tsx
+#: src/routes/_app/transfer/$sessionId.lazy.tsx
+#: src/routes/_app/transfer/index.lazy.tsx
 msgid "失败"
 msgstr "Failed"
 
@@ -404,7 +415,7 @@ msgstr "Password Requirements"
 msgid "密码错误"
 msgstr "Wrong password"
 
-#: src/routes/_app/send/index.lazy.tsx
+#: src/stores/transfer-store.ts
 msgid "对方拒绝了请求"
 msgstr "Request was declined"
 
@@ -444,7 +455,10 @@ msgstr "Paired with {deviceName} successfully"
 msgid "已发现节点"
 msgstr "Discovered Peers"
 
+#: src/routes/_app/transfer/-history-item.tsx
 #: src/routes/_app/transfer/-transfer-item.tsx
+#: src/routes/_app/transfer/$sessionId.lazy.tsx
+#: src/routes/_app/transfer/index.lazy.tsx
 msgid "已取消"
 msgstr "Canceled"
 
@@ -452,10 +466,24 @@ msgstr "Canceled"
 msgid "已复制"
 msgstr "Copied"
 
+#: src/routes/_app/transfer/$sessionId.lazy.tsx
+#: src/routes/_app/transfer/index.lazy.tsx
+msgid "已完成"
+msgstr "Completed"
+
 #. placeholder {0}: osInfo.hostname
 #: src/stores/pairing-store.ts
 msgid "已拒绝来自 {0} 的配对请求"
 msgstr "Declined pairing request from {0}"
+
+#: src/routes/_app/transfer/-history-item.tsx
+#: src/routes/_app/transfer/index.lazy.tsx
+msgid "已暂停"
+msgstr "Paused"
+
+#: src/routes/_app/transfer/index.lazy.tsx
+msgid "已清空传输历史"
+msgstr "Transfer history cleared"
 
 #: src/components/network/start-node-sheet.tsx
 #: src/components/network/stop-node-sheet.tsx
@@ -508,9 +536,17 @@ msgstr "Version {currentVersion} is no longer supported. Please update to the la
 #~ msgid "当前版本过旧，无法正常使用"
 #~ msgstr "Current version is too old to function properly"
 
+#: src/routes/_app/receive/index.lazy.tsx
+msgid "当有设备向你发送文件时，会弹出确认对话框"
+msgstr "A confirmation dialog will appear when a device sends you files"
+
 #: src/routes/_app/transfer/$sessionId.lazy.tsx
 msgid "总大小"
 msgstr "Total Size"
+
+#: src/routes/_app/transfer/-history-item.tsx
+msgid "恢复"
+msgstr "Resume"
 
 #: src/routes/_app/transfer/$sessionId.lazy.tsx
 msgid "所有文件传输完成！"
@@ -531,8 +567,6 @@ msgstr "Direct"
 
 #: src/components/pairing/connection-request-dialog.tsx
 #: src/components/transfer/transfer-offer-dialog.tsx
-#: src/routes/_app/receive/index.lazy.tsx
-#: src/routes/_app/receive/index.lazy.tsx
 msgid "拒绝"
 msgstr "Decline"
 
@@ -545,14 +579,13 @@ msgid "接受配对"
 msgstr "Accept"
 
 #: src/components/transfer/transfer-offer-dialog.tsx
-#: src/routes/_app/receive/index.lazy.tsx
-#: src/routes/_app/receive/index.lazy.tsx
 msgid "接收"
 msgstr "Accept"
 
-#: src/components/layout/nav-items.ts
-#~ msgid "接收文件"
-#~ msgstr "Receive Files"
+#: src/routes/_app/receive/index.lazy.tsx
+#: src/routes/_app/receive/index.lazy.tsx
+msgid "接收文件"
+msgstr "Receive Files"
 
 #: src/routes/_app/settings/-transfer-settings-section.tsx
 msgid "接收文件的默认保存位置"
@@ -567,8 +600,6 @@ msgid "操作系统"
 msgstr "OS"
 
 #: src/components/transfer/transfer-offer-dialog.tsx
-#: src/routes/_app/receive/index.lazy.tsx
-#: src/routes/_app/receive/index.lazy.tsx
 msgid "收到文件"
 msgstr "Files Received"
 
@@ -601,12 +632,15 @@ msgstr "Cannot retrieve password"
 msgid "无需服务器"
 msgstr "No server required"
 
+#: src/routes/_app/transfer/$sessionId.lazy.tsx
+msgid "暂停传输"
+msgstr "Pause Transfer"
+
 #: src/routes/_app/transfer/index.lazy.tsx
 msgid "暂无传输记录"
 msgstr "No transfer history"
 
 #: src/components/transfer/transfer-offer-dialog.tsx
-#: src/routes/_app/receive/index.lazy.tsx
 msgid "更改"
 msgstr "Change"
 
@@ -642,19 +676,18 @@ msgid "未配对"
 msgstr "Not Paired"
 
 #. placeholder {0}: currentOffer.deviceName
-#. placeholder {0}: offer.deviceName
+#. placeholder {0}: item.peerName
 #. placeholder {0}: session.deviceName
 #: src/components/transfer/transfer-offer-dialog.tsx
-#: src/routes/_app/receive/index.lazy.tsx
+#: src/routes/_app/transfer/-history-item.tsx
 #: src/routes/_app/transfer/-transfer-item.tsx
 #: src/routes/_app/transfer/$sessionId.lazy.tsx
 msgid "来自 {0}"
 msgstr "From {0}"
 
-#. placeholder {0}: offer.deviceName
 #: src/routes/_app/receive/index.lazy.tsx
-msgid "来自：{0}"
-msgstr "From: {0}"
+#~ msgid "来自：{0}"
+#~ msgstr "From: {0}"
 
 #: src/routes/_app/pairing/-components/mobile-input-code-view.tsx
 #: src/stores/pairing-store.ts
@@ -731,10 +764,12 @@ msgstr "This password protects your device identity. Please keep it safe"
 msgid "活跃传输"
 msgstr "Active Transfers"
 
+#: src/components/layout/sidebar.tsx
 #: src/routes/_app/settings/index.lazy.tsx
 msgid "浅色"
 msgstr "Light"
 
+#: src/components/layout/sidebar.tsx
 #: src/routes/_app/settings/index.lazy.tsx
 msgid "深色"
 msgstr "Dark"
@@ -755,6 +790,10 @@ msgstr "Add Custom Bootstrap Node"
 #: src/routes/_app/pairing/index.lazy.tsx
 msgid "添加设备"
 msgstr "Add Device"
+
+#: src/routes/_app/transfer/index.lazy.tsx
+msgid "清空"
+msgstr "Clear"
 
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "点对点直连，无需注册账号"
@@ -822,7 +861,6 @@ msgstr "Confirm Unpair"
 msgid "确认密码"
 msgstr "Confirm Password"
 
-#: src/components/layout/sidebar.tsx
 #: src/routes/_app/devices/-components/device-card.tsx
 #: src/routes/_app/devices/-components/device-card.tsx
 msgid "离线"
@@ -845,9 +883,17 @@ msgstr "Update Now"
 msgid "端到端加密"
 msgstr "End-to-End Encryption"
 
+#: src/routes/_app/transfer/$sessionId.lazy.tsx
+msgid "等待中"
+msgstr "Waiting"
+
 #: src/routes/_app/receive/index.lazy.tsx
-msgid "等待传输请求..."
-msgstr "Waiting for transfer requests..."
+#~ msgid "等待传输请求..."
+#~ msgstr "Waiting for transfer requests..."
+
+#: src/routes/_app/receive/index.lazy.tsx
+msgid "等待对方发送文件"
+msgstr "Waiting for sender to send files"
 
 #: src/routes/_app/pairing/-device-found-view.tsx
 #: src/routes/_app/pairing/-device-found-view.tsx
@@ -855,6 +901,10 @@ msgstr "Waiting for transfer requests..."
 #: src/routes/_app/transfer/$sessionId.lazy.tsx
 msgid "等待对方确认..."
 msgstr "Waiting for confirmation..."
+
+#: src/routes/_app/transfer/$sessionId.lazy.tsx
+msgid "等待确认"
+msgstr "Waiting for confirmation"
 
 #: src/components/network/start-node-sheet.tsx
 #: src/components/network/stop-node-sheet.tsx
@@ -937,7 +987,7 @@ msgstr "Device Info"
 msgid "设备在线，可以建立连接"
 msgstr "Device online, ready to connect"
 
-#: src/routes/_app/send/index.lazy.tsx
+#: src/stores/transfer-store.ts
 msgid "设备已取消配对"
 msgstr "Device has been unpaired"
 
@@ -971,6 +1021,7 @@ msgstr "Please start the network node first"
 msgid "请先启动节点"
 msgstr "Please start the node first"
 
+#: src/components/layout/sidebar.tsx
 #: src/routes/_app/settings/index.lazy.tsx
 msgid "跟随系统"
 msgstr "System"
@@ -1024,8 +1075,8 @@ msgid "连接"
 msgstr "Connect"
 
 #: src/components/layout/sidebar.tsx
-msgid "连接中"
-msgstr "Connecting"
+#~ msgid "连接中"
+#~ msgstr "Connecting"
 
 #: src/routes/_app/pairing/input.lazy.tsx
 #: src/routes/_app/pairing/input.lazy.tsx
@@ -1107,7 +1158,6 @@ msgstr "Failed to restart node"
 msgid "重新生成"
 msgstr "Regenerate"
 
-#: src/components/layout/sidebar.tsx
 #: src/components/network/stop-node-sheet.tsx
 msgid "错误"
 msgstr "Error"
