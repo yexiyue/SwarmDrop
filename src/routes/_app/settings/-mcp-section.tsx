@@ -43,20 +43,22 @@ export function McpSection() {
     setIsMobile(p === "android" || p === "ios");
   }, []);
 
-  // 移动端不显示 MCP 配置
-  if (isMobile) {
-    return null;
-  }
-
   // 挂载时查询后端真实状态
   useEffect(() => {
-    getMcpStatus().then(setStatus).catch(() => {});
-  }, []);
+    if (!isMobile) {
+      getMcpStatus().then(setStatus).catch(() => {});
+    }
+  }, [isMobile]);
 
   // mcpPort 变更时同步 portInput（hydration 后）
   useEffect(() => {
     setPortInput(String(mcpPort));
   }, [mcpPort]);
+
+  // 移动端不显示 MCP 配置（所有 hooks 必须在此之前）
+  if (isMobile) {
+    return null;
+  }
 
   const handleToggle = useCallback(async () => {
     setLoading(true);
