@@ -24,8 +24,6 @@ import {
 } from "@/components/responsive-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { Card, CardContent } from "@/components/ui/card";
 import type { NodeStatus } from "@/stores/network-store";
 
 interface StopNodeSheetProps {
@@ -200,88 +198,102 @@ function StopNodeContent({
     );
   }
 
-  // 桌面端：与现有 NetworkDialog 运行状态布局一致
+  // 桌面端
   return (
     <>
-      <ResponsiveDialogHeader>
+      <ResponsiveDialogHeader className="items-center text-center">
+        <div className="flex size-14 items-center justify-center rounded-full bg-red-100 dark:bg-red-500/15">
+          <Power className="size-6 text-red-600 dark:text-red-400" />
+        </div>
         <ResponsiveDialogTitle>
-          <Trans>网络节点</Trans>
+          <Trans>停止 P2P 节点</Trans>
         </ResponsiveDialogTitle>
         <ResponsiveDialogDescription>
-          <Trans>管理 P2P 网络节点的启动和连接状态</Trans>
+          <Trans>停止后将断开所有连接，其他设备将无法发现你。</Trans>
         </ResponsiveDialogDescription>
       </ResponsiveDialogHeader>
 
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">
-            <Trans>节点状态</Trans>
-          </span>
-          <Badge variant="outline" className={cn("gap-1.5", config.className)}>
-            <span className={cn("size-2 rounded-full", config.dotColor)} />
-            {t(config.label)}
-          </Badge>
+      <div className="flex flex-col gap-3">
+        {/* 节点信息卡片 */}
+        <div className="overflow-hidden rounded-xl border border-border">
+          {/* 状态 */}
+          <div className="flex items-center justify-between px-4 py-3">
+            <span className="text-sm text-muted-foreground">
+              <Trans>节点状态</Trans>
+            </span>
+            <Badge variant="outline" className={cn("gap-1.5", config.className)}>
+              <span className={cn("size-2 rounded-full", config.dotColor)} />
+              {t(config.label)}
+            </Badge>
+          </div>
+          {/* Peer ID */}
+          <div className="flex items-center justify-between border-t border-border px-4 py-3">
+            <span className="text-sm text-muted-foreground">Peer ID</span>
+            <code className="font-mono text-sm text-foreground">
+              {truncatedPeerId}
+            </code>
+          </div>
+          {/* 运行时长 */}
+          <div className="flex items-center justify-between border-t border-border px-4 py-3">
+            <span className="text-sm text-muted-foreground">
+              <Trans>运行时长</Trans>
+            </span>
+            <span className="text-sm font-medium text-foreground">
+              {uptimeText}
+            </span>
+          </div>
         </div>
 
-        <Separator />
-
-        <div className="flex flex-col gap-2">
-          <span className="text-sm text-muted-foreground">
-            <Trans>监听地址</Trans>
-          </span>
-          <Card className="gap-0 overflow-hidden bg-muted/50 py-0">
-            <CardContent className="max-h-40 overflow-y-auto p-3">
-              {listenAddrs.length > 0 ? (
-                <div className="flex flex-col gap-1">
-                  {listenAddrs.map((addr, i) => (
-                    <code
-                      key={i}
-                      className={cn(
-                        "break-all font-mono text-xs",
-                        i === 0 ? "text-foreground" : "text-muted-foreground",
-                      )}
-                    >
-                      {addr}
-                    </code>
-                  ))}
-                </div>
-              ) : (
-                <span className="text-sm text-muted-foreground">
-                  <Trans>节点未启动</Trans>
-                </span>
-              )}
-            </CardContent>
-          </Card>
+        {/* 统计数据 */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col items-center gap-1 rounded-xl border border-border py-3">
+            <span className="text-2xl font-bold text-foreground">
+              {connectedCount}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              <Trans>已连接节点</Trans>
+            </span>
+          </div>
+          <div className="flex flex-col items-center gap-1 rounded-xl border border-border py-3">
+            <span className="text-2xl font-bold text-foreground">
+              {discoveredCount}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              <Trans>已发现节点</Trans>
+            </span>
+          </div>
         </div>
 
-        <Separator />
-
-        <div className="grid grid-cols-2 gap-4">
-          <Card className="gap-0 bg-muted/50 py-0">
-            <CardContent className="flex flex-col gap-1 p-3">
-              <span className="text-xs text-muted-foreground">
-                <Trans>已连接节点</Trans>
+        {/* 监听地址（折叠） */}
+        {listenAddrs.length > 0 && (
+          <details className="group rounded-xl border border-border">
+            <summary className="flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground">
+              <Trans>监听地址</Trans>
+              <span className="text-xs tabular-nums">
+                {listenAddrs.length}
               </span>
-              <span className="text-2xl font-semibold text-foreground">
-                {connectedCount}
-              </span>
-            </CardContent>
-          </Card>
-          <Card className="gap-0 bg-muted/50 py-0">
-            <CardContent className="flex flex-col gap-1 p-3">
-              <span className="text-xs text-muted-foreground">
-                <Trans>已发现节点</Trans>
-              </span>
-              <span className="text-2xl font-semibold text-foreground">
-                {discoveredCount}
-              </span>
-            </CardContent>
-          </Card>
-        </div>
+            </summary>
+            <div className="max-h-32 overflow-y-auto border-t border-border px-4 py-2.5">
+              <div className="flex flex-col gap-1">
+                {listenAddrs.map((addr, i) => (
+                  <code
+                    key={i}
+                    className="break-all font-mono text-[11px] leading-relaxed text-muted-foreground"
+                  >
+                    {addr}
+                  </code>
+                ))}
+              </div>
+            </div>
+          </details>
+        )}
       </div>
 
-      <ResponsiveDialogFooter>
-        <Button variant="destructive" onClick={onStop}>
+      <ResponsiveDialogFooter className="flex gap-2 sm:flex-row">
+        <Button variant="outline" onClick={onCancel} className="flex-1">
+          <Trans>取消</Trans>
+        </Button>
+        <Button variant="destructive" onClick={onStop} className="flex-1">
           <Trans>停止节点</Trans>
         </Button>
       </ResponsiveDialogFooter>
