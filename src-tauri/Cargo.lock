@@ -2069,6 +2069,7 @@ version = "0.1.0"
 dependencies = [
  "sea-orm",
  "serde",
+ "serde_json",
  "strum",
 ]
 
@@ -7804,7 +7805,7 @@ dependencies = [
 
 [[package]]
 name = "swarmdrop"
-version = "0.4.1"
+version = "0.4.3"
 dependencies = [
  "axum",
  "blake3",

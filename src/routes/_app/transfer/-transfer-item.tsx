@@ -228,7 +228,7 @@ export const TransferItem = memo(function TransferItem({
       {session.status === "completed" && session.completedAt && (
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>{formatRelativeTime(session.completedAt)}</span>
-          {session.savePath && (
+          {session.saveLocation && (
             <Button
               size="sm"
               variant="ghost"

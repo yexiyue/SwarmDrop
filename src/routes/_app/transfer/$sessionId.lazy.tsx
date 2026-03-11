@@ -66,7 +66,7 @@ function historyToSession(item: TransferHistoryItem): TransferSession {
     error: item.errorMessage,
     startedAt: item.startedAt,
     completedAt: item.finishedAt,
-    savePath: item.savePath ?? undefined,
+    saveLocation: item.savePath ?? undefined,
   };
 }
 
@@ -371,7 +371,7 @@ const TransferActions = memo(function TransferActions({
     );
   }
 
-  if (session.status === "completed" && session.savePath) {
+  if (session.status === "completed" && session.saveLocation) {
     return (
       <Button onClick={handleOpenFolder} className="w-full">
         <FolderOpen className="mr-2 size-4" />

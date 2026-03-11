@@ -41,6 +41,18 @@ msgstr "{label} timed out ({0}s)"
 msgid "CPU 架构"
 msgstr "CPU Architecture"
 
+#: src/routes/_app/settings/-mcp-section.tsx
+msgid "MCP Server 已停止"
+msgstr "MCP Server stopped"
+
+#: src/routes/_app/settings/-mcp-section.tsx
+msgid "MCP Server 已启动"
+msgstr "MCP Server started"
+
+#: src/routes/_app/settings/-mcp-section.tsx
+msgid "MCP Server 的 HTTP 端口号"
+msgstr "MCP Server HTTP port"
+
 #: src/routes/_app/devices/-components/network-status-bar.tsx
 msgid "NAT"
 msgstr "NAT"
@@ -48,6 +60,10 @@ msgstr "NAT"
 #: src/components/ForceUpdateDialog.tsx
 #~ msgid "P2P 协议已变更，旧版本无法与其他设备通信"
 #~ msgstr "P2P protocol has changed, old versions cannot communicate with other devices"
+
+#: src/routes/_app/settings/-mcp-section.tsx
+msgid "P2P 节点启动时自动启动 MCP Server"
+msgstr "Auto-start MCP Server when P2P node starts"
 
 #: src/routes/_app/devices/-components/network-status-bar.tsx
 msgid "P2P 节点未启动"
@@ -79,8 +95,8 @@ msgid "下一步"
 msgstr "Next"
 
 #: src/routes/_app/settings/-about-section.tsx
-msgid "下载中"
-msgstr "Downloading"
+#~ msgid "下载中"
+#~ msgstr "Downloading"
 
 #: src/components/upgrade/force-update-dialog.tsx
 #: src/components/upgrade/prompt-update-dialog.tsx
@@ -165,6 +181,7 @@ msgid "保存到"
 msgstr "Save to"
 
 #: src/routes/_app/devices/-components/network-status-bar.tsx
+#: src/routes/_app/settings/-mcp-section.tsx
 msgid "停止"
 msgstr "Stop"
 
@@ -233,8 +250,8 @@ msgid "到 {0}"
 msgstr "To {0}"
 
 #: src/routes/_app/settings/-about-section.tsx
-msgid "前往下载"
-msgstr "Go to Download"
+#~ msgid "前往下载"
+#~ msgstr "Go to Download"
 
 #. placeholder {0}: formatDuration(session.progress.eta)
 #: src/routes/_app/transfer/-transfer-item.tsx
@@ -313,6 +330,7 @@ msgid "取消配对"
 msgstr "Unpair"
 
 #: src/components/network/start-node-sheet.tsx
+#: src/routes/_app/settings/-mcp-section.tsx
 #: src/stores/pairing-store.ts
 msgid "启动"
 msgstr "Start"
@@ -333,6 +351,10 @@ msgstr "Starting"
 #: src/components/network/start-node-sheet.tsx
 msgid "启动中..."
 msgstr "Starting..."
+
+#: src/routes/_app/settings/-mcp-section.tsx
+msgid "启动后可供 AI 助手通过 MCP 协议操控文件传输"
+msgstr "Once started, AI assistants can control file transfers via the MCP protocol"
 
 #: src/components/network/start-node-sheet.tsx
 #: src/routes/_app/devices/-components/offline-empty-state.tsx
@@ -373,8 +395,13 @@ msgid "地址需以 / 开头且包含 /p2p/ 部分"
 msgstr "Address must start with / and contain /p2p/"
 
 #: src/components/transfer/transfer-offer-dialog.tsx
+#: src/routes/_app/settings/-mcp-section.tsx
 msgid "处理中..."
 msgstr "Processing..."
+
+#: src/routes/_app/settings/-mcp-section.tsx
+msgid "复制"
+msgstr "Copy"
 
 #: src/routes/_app/pairing/generate.lazy.tsx
 msgid "复制配对码"
@@ -393,6 +420,10 @@ msgstr "Failed"
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "安全、快速的跨网络文件传输"
 msgstr "Secure and fast cross-network file transfer"
+
+#: src/routes/_app/settings/-mcp-section.tsx
+msgid "客户端配置"
+msgstr "Client Configuration"
 
 #: src/routes/_auth/setup-password.lazy.tsx
 msgid "密码"
@@ -423,6 +454,10 @@ msgstr "Request was declined"
 msgid "对方拒绝了配对请求"
 msgstr "Pairing request was declined"
 
+#: src/routes/_app/settings/-mcp-section.tsx
+msgid "将以下 JSON 添加到 AI 客户端（如 Claude Desktop、Cursor）的 MCP 配置中"
+msgstr "Add the following JSON to your AI client's MCP configuration (e.g. Claude Desktop, Cursor)"
+
 #: src/components/network/start-node-sheet.tsx
 msgid ""
 "将连接到 SwarmDrop 网络，\n"
@@ -450,6 +485,10 @@ msgstr "Paired with {0} successfully"
 msgid "已与 {deviceName} 配对成功"
 msgstr "Paired with {deviceName} successfully"
 
+#: src/routes/_app/settings/-mcp-section.tsx
+msgid "已停止"
+msgstr "Stopped"
+
 #: src/components/network/start-node-sheet.tsx
 #: src/components/network/stop-node-sheet.tsx
 msgid "已发现节点"
@@ -463,8 +502,13 @@ msgid "已取消"
 msgstr "Canceled"
 
 #: src/routes/_app/pairing/generate.lazy.tsx
+#: src/routes/_app/settings/-mcp-section.tsx
 msgid "已复制"
 msgstr "Copied"
+
+#: src/routes/_app/settings/-mcp-section.tsx
+msgid "已复制到剪贴板"
+msgstr "Copied to clipboard"
 
 #: src/routes/_app/transfer/$sessionId.lazy.tsx
 #: src/routes/_app/transfer/index.lazy.tsx
@@ -555,6 +599,10 @@ msgstr "All files transferred successfully!"
 #: src/components/network/stop-node-sheet.tsx
 msgid "所有活跃连接将被断开"
 msgstr "All active connections will be disconnected"
+
+#: src/lib/file-picker.ts
+msgid "打开保存目录失败"
+msgstr "Failed to open save directory"
 
 #: src/routes/_app/transfer/-transfer-item.tsx
 #: src/routes/_app/transfer/$sessionId.lazy.tsx
@@ -661,6 +709,10 @@ msgstr "Update to v{0}"
 msgid "更新日志"
 msgstr "Release Notes"
 
+#: src/routes/_app/settings/-mcp-section.tsx
+msgid "服务状态"
+msgstr "Service Status"
+
 #: src/components/network/start-node-sheet.tsx
 #: src/components/network/stop-node-sheet.tsx
 msgid "未启动"
@@ -695,14 +747,13 @@ msgid "查找设备"
 msgstr "Find Device"
 
 #: src/routes/_app/settings/-about-section.tsx
-msgid "检查中"
-msgstr "Checking"
+#~ msgid "检查中"
+#~ msgstr "Checking"
 
 #: src/routes/_app/settings/-about-section.tsx
 msgid "检查中..."
 msgstr "Checking..."
 
-#: src/routes/_app/settings/-about-section.tsx
 #: src/routes/_app/settings/-about-section.tsx
 msgid "检查更新"
 msgstr "Check for Updates"
@@ -845,6 +896,15 @@ msgstr "Duration"
 msgid "监听地址"
 msgstr "Listening Addresses"
 
+#. placeholder {0}: status.addr
+#: src/routes/_app/settings/-mcp-section.tsx
+msgid "监听地址: {0}"
+msgstr "Listening address: {0}"
+
+#: src/routes/_app/settings/-mcp-section.tsx
+msgid "监听端口"
+msgstr "Listening Port"
+
 #: src/routes/_app/devices/-components/device-card.tsx
 msgid "确定要取消与「{deviceName}」的配对吗？取消后需要重新配对才能传输文件。"
 msgstr "Are you sure you want to unpair \"{deviceName}\"? You'll need to pair again to transfer files."
@@ -882,6 +942,10 @@ msgstr "Update Now"
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "端到端加密"
 msgstr "End-to-End Encryption"
+
+#: src/routes/_app/settings/-mcp-section.tsx
+msgid "端口号需在 1024 ~ 65535 之间"
+msgstr "Port must be between 1024 and 65535"
 
 #: src/routes/_app/transfer/$sessionId.lazy.tsx
 msgid "等待中"
@@ -1056,6 +1120,7 @@ msgid "输入配对码"
 msgstr "Enter Code"
 
 #: src/components/network/stop-node-sheet.tsx
+#: src/routes/_app/settings/-mcp-section.tsx
 msgid "运行中"
 msgstr "Running"
 
@@ -1166,6 +1231,10 @@ msgstr "Error"
 #: src/routes/_app/devices/index.lazy.tsx
 msgid "附近设备"
 msgstr "Nearby Devices"
+
+#: src/routes/_app/settings/-mcp-section.tsx
+msgid "随节点自动启动"
+msgstr "Auto-start with node"
 
 #: src/components/upgrade/force-update-dialog.tsx
 msgid "需要更新"

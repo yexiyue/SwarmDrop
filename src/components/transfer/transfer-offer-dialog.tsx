@@ -12,7 +12,11 @@ import {
 } from "@/components/responsive-dialog";
 import { Trans } from "@lingui/react/macro";
 import { useTransferStore } from "@/stores/transfer-store";
-import { acceptReceive, rejectReceive } from "@/commands/transfer";
+import {
+  acceptReceive,
+  rejectReceive,
+  type SaveLocation,
+} from "@/commands/transfer";
 import { FileTree } from "@/routes/_app/send/-components/file-tree";
 import { buildTreeDataFromOffer } from "@/routes/_app/send/-file-tree";
 import { pickFolder, getDefaultSavePath, isAndroid } from "@/lib/file-picker";
@@ -80,7 +84,11 @@ export function TransferOfferDialog() {
     if (!currentOffer) return;
     setProcessing(true);
     try {
-      await acceptReceive(currentOffer.sessionId, savePath);
+      const saveLocation: SaveLocation = isAndroid()
+        ? { type: "androidPublicDir", subdir: "SwarmDrop" }
+        : { type: "path", path: savePath };
+
+      await acceptReceive(currentOffer.sessionId, saveLocation);
 
       addSession({
         sessionId: currentOffer.sessionId,
@@ -94,7 +102,7 @@ export function TransferOfferDialog() {
         error: null,
         startedAt: Date.now(),
         completedAt: null,
-        savePath,
+        saveLocation,
       });
 
       // 从队列移除并跳转到详情页

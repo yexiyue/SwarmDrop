@@ -138,11 +138,11 @@ pub async fn accept_receive(
     app: tauri::AppHandle,
     net: State<'_, NetManagerState>,
     session_id: Uuid,
-    save_path: String,
+    save_location: entity::SaveLocation,
 ) -> crate::AppResult<()> {
     let transfer = get_transfer(&net).await?;
     transfer
-        .accept_and_start_receive(&session_id, save_path, app)
+        .accept_and_start_receive(&session_id, save_location, app)
         .await
 }
 
@@ -286,6 +286,28 @@ pub async fn resume_transfer(
         total_size: resume_info.total_size as u64,
         transferred_bytes: resume_info.transferred_bytes as u64,
     })
+}
+
+/// 解析 Android 公共目录的 content:// URI（仅 Android 平台）
+///
+/// 前端用于调用 `AndroidFs.showViewDirDialog(uri)` 打开保存目录。
+#[cfg(target_os = "android")]
+#[tauri::command]
+pub async fn resolve_android_dir_uri(
+    app: tauri::AppHandle,
+    subdir: String,
+) -> crate::AppResult<Option<serde_json::Value>> {
+    let uri = crate::file_sink::android_ops::resolve_save_dir_uri(&subdir, &app).await;
+    Ok(uri.and_then(|u| serde_json::to_value(&u).ok()))
+}
+
+/// 桌面端 stub（始终返回 None）
+#[cfg(not(target_os = "android"))]
+#[tauri::command]
+pub async fn resolve_android_dir_uri(
+    _subdir: String,
+) -> crate::AppResult<Option<serde_json::Value>> {
+    Ok(None)
 }
 
 // ============ 辅助函数 ============

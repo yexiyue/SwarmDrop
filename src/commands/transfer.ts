@@ -8,6 +8,11 @@ import type { AndroidFsUri } from "tauri-plugin-android-fs-api";
 
 // === 类型定义 ===
 
+/** 保存位置（跨平台） */
+export type SaveLocation =
+  | { type: "path"; path: string }
+  | { type: "androidPublicDir"; subdir: string };
+
 /** 传输方向 */
 export type TransferDirection = "send" | "receive";
 
@@ -49,11 +54,7 @@ export interface TransferSession {
   error: string | null;
   startedAt: number;
   completedAt: number | null;
-  savePath?: string;
-  /** Android 端已保存文件的 FileUri 列表 */
-  fileUris?: AndroidFsUri[];
-  /** Android 端保存目录的 FileUri */
-  saveDirUri?: AndroidFsUri;
+  saveLocation?: SaveLocation;
 }
 
 // === 事件类型 ===
@@ -96,11 +97,7 @@ export interface TransferCompleteEvent {
   direction: TransferDirection;
   totalBytes: number;
   elapsedMs: number;
-  savePath?: string;
-  /** Android 端已保存文件的 FileUri 列表（桌面端为空数组） */
-  fileUris: AndroidFsUri[];
-  /** Android 端保存目录的 FileUri（桌面端为 null） */
-  saveDirUri?: AndroidFsUri;
+  saveLocation?: SaveLocation;
 }
 
 /** 传输失败 */
@@ -235,9 +232,9 @@ export async function cancelSend(sessionId: string): Promise<void> {
 /** 确认接收 */
 export async function acceptReceive(
   sessionId: string,
-  savePath: string,
+  saveLocation: SaveLocation,
 ): Promise<void> {
-  return invoke("accept_receive", { sessionId, savePath });
+  return invoke("accept_receive", { sessionId, saveLocation });
 }
 
 /** 拒绝接收 */
@@ -290,7 +287,7 @@ export interface TransferHistoryItem {
   updatedAt: number;
   finishedAt: number | null;
   errorMessage: string | null;
-  savePath: string | null;
+  savePath: SaveLocation | null;
   files: TransferHistoryFile[];
 }
 
@@ -330,4 +327,11 @@ export async function resumeTransfer(
   sessionId: string,
 ): Promise<ResumeTransferResult> {
   return invoke("resume_transfer", { sessionId });
+}
+
+/** 解析 Android 公共目录的 content:// URI（用于 showViewDirDialog） */
+export async function resolveAndroidDirUri(
+  subdir: string,
+): Promise<AndroidFsUri | null> {
+  return invoke("resolve_android_dir_uri", { subdir });
 }
