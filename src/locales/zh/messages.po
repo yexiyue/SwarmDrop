@@ -62,6 +62,10 @@ msgstr "MCP Server 的 HTTP 端口号"
 msgid "NAT"
 msgstr "NAT"
 
+#: src/routes/_app/settings/-device-info-section.tsx
+msgid "NAT 状态"
+msgstr "NAT 状态"
+
 #: src/components/ForceUpdateDialog.tsx
 #~ msgid "P2P 协议已变更，旧版本无法与其他设备通信"
 #~ msgstr "P2P 协议已变更，旧版本无法与其他设备通信"
@@ -211,6 +215,10 @@ msgstr "停止节点"
 msgid "全部"
 msgstr "全部"
 
+#: src/routes/_app/settings/-device-info-section.tsx
+msgid "公网"
+msgstr "公网"
+
 #: src/components/transfer/file-list.tsx
 #: src/routes/_app/receive.lazy.tsx
 #~ msgid "共 {0} 项 · {1}"
@@ -349,6 +357,7 @@ msgid "启动 P2P 节点后才能发现设备和传输文件"
 msgstr "启动 P2P 节点后才能发现设备和传输文件"
 
 #: src/components/network/stop-node-sheet.tsx
+#: src/routes/_app/settings/-device-info-section.tsx
 msgid "启动中"
 msgstr "启动中"
 
@@ -490,6 +499,7 @@ msgstr "已与 {0} 配对成功"
 msgid "已与 {deviceName} 配对成功"
 msgstr "已与 {deviceName} 配对成功"
 
+#: src/routes/_app/settings/-device-info-section.tsx
 #: src/routes/_app/settings/-mcp-section.tsx
 msgid "已停止"
 msgstr "已停止"
@@ -511,6 +521,7 @@ msgstr "已取消"
 msgid "已复制"
 msgstr "已复制"
 
+#: src/routes/_app/settings/-device-info-section.tsx
 #: src/routes/_app/settings/-mcp-section.tsx
 msgid "已复制到剪贴板"
 msgstr "已复制到剪贴板"
@@ -536,6 +547,7 @@ msgstr "已清空传输历史"
 
 #: src/components/network/start-node-sheet.tsx
 #: src/components/network/stop-node-sheet.tsx
+#: src/routes/_app/settings/-device-info-section.tsx
 msgid "已连接节点"
 msgstr "已连接节点"
 
@@ -549,12 +561,17 @@ msgstr "已选文件"
 
 #: src/routes/_app/devices/index.lazy.tsx
 #: src/routes/_app/devices/index.lazy.tsx
+#: src/routes/_app/settings/-device-info-section.tsx
 msgid "已配对设备"
 msgstr "已配对设备"
 
 #: src/routes/_auth/welcome.lazy.tsx
 msgid "开始使用"
 msgstr "开始使用"
+
+#: src/routes/_app/settings/-device-info-section.tsx
+msgid "异常"
+msgstr "异常"
 
 #: src/routes/_app/devices/-components/network-status-bar.tsx
 #: src/routes/_app/settings/-bootstrap-nodes-section.tsx
@@ -657,6 +674,7 @@ msgid "推荐包含特殊字符"
 msgstr "推荐包含特殊字符"
 
 #: src/routes/_app/pairing/-device-found-view.tsx
+#: src/routes/_app/settings/-device-info-section.tsx
 msgid "操作系统"
 msgstr "操作系统"
 
@@ -734,6 +752,10 @@ msgstr "未启动"
 #: src/lib/auth-messages.ts
 msgid "未找到存储的密码"
 msgstr "未找到存储的密码"
+
+#: src/routes/_app/settings/-device-info-section.tsx
+msgid "未知"
+msgstr "未知"
 
 #: src/routes/_app/devices/-components/device-card.tsx
 #: src/routes/_app/devices/-components/device-card.tsx
@@ -1034,6 +1056,7 @@ msgstr "节点未启动"
 
 #: src/components/network/start-node-sheet.tsx
 #: src/components/network/stop-node-sheet.tsx
+#: src/routes/_app/settings/-device-info-section.tsx
 msgid "节点状态"
 msgstr "节点状态"
 
@@ -1060,9 +1083,21 @@ msgstr "解锁后自动启动 P2P 网络节点"
 msgid "设备"
 msgstr "设备"
 
-#: src/routes/_app/settings/index.lazy.tsx
+#: src/routes/_app/settings/-device-info-section.tsx
+msgid "设备 ID"
+msgstr "设备 ID"
+
+#: src/routes/_app/settings/-device-info-section.tsx
 msgid "设备信息"
 msgstr "设备信息"
+
+#: src/routes/_app/settings/-device-info-section.tsx
+msgid "设备名称"
+msgstr "设备名称"
+
+#: src/routes/_app/settings/-device-info-section.tsx
+msgid "设备名称已更新"
+msgstr "设备名称已更新"
 
 #: src/routes/_app/pairing/-device-found-view.tsx
 msgid "设备在线，可以建立连接"
@@ -1137,6 +1172,7 @@ msgid "输入配对码"
 msgstr "输入配对码"
 
 #: src/components/network/stop-node-sheet.tsx
+#: src/routes/_app/settings/-device-info-section.tsx
 #: src/routes/_app/settings/-mcp-section.tsx
 msgid "运行中"
 msgstr "运行中"
