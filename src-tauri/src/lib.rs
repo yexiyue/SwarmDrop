@@ -100,6 +100,7 @@ pub fn run() {
             commands::clear_transfer_history,
             commands::pause_transfer,
             commands::resume_transfer,
+            commands::resolve_android_dir_uri,
             commands::get_mcp_status,
             commands::start_mcp_server,
             commands::stop_mcp_server,

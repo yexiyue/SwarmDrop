@@ -328,3 +328,10 @@ export async function resumeTransfer(
 ): Promise<ResumeTransferResult> {
   return invoke("resume_transfer", { sessionId });
 }
+
+/** 解析 Android 公共目录的 content:// URI（用于 showViewDirDialog） */
+export async function resolveAndroidDirUri(
+  subdir: string,
+): Promise<AndroidFsUri | null> {
+  return invoke("resolve_android_dir_uri", { subdir });
+}

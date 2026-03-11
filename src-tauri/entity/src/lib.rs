@@ -83,9 +83,7 @@ pub enum FileStatus {
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum SaveLocation {
     /// 桌面端：文件系统绝对路径
-    #[serde(rename_all = "camelCase")]
     Path { path: String },
     /// Android 端：公共目录子目录（如 `"SwarmDrop"` → `Download/SwarmDrop`）
-    #[serde(rename_all = "camelCase")]
     AndroidPublicDir { subdir: String },
 }

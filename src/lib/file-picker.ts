@@ -8,6 +8,8 @@
 import { open } from "@tauri-apps/plugin-dialog";
 import { type } from "@tauri-apps/plugin-os";
 import { downloadDir, join } from "@tauri-apps/api/path";
+import { t } from "@lingui/core/macro";
+import { toast } from "sonner";
 import type { AndroidFsUri } from "tauri-plugin-android-fs-api";
 import type { FileSource, SaveLocation } from "@/commands/transfer";
 
@@ -169,7 +171,7 @@ export async function revealFile(
  * 打开传输完成后的文件/文件夹
  * 根据 SaveLocation 类型分支处理：
  * - Path：桌面端，使用文件路径打开
- * - AndroidPublicDir：Android 端，拼接 downloadDir 路径打开
+ * - AndroidPublicDir：Android 端，通过 Rust 解析 content:// URI，调用 showViewDirDialog
  */
 export async function openTransferResult(session: {
   saveLocation?: SaveLocation;
@@ -191,14 +193,28 @@ export async function openTransferResult(session: {
   }
 
   if (loc.type === "androidPublicDir") {
-    // Android 端：通过 downloadDir + subdir 构建路径打开
+    // Android 端：通过 Rust resolve_initial_location 获取 content:// URI
     try {
-      const dir = await downloadDir();
-      const fullPath = await join(dir, loc.subdir);
-      const { openPath } = await import("@tauri-apps/plugin-opener");
-      await openPath(fullPath);
+      const { resolveAndroidDirUri } = await import("@/commands/transfer");
+      const uri = await resolveAndroidDirUri(loc.subdir);
+      if (uri) {
+        const opened = await openFolder(uri);
+        if (opened) return;
+
+        // 回退：列出目录找到第一个文件，用 showViewFileDialog 打开
+        if (session.files.length > 0) {
+          const { AndroidFs } = await import("tauri-plugin-android-fs-api");
+          const entries = await AndroidFs.readDir(uri);
+          const target = session.files[0].relativePath.split("/").pop();
+          const match = entries.find((e) => e.name === target);
+          if (match) {
+            await openFile(match.uri);
+            return;
+          }
+        }
+      }
     } catch {
-      console.warn("Android 打开保存目录失败");
+      toast.error(t`打开保存目录失败`);
     }
   }
 }
