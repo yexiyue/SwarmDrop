@@ -136,7 +136,7 @@ export function HistoryItem({ item }: HistoryItemProps) {
 
   return (
     <div
-      className="group relative flex cursor-pointer items-start gap-2.5 rounded-xl border border-border bg-card p-3 transition-colors hover:bg-accent/40 hover:shadow-sm md:gap-3.5 md:p-4"
+      className="group relative flex cursor-pointer items-center gap-2.5 rounded-xl border border-border bg-card p-3 transition-colors hover:bg-accent/40 hover:shadow-sm md:items-start md:gap-3.5 md:p-4"
       onClick={handleClick}
       role="button"
       tabIndex={0}
@@ -144,27 +144,28 @@ export function HistoryItem({ item }: HistoryItemProps) {
         if (e.key === "Enter" || e.key === " ") handleClick();
       }}
     >
-      {/* 1. 左侧：方向大图标 */}
       <div
         className={cn(
-          "flex size-9 shrink-0 items-center justify-center rounded-lg md:size-11 md:rounded-xl",
+          "flex size-10 shrink-0 items-center justify-center rounded-lg md:size-16 md:rounded-xl",
           isSend
             ? "bg-blue-50 text-blue-500 dark:bg-blue-500/15 dark:text-blue-400"
             : "bg-green-50 text-green-500 dark:bg-green-500/15 dark:text-green-400",
         )}
       >
         {isSend ? (
-          <ArrowUpRight className="size-4 md:size-5" strokeWidth={2.5} />
+          <ArrowUpRight className="size-5 md:size-7" strokeWidth={2.5} />
         ) : (
-          <ArrowDownLeft className="size-4 md:size-5" strokeWidth={2.5} />
+          <ArrowDownLeft className="size-5 md:size-7" strokeWidth={2.5} />
         )}
       </div>
 
-      {/* 2. 中间：详细信息 (文件名、设备与时间、状态) */}
-      <div className="flex min-w-0 flex-1 flex-col gap-1 pt-0.5 md:gap-1.5">
+      {/* 2. 中间：核心信息 */}
+      <div className="flex min-w-0 flex-1 flex-col gap-1 md:gap-1.5">
         {/* 第一行：文件名 */}
         <div className="flex items-center gap-1.5 md:gap-2">
-          <span className="hidden md:inline-flex">{getFileIcon(firstFileName, fileCount)}</span>
+          <span className="hidden md:inline-flex">
+            {getFileIcon(firstFileName, fileCount)}
+          </span>
           <h3
             className="truncate text-sm font-medium text-foreground md:text-[15px]"
             title={displayFileName}
@@ -173,20 +174,16 @@ export function HistoryItem({ item }: HistoryItemProps) {
           </h3>
         </div>
 
-        {/* 第二行：传输元数据 */}
+        {/* 第二行：方向 + 设备名 + 大小 */}
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground md:text-[13px]">
           <span className="shrink-0">
             {isSend ? <Trans>发送到</Trans> : <Trans>来自</Trans>}
           </span>
-          <span className="max-w-[6em] truncate font-medium text-foreground/80 md:max-w-[8em]">
+          <span className="max-w-[6em] truncate font-medium text-foreground/80 md:max-w-[10em]">
             {peerName || truncatePeerId(peerId)}
           </span>
           <span className="shrink-0 text-muted-foreground/40">·</span>
           <span className="shrink-0">{formatFileSize(totalSize)}</span>
-          <span className="hidden shrink-0 text-muted-foreground/40 md:inline">·</span>
-          <span className="hidden shrink-0 md:inline">
-            {formatRelativeTime(finishedAt || startedAt)}
-          </span>
         </div>
 
         {/* 第三行：状态栏 */}
@@ -233,43 +230,50 @@ export function HistoryItem({ item }: HistoryItemProps) {
         </div>
       </div>
 
-      {/* 3. 右侧：操作按钮组 (靠右上对齐) */}
-      <div className="flex shrink-0 items-start gap-0.5 -mr-1 md:gap-1 md:-mr-2">
-        {canResume && (
+      {/* 3. 右侧：时间 + 操作按钮（桌面端垂直排列） */}
+      <div className="flex shrink-0 flex-col items-end justify-between -mr-1 md:-mr-2">
+        <span className="text-[11px] text-muted-foreground md:text-xs">
+          {formatRelativeTime(finishedAt || startedAt)}
+        </span>
+
+        {/* 操作按钮 */}
+        <div className="flex items-center gap-0.5 md:gap-1">
+          {canResume && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="size-7 text-muted-foreground hover:bg-accent hover:text-foreground md:size-8"
+              onClick={onResume}
+              title={status === "paused" ? t`恢复传输` : t`重试传输`}
+            >
+              {status === "paused" ? (
+                <Play className="size-4" />
+              ) : (
+                <RotateCcw className="size-4" />
+              )}
+            </Button>
+          )}
+          {status === "completed" && item.savePath && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="size-7 text-muted-foreground hover:bg-accent hover:text-foreground md:size-8"
+              onClick={onOpenFolder}
+              title={t`打开文件夹`}
+            >
+              <FolderOpen className="size-4" />
+            </Button>
+          )}
           <Button
             size="icon"
             variant="ghost"
-            className="size-7 text-muted-foreground hover:bg-accent hover:text-foreground md:size-8"
-            onClick={onResume}
-            title={status === "paused" ? t`恢复传输` : t`重试传输`}
+            className="size-7 text-muted-foreground hover:bg-destructive/10 hover:text-destructive md:size-8"
+            onClick={onDelete}
+            title={t`删除记录`}
           >
-            {status === "paused" ? (
-              <Play className="size-4" />
-            ) : (
-              <RotateCcw className="size-4" />
-            )}
+            <Trash2 className="size-4" />
           </Button>
-        )}
-        {status === "completed" && item.savePath && (
-          <Button
-            size="icon"
-            variant="ghost"
-            className="size-7 text-muted-foreground hover:bg-accent hover:text-foreground md:size-8"
-            onClick={onOpenFolder}
-            title={t`打开文件夹`}
-          >
-            <FolderOpen className="size-4" />
-          </Button>
-        )}
-        <Button
-          size="icon"
-          variant="ghost"
-          className="size-7 text-muted-foreground hover:bg-destructive/10 hover:text-destructive md:size-8"
-          onClick={onDelete}
-          title={t`删除记录`}
-        >
-          <Trash2 className="size-4" />
-        </Button>
+        </div>
       </div>
     </div>
   );
