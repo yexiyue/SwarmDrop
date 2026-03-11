@@ -90,9 +90,11 @@ export function NetworkStatusBar({ onStopClick, onStatusClick }: NetworkStatusBa
   const connectedCount = networkStatus?.connectedPeers ?? 0;
 
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onStatusClick}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onStatusClick?.(); }}
       className={cn(
         "flex w-full cursor-pointer flex-col gap-2 rounded-[10px] px-3 py-3 text-left transition-opacity hover:opacity-80",
         style.bg,
@@ -130,6 +132,6 @@ export function NetworkStatusBar({ onStopClick, onStatusClick }: NetworkStatusBa
       {status === "running" && networkStatus && (
         <NetworkIndicators networkStatus={networkStatus} />
       )}
-    </button>
+    </div>
   );
 }
