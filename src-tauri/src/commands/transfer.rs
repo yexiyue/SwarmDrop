@@ -126,10 +126,11 @@ pub async fn start_send(
     net: State<'_, NetManagerState>,
     prepared_id: Uuid,
     peer_id: String,
+    peer_name: String,
     selected_file_ids: Vec<u32>,
 ) -> crate::AppResult<StartSendResult> {
     let transfer = get_transfer(&net).await?;
-    transfer.send_offer(&prepared_id, &peer_id, &selected_file_ids, app)
+    transfer.send_offer(&prepared_id, &peer_id, &peer_name, &selected_file_ids, app)
 }
 
 /// 确认接收：生成密钥，回复 OfferResult，启动后台拉取

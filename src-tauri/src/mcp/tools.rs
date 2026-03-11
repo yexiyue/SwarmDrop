@@ -172,10 +172,19 @@ impl McpHandler {
         let file_count = all_file_ids.len();
         let total_size = prepared.total_size;
 
+        // 查询对端设备名
+        let peer_name = manager
+            .devices()
+            .get_devices(DeviceFilter::Paired)
+            .into_iter()
+            .find(|d| d.peer_id.to_string() == params.peer_id)
+            .map(|d| d.os_info.hostname)
+            .unwrap_or_else(|| params.peer_id.clone());
+
         // send_offer
         let result = manager
             .transfer_arc()
-            .send_offer(&prepared_id, &params.peer_id, &all_file_ids, self.app.clone())
+            .send_offer(&prepared_id, &params.peer_id, &peer_name, &all_file_ids, self.app.clone())
             .map_err(|e| ErrorData::internal_error(format!("发送 Offer 失败: {e}"), None))?;
 
         let response = SendFilesResponse {
