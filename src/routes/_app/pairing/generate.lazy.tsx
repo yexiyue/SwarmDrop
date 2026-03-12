@@ -8,10 +8,12 @@ import { useEffect, useState, useCallback } from "react";
 import { createLazyFileRoute, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft, Link, Copy, Check, Clock, RefreshCw, Loader2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import { t } from "@lingui/core/macro";
 import { Button } from "@/components/ui/button";
 import { Trans } from "@lingui/react/macro";
 import { useShallow } from "zustand/react/shallow";
 import { usePairingStore } from "@/stores/pairing-store";
+import { usePairingSuccess } from "@/hooks/use-pairing-success";
 
 export const Route = createLazyFileRoute("/_app/pairing/generate")({
   component: PairingGeneratePage,
@@ -20,13 +22,14 @@ export const Route = createLazyFileRoute("/_app/pairing/generate")({
 function PairingGeneratePage() {
   const navigate = useNavigate();
 
-  const { current, generateCode, regenerateCode } = usePairingStore(
+  const { generateCode, regenerateCode } = usePairingStore(
     useShallow((state) => ({
-      current: state.current,
       generateCode: state.generateCode,
       regenerateCode: state.regenerateCode,
     }))
   );
+
+  const current = usePairingStore((s) => s.current);
 
   const codeInfo = current.phase === "generating" ? current.codeInfo : null;
   const isLoading = current.phase === "idle";
@@ -43,12 +46,8 @@ function PairingGeneratePage() {
     };
   }, [generateCode]);
 
-  // 配对成功后自动返回
-  useEffect(() => {
-    if (current.phase === "success") {
-      navigate({ to: "/devices" });
-    }
-  }, [current.phase, navigate]);
+  // 配对成功后自动跳转到设备页面
+  usePairingSuccess();
 
   // 倒计时
   useEffect(() => {
@@ -87,7 +86,7 @@ function PairingGeneratePage() {
       await navigator.clipboard.writeText(codeInfo.code);
       setCopied(true);
     } catch {
-      toast.error("复制失败，请手动复制配对码");
+      toast.error(t`复制失败，请手动复制配对码`);
     }
   }, [codeInfo]);
 

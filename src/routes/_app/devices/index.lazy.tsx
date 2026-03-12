@@ -13,6 +13,7 @@ import { useNetworkStore } from "@/stores/network-store";
 import { useSecretStore } from "@/stores/secret-store";
 import { usePairingStore } from "@/stores/pairing-store";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
+import { usePairingSuccess } from "@/hooks/use-pairing-success";
 import { removePairedDevice } from "@/commands/pairing";
 import { AddDeviceMenu } from "./-components/add-device-menu";
 import { NetworkStatusBar } from "./-components/network-status-bar";
@@ -34,6 +35,9 @@ function DevicesPage() {
   const isOnline = status === "running" || status === "starting";
   const storedPairedDevices = useSecretStore((state) => state.pairedDevices);
   const directPairing = usePairingStore((state) => state.directPairing);
+
+  // directPairing 成功后自动跳转到设备页面（刷新列表）
+  usePairingSuccess();
 
   // 节点控制弹窗状态
   const [startSheetOpen, setStartSheetOpen] = useState(false);

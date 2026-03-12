@@ -109,29 +109,29 @@ function InfoList({ platform, arch }: { platform: string; arch: string }) {
   const osDisplay = formatPlatformDisplay(platform);
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border">
-      <div className="flex items-center justify-between border-b border-border px-4 py-3.5">
-        <span className="text-sm text-muted-foreground">
+    <div className="overflow-hidden rounded-xl border border-border text-[13px]">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <span className="text-muted-foreground">
           <Trans>配对方式</Trans>
         </span>
         <div className="flex items-center gap-1.5">
           <Hash className="size-3.5 text-blue-600" />
-          <span className="text-sm font-medium text-foreground">
+          <span className="font-medium text-foreground">
             <Trans>配对码</Trans>
           </span>
         </div>
       </div>
-      <div className="flex items-center justify-between border-b border-border px-4 py-3.5">
-        <span className="text-sm text-muted-foreground">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <span className="text-muted-foreground">
           <Trans>操作系统</Trans>
         </span>
-        <span className="text-sm font-medium text-foreground">{osDisplay}</span>
+        <span className="font-medium text-foreground">{osDisplay}</span>
       </div>
-      <div className="flex items-center justify-between px-4 py-3.5">
-        <span className="text-sm text-muted-foreground">
+      <div className="flex items-center justify-between px-4 py-3">
+        <span className="text-muted-foreground">
           <Trans>CPU 架构</Trans>
         </span>
-        <span className="text-sm font-medium text-foreground">{arch}</span>
+        <span className="font-medium text-foreground">{arch}</span>
       </div>
     </div>
   );
@@ -140,9 +140,9 @@ function InfoList({ platform, arch }: { platform: string; arch: string }) {
 /** 在线状态条 */
 function OnlineStatus() {
   return (
-    <div className="flex items-center justify-center gap-2 rounded-lg bg-green-50 px-4 py-2">
-      <span className="size-2 rounded-full bg-green-600" />
-      <span className="text-[13px] font-medium text-green-800">
+    <div className="flex items-center justify-center gap-2 rounded-lg bg-green-50 px-4 py-2 dark:bg-green-500/10">
+      <span className="size-2 rounded-full bg-green-600 dark:bg-green-400" />
+      <span className="text-[13px] font-medium text-green-800 dark:text-green-400">
         <Trans>设备在线，可以建立连接</Trans>
       </span>
     </div>
@@ -244,7 +244,7 @@ export function DesktopDeviceFoundContent({
   const { codeRecord } = deviceInfo;
 
   return (
-    <div className="flex w-[420px] flex-col gap-6">
+    <div className="flex w-95 flex-col gap-5">
       {/* Device Header */}
       <DeviceHeader
         hostname={codeRecord.hostname}
@@ -260,7 +260,7 @@ export function DesktopDeviceFoundContent({
       <OnlineStatus />
 
       {/* Actions */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center justify-center gap-3 pt-1">
         <Button variant="outline" onClick={onCancel} disabled={isRequesting}>
           <Trans>取消</Trans>
         </Button>
