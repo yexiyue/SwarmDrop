@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
+import { cn } from "@/lib/utils";
 
 export const Route = createLazyFileRoute("/_app/transfer/")({
   component: TransferPage,
@@ -102,13 +103,13 @@ function TransferPage() {
 
   // 工具栏右侧操作区
   const toolbarActions = dbHistory.length > 0 && (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1.5 md:gap-2">
       {/* 状态过滤 */}
       <Select
         value={statusFilter}
         onValueChange={(v) => setStatusFilter(v as HistorySessionStatus | "all")}
       >
-        <SelectTrigger className="h-7 w-auto gap-1.5 px-2.5 text-xs">
+        <SelectTrigger className="h-7 w-auto gap-1 px-2 text-xs md:gap-1.5 md:px-2.5">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -127,40 +128,28 @@ function TransferPage() {
         onClick={handleClearHistory}
       >
         <Trash2 className="size-3" />
-        <Trans>清空</Trans>
+        <span className="hidden md:inline"><Trans>清空</Trans></span>
       </Button>
     </div>
   );
 
-  if (isMobile) {
-    return (
-      <main className="flex h-full flex-1 flex-col bg-background">
-        {/* Mobile Header */}
-        <header className="flex h-13 items-center justify-between border-b border-border px-4">
-          <h1 className="text-[15px] font-medium text-foreground">
-            <Trans>传输</Trans>
-          </h1>
-          {toolbarActions}
-        </header>
-        <div className="flex-1 overflow-auto px-4 py-4">{content}</div>
-      </main>
-    );
-  }
-
   return (
     <main className="flex h-full flex-1 flex-col bg-background">
-      {/* Toolbar */}
+      {/* Header */}
       <header className="flex h-13 items-center justify-between border-b border-border px-4 lg:px-5">
-        <div className="flex items-center gap-2">
-          <h1 className="text-[15px] font-medium text-foreground">
-            <Trans>传输</Trans>
-          </h1>
-        </div>
+        <h1 className="text-[15px] font-medium text-foreground">
+          <Trans>传输</Trans>
+        </h1>
         {toolbarActions}
       </header>
 
       {/* Page Content */}
-      <div className="flex-1 overflow-auto p-5 lg:p-6">{content}</div>
+      <div className={cn(
+        "flex-1 overflow-auto",
+        isMobile ? "px-3 py-3" : "p-5 lg:p-6",
+      )}>
+        {content}
+      </div>
     </main>
   );
 }
