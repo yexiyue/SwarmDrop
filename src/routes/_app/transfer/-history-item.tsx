@@ -1,194 +1,280 @@
-/**
- * HistoryItem
- * 持久化传输历史记录卡片 — 显示从 DB 加载的传输记录
- */
-
 import {
-  ArrowUp,
-  ArrowDown,
+  ArrowDownLeft,
+  ArrowUpRight,
   CheckCircle2,
   XCircle,
   Pause,
   Play,
   Trash2,
+  RotateCcw,
+  FileText,
+  FileArchive,
+  Image as ImageIcon,
+  Video,
+  Music,
+  File,
+  FolderOpen,
 } from "lucide-react";
-import { Trans } from "@lingui/react/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 import type { TransferHistoryItem } from "@/commands/transfer";
-import {
-  resumeTransfer,
-  deleteTransferSession,
-} from "@/commands/transfer";
+import { resumeTransfer, deleteTransferSession } from "@/commands/transfer";
 import { formatFileSize, formatRelativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
 import { useTransferStore } from "@/stores/transfer-store";
 import { useNavigate } from "@tanstack/react-router";
+import { openTransferResult } from "@/lib/file-picker";
 
 interface HistoryItemProps {
   item: TransferHistoryItem;
 }
 
+/** 辅助函数：截断 PeerId 以美化显示 */
+const truncatePeerId = (id?: string) =>
+  !id ? "" : id.length <= 16 ? id : `${id.slice(0, 8)}...${id.slice(-4)}`;
+
+/** 根据文件名后缀获取图标 */
+function getFileIcon(fileName: string, count: number) {
+  if (count > 1) return <FileArchive className="size-5 text-amber-500" />;
+  if (/\.(png|jpe?g|gif|webp|svg|bmp|ico)$/i.test(fileName))
+    return <ImageIcon className="size-5 text-green-500" />;
+  if (/\.(mp4|mov|avi|mkv|webm|flv)$/i.test(fileName))
+    return <Video className="size-5 text-purple-500" />;
+  if (/\.(mp3|wav|flac|aac|ogg|wma)$/i.test(fileName))
+    return <Music className="size-5 text-pink-500" />;
+  if (/\.(zip|rar|7z|tar|gz|bz2)$/i.test(fileName))
+    return <FileArchive className="size-5 text-amber-500" />;
+  if (/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt|md)$/i.test(fileName))
+    return <FileText className="size-5 text-blue-500" />;
+  return <File className="size-5 text-muted-foreground" />;
+}
+
 export function HistoryItem({ item }: HistoryItemProps) {
+  const { t } = useLingui();
   const navigate = useNavigate();
-  const loadHistory = useTransferStore((s) => s.loadHistory);
-  const addSession = useTransferStore((s) => s.addSession);
-  const isSend = item.direction === "send";
+  const { loadHistory, addSession } = useTransferStore();
 
-  const handleResume = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      const result = await resumeTransfer(item.sessionId);
+  const {
+    sessionId,
+    direction,
+    peerId,
+    peerName,
+    files,
+    totalSize,
+    status,
+    errorMessage,
+    startedAt,
+    finishedAt,
+    transferredBytes,
+  } = item;
 
-      // 创建运行时 session 并导航到详情页
-      addSession({
-        sessionId: result.sessionId,
-        direction: result.direction as "send" | "receive",
-        peerId: result.peerId,
-        deviceName: result.peerName,
-        files: result.files,
-        totalSize: result.totalSize,
-        status: "transferring",
-        progress: null,
-        error: null,
-        startedAt: Date.now(),
-        completedAt: null,
-      });
+  // 事件处理
+  const withAction =
+    (action: () => Promise<void>) => async (e: React.MouseEvent) => {
+      e.stopPropagation();
+      try {
+        await action();
+      } catch (err) {
+        toast.error(getErrorMessage(err));
+      }
+    };
 
-      // 刷新历史（恢复的 session 会从 DB 历史中消失）
-      await loadHistory();
+  const onResume = withAction(async () => {
+    const result = await resumeTransfer(sessionId);
+    addSession({
+      sessionId: result.sessionId,
+      direction: result.direction as "send" | "receive",
+      peerId: result.peerId,
+      deviceName: result.peerName,
+      files: result.files,
+      totalSize: result.totalSize,
+      status: "transferring",
+      progress: null,
+      error: null,
+      startedAt: Date.now(),
+      completedAt: null,
+    });
+    await loadHistory();
+    navigate({
+      to: "/transfer/$sessionId",
+      params: { sessionId: result.sessionId },
+    });
+  });
 
-      navigate({
-        to: "/transfer/$sessionId",
-        params: { sessionId: result.sessionId },
-      });
-    } catch (err) {
-      toast.error(getErrorMessage(err));
-    }
+  const onDelete = withAction(async () => {
+    await deleteTransferSession(sessionId);
+    await loadHistory();
+  });
+
+  const onOpenFolder = withAction(async () => {
+    if (!item.savePath) return;
+    await openTransferResult({
+      saveLocation: item.savePath ?? undefined,
+      files: files.map((f) => ({ relativePath: f.relativePath })),
+    });
+  });
+
+  const handleClick = () => {
+    navigate({
+      to: "/transfer/$sessionId",
+      params: { sessionId },
+    });
   };
 
-  const handleDelete = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      await deleteTransferSession(item.sessionId);
-      await loadHistory();
-    } catch (err) {
-      toast.error(getErrorMessage(err));
-    }
-  };
-
+  // 计算数据
+  const isSend = direction === "send";
+  const fileCount = files?.length || 0;
+  const firstFileName = files?.[0]?.name || t`未知文件`;
+  const displayFileName =
+    fileCount > 1 ? t`${firstFileName} 等 ${fileCount} 个文件` : firstFileName;
   const progressPercent =
-    item.totalSize > 0
-      ? Math.round((item.transferredBytes / item.totalSize) * 100)
-      : 0;
+    totalSize > 0 ? Math.round((transferredBytes / totalSize) * 100) : 0;
+  const canResume = status === "failed" || status === "paused";
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3.5">
-      {/* 头部：方向 + 设备名 + 状态/操作 */}
-      <div className="flex items-center gap-2">
-        {/* 方向图标 */}
-        <div
-          className={cn(
-            "flex size-8 items-center justify-center rounded-full",
-            isSend
-              ? "bg-blue-100 text-blue-600"
-              : "bg-green-100 text-green-600",
-          )}
-        >
-          {isSend ? (
-            <ArrowUp className="size-4" />
-          ) : (
-            <ArrowDown className="size-4" />
-          )}
-        </div>
-
-        {/* 设备名 + 文件信息 */}
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium text-foreground">
-            {isSend ? (
-              <Trans>发送到 {item.peerName}</Trans>
-            ) : (
-              <Trans>来自 {item.peerName}</Trans>
-            )}
-          </div>
-          <div className="text-xs text-muted-foreground">
-            {item.files.length} <Trans>个文件</Trans> ·{" "}
-            {formatFileSize(item.totalSize)}
-          </div>
-        </div>
-
-        {/* 状态图标 */}
-        {item.status === "completed" && (
-          <CheckCircle2 className="size-5 text-green-500" />
+    <div
+      className="group relative flex cursor-pointer items-center gap-2.5 rounded-xl border border-border bg-card p-3 transition-colors hover:bg-accent/40 hover:shadow-sm md:items-start md:gap-3.5 md:p-4"
+      onClick={handleClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") handleClick();
+      }}
+    >
+      <div
+        className={cn(
+          "flex size-10 shrink-0 items-center justify-center rounded-lg md:size-16 md:rounded-xl",
+          isSend
+            ? "bg-blue-50 text-blue-500 dark:bg-blue-500/15 dark:text-blue-400"
+            : "bg-green-50 text-green-500 dark:bg-green-500/15 dark:text-green-400",
         )}
-        {item.status === "failed" && (
-          <XCircle className="size-5 text-destructive" />
-        )}
-        {item.status === "cancelled" && (
-          <XCircle className="size-5 text-muted-foreground" />
-        )}
-        {item.status === "paused" && (
-          <Pause className="size-5 text-amber-500" />
-        )}
-
-        {/* 删除按钮 */}
-        {item.status !== "transferring" && (
-          <Button
-            size="icon"
-            variant="ghost"
-            className="size-7 text-muted-foreground hover:text-destructive"
-            onClick={handleDelete}
-          >
-            <Trash2 className="size-3.5" />
-          </Button>
+      >
+        {isSend ? (
+          <ArrowUpRight className="size-5 md:size-7" strokeWidth={2.5} />
+        ) : (
+          <ArrowDownLeft className="size-5 md:size-7" strokeWidth={2.5} />
         )}
       </div>
 
-      {/* 暂停状态 — 恢复按钮 + 进度 */}
-      {item.status === "paused" && (
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-amber-600">
-            <Trans>已暂停</Trans> · {progressPercent}%
+      {/* 2. 中间：核心信息 */}
+      <div className="flex min-w-0 flex-1 flex-col gap-1 md:gap-1.5">
+        {/* 第一行：文件名 */}
+        <div className="flex items-center gap-1.5 md:gap-2">
+          <span className="hidden md:inline-flex">
+            {getFileIcon(firstFileName, fileCount)}
           </span>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-6 gap-1 px-2 text-xs"
-            onClick={handleResume}
+          <h3
+            className="truncate text-sm font-medium text-foreground md:text-[15px]"
+            title={displayFileName}
           >
-            <Play className="size-3" />
-            <Trans>恢复</Trans>
-          </Button>
+            {displayFileName}
+          </h3>
         </div>
-      )}
 
-      {/* 已完成 — 时间 */}
-      {item.status === "completed" && item.finishedAt && (
-        <div className="text-xs text-muted-foreground">
-          {formatRelativeTime(item.finishedAt)}
+        {/* 第二行：方向 + 设备名 + 大小 */}
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground md:text-[13px]">
+          <span className="shrink-0">
+            {isSend ? <Trans>发送到</Trans> : <Trans>来自</Trans>}
+          </span>
+          <span className="max-w-[6em] truncate font-medium text-foreground/80 md:max-w-[10em]">
+            {peerName || truncatePeerId(peerId)}
+          </span>
+          <span className="shrink-0 text-muted-foreground/40">·</span>
+          <span className="shrink-0">{formatFileSize(totalSize)}</span>
         </div>
-      )}
 
-      {/* 失败 — 错误信息 */}
-      {item.status === "failed" && (
-        <div className="text-xs text-destructive">
-          {item.errorMessage || <Trans>传输失败</Trans>}
-          {item.finishedAt && (
-            <span className="text-muted-foreground">
-              {" "}
-              · {formatRelativeTime(item.finishedAt)}
-            </span>
+        {/* 第三行：状态栏 */}
+        <div className="mt-0.5">
+          {status === "completed" && (
+            <div className="flex items-center gap-1.5 text-[13px] text-green-600 dark:text-green-400">
+              <CheckCircle2 className="size-4" />
+              <Trans>传输完成</Trans>
+              <span className="text-muted-foreground">
+                — {formatFileSize(transferredBytes)}
+              </span>
+            </div>
+          )}
+
+          {status === "paused" && (
+            <div className="flex max-w-sm flex-col gap-2 mt-1">
+              <Progress value={progressPercent} className="h-1.5" />
+              <div className="flex items-center justify-between text-[12px]">
+                <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+                  <Pause className="size-3.5" />
+                  <Trans>已暂停</Trans>
+                </span>
+                <span className="text-muted-foreground">
+                  {formatFileSize(transferredBytes)} /{" "}
+                  {formatFileSize(totalSize)} · {progressPercent}%
+                </span>
+              </div>
+            </div>
+          )}
+
+          {status === "failed" && (
+            <div className="flex items-center gap-1.5 text-[13px] text-destructive">
+              <XCircle className="size-4 shrink-0" />
+              <span className="truncate">{errorMessage || t`传输失败`}</span>
+            </div>
+          )}
+
+          {status === "cancelled" && (
+            <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+              <XCircle className="size-4" />
+              <Trans>已取消</Trans>
+            </div>
           )}
         </div>
-      )}
+      </div>
 
-      {/* 已取消 */}
-      {item.status === "cancelled" && item.finishedAt && (
-        <div className="text-xs text-muted-foreground">
-          <Trans>已取消</Trans> · {formatRelativeTime(item.finishedAt)}
+      {/* 3. 右侧：时间 + 操作按钮（桌面端垂直排列） */}
+      <div className="flex shrink-0 flex-col items-end justify-between -mr-1 md:-mr-2">
+        <span className="text-[11px] text-muted-foreground md:text-xs">
+          {formatRelativeTime(finishedAt || startedAt)}
+        </span>
+
+        {/* 操作按钮 */}
+        <div className="flex items-center gap-0.5 md:gap-1">
+          {canResume && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="size-7 text-muted-foreground hover:bg-accent hover:text-foreground md:size-8"
+              onClick={onResume}
+              title={status === "paused" ? t`恢复传输` : t`重试传输`}
+            >
+              {status === "paused" ? (
+                <Play className="size-4" />
+              ) : (
+                <RotateCcw className="size-4" />
+              )}
+            </Button>
+          )}
+          {status === "completed" && item.savePath && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="size-7 text-muted-foreground hover:bg-accent hover:text-foreground md:size-8"
+              onClick={onOpenFolder}
+              title={t`打开文件夹`}
+            >
+              <FolderOpen className="size-4" />
+            </Button>
+          )}
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-7 text-muted-foreground hover:bg-destructive/10 hover:text-destructive md:size-8"
+            onClick={onDelete}
+            title={t`删除记录`}
+          >
+            <Trash2 className="size-4" />
+          </Button>
         </div>
-      )}
+      </div>
     </div>
   );
 }

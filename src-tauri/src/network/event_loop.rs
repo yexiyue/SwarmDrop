@@ -457,6 +457,7 @@ pub fn spawn_event_loop(
                             shared.transfer.cache_inbound_offer(
                                 pending_id,
                                 peer_id,
+                                device_name.clone(),
                                 session_id,
                                 files.clone(),
                                 total_size,

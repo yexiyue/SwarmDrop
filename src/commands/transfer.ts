@@ -219,9 +219,10 @@ export async function prepareSend(
 export async function startSend(
   preparedId: string,
   peerId: string,
+  peerName: string,
   selectedFileIds: number[],
 ): Promise<StartSendResult> {
-  return invoke("start_send", { preparedId, peerId, selectedFileIds });
+  return invoke("start_send", { preparedId, peerId, peerName, selectedFileIds });
 }
 
 /** 取消发送 */

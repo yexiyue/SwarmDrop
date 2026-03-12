@@ -84,6 +84,7 @@ function SendPage() {
       const result = await startSend(
         prepared.preparedId,
         device.peerId,
+        device.hostname,
         fileIds,
       );
 

@@ -84,6 +84,8 @@ pub struct PendingOffer {
     pending_id: u64,
     /// 发送方 PeerId
     pub peer_id: PeerId,
+    /// 对端设备名
+    pub peer_name: String,
     /// 传输会话 ID
     pub session_id: Uuid,
     /// 文件列表
@@ -321,6 +323,7 @@ impl TransferManager {
         self: &Arc<Self>,
         prepared_id: &Uuid,
         peer_id: &str,
+        peer_name: &str,
         selected_file_ids: &[u32],
         app: AppHandle,
     ) -> AppResult<StartSendResult> {
@@ -377,6 +380,7 @@ impl TransferManager {
         let this = Arc::clone(self);
         let prepared_id = *prepared_id;
         let peer_id_str = peer_id.to_string();
+        let peer_name = peer_name.to_string();
         tokio::spawn(async move {
             let emit_fail = |error: String| {
                 let _ = app.emit(
@@ -414,7 +418,7 @@ impl TransferManager {
                             session_id,
                             entity::TransferDirection::Send,
                             &peer_id_str,
-                            &peer_id_str,
+                            &peer_name,
                             &selected_files,
                             total_size,
                             None,
@@ -506,6 +510,7 @@ impl TransferManager {
         &self,
         pending_id: u64,
         peer_id: PeerId,
+        peer_name: String,
         session_id: Uuid,
         files: Vec<FileInfo>,
         total_size: u64,
@@ -515,6 +520,7 @@ impl TransferManager {
             PendingOffer {
                 pending_id,
                 peer_id,
+                peer_name,
                 session_id,
                 files,
                 total_size,
@@ -551,14 +557,14 @@ impl TransferManager {
             .map_err(|e| AppError::Transfer(format!("回复 OfferResult 失败: {e}")))?;
 
         // 持久化接收方会话记录到 DB
-        let peer_name = offer.peer_id.to_string();
+        let peer_id_str = offer.peer_id.to_string();
         if let Some(db) = app.try_state::<DatabaseConnection>() {
             if let Err(e) = crate::database::ops::create_session(
                 &db,
                 offer.session_id,
                 entity::TransferDirection::Receive,
-                &peer_name,
-                &peer_name,
+                &peer_id_str,
+                &offer.peer_name,
                 &offer.files,
                 offer.total_size,
                 Some(save_location.clone()),
