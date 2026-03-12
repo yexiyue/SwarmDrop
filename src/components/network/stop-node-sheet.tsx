@@ -4,6 +4,7 @@
  */
 
 import { platform, type as osType } from "@tauri-apps/plugin-os";
+import { useSyncExternalStore } from "react";
 import { useNetworkStore } from "@/stores/network-store";
 import { useSecretStore } from "@/stores/secret-store";
 import { usePreferencesStore } from "@/stores/preferences-store";
@@ -93,7 +94,7 @@ export function StopNodeSheet({ open, onOpenChange }: StopNodeSheetProps) {
 
   return (
     <ResponsiveDialog open={open} onOpenChange={onOpenChange}>
-      <ResponsiveDialogContent>
+      <ResponsiveDialogContent className="max-h-[85vh] overflow-hidden p-0! sm:max-w-[min(90vw,32rem)]">
         <StopNodeContent
           onStop={handleStop}
           onCancel={() => onOpenChange(false)}
@@ -155,6 +156,15 @@ function StopNodeContent({
   const { t } = useLingui();
   const { isMobile } = useResponsiveDialog();
   const config = statusConfig[status];
+
+  const windowHeight = useSyncExternalStore(
+    (cb) => {
+      window.addEventListener("resize", cb);
+      return () => window.removeEventListener("resize", cb);
+    },
+    () => window.innerHeight,
+  );
+  const showExtra = isMobile || windowHeight >= 700;
 
   const truncatedPeerId = peerId
     ? `${peerId.slice(0, 4)}...${peerId.slice(-5)}`
@@ -307,7 +317,7 @@ function StopNodeContent({
 
   // 桌面端
   return (
-    <>
+    <div className="flex flex-col gap-4 p-6">
       <ResponsiveDialogHeader className="items-center text-center">
         {/* 设备身份卡片 */}
         <div className="relative">
@@ -329,25 +339,27 @@ function StopNodeContent({
       </ResponsiveDialogHeader>
 
       <div className="flex flex-col gap-3">
-        {/* 统计数据 */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="flex flex-col items-center gap-1 rounded-xl border border-border py-3">
-            <span className="text-2xl font-bold text-foreground">
-              {connectedCount}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              <Trans>已连接节点</Trans>
-            </span>
+        {/* 统计数据 — 高度不足时隐藏 */}
+        {showExtra && (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col items-center gap-1 rounded-xl border border-border py-3">
+              <span className="text-2xl font-bold text-foreground">
+                {connectedCount}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                <Trans>已连接节点</Trans>
+              </span>
+            </div>
+            <div className="flex flex-col items-center gap-1 rounded-xl border border-border py-3">
+              <span className="text-2xl font-bold text-foreground">
+                {discoveredCount}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                <Trans>已发现节点</Trans>
+              </span>
+            </div>
           </div>
-          <div className="flex flex-col items-center gap-1 rounded-xl border border-border py-3">
-            <span className="text-2xl font-bold text-foreground">
-              {discoveredCount}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              <Trans>已发现节点</Trans>
-            </span>
-          </div>
-        </div>
+        )}
 
         {/* 节点信息卡片 */}
         <div className="overflow-hidden rounded-xl border border-border">
@@ -394,49 +406,53 @@ function StopNodeContent({
               {natStatus === "public" ? t`映射成功` : t`未知`}
             </Badge>
           </div>
-          {/* 中继状态 */}
-          <div className="flex items-center justify-between border-t border-border px-4 py-3">
-            <span className="text-sm text-muted-foreground">
-              <Trans>中继节点</Trans>
-            </span>
-            <div className="flex items-center gap-2">
-              {relayPeers.length > 0 && (
-                <span className="text-xs tabular-nums text-muted-foreground">
-                  {relayPeers.length}
-                </span>
-              )}
+          {/* 中继状态 — 高度不足时隐藏 */}
+          {showExtra && (
+            <div className="flex items-center justify-between border-t border-border px-4 py-3">
+              <span className="text-sm text-muted-foreground">
+                <Trans>中继节点</Trans>
+              </span>
+              <div className="flex items-center gap-2">
+                {relayPeers.length > 0 && (
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {relayPeers.length}
+                  </span>
+                )}
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "border-transparent text-xs",
+                    relayReady
+                      ? "bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400"
+                      : "bg-muted text-muted-foreground",
+                  )}
+                >
+                  {relayReady ? t`已就绪` : t`未连接`}
+                </Badge>
+              </div>
+            </div>
+          )}
+          {/* 引导节点 — 高度不足时隐藏 */}
+          {showExtra && (
+            <div className="flex items-center justify-between border-t border-border px-4 py-3">
+              <span className="text-sm text-muted-foreground">
+                <Trans>引导节点</Trans>
+              </span>
               <Badge
                 variant="outline"
                 className={cn(
                   "border-transparent text-xs",
-                  relayReady
+                  bootstrapConnected
                     ? "bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400"
                     : "bg-muted text-muted-foreground",
                 )}
               >
-                {relayReady ? t`已就绪` : t`未连接`}
+                {bootstrapConnected ? t`已连接` : t`未连接`}
               </Badge>
             </div>
-          </div>
-          {/* 引导节点 */}
-          <div className="flex items-center justify-between border-t border-border px-4 py-3">
-            <span className="text-sm text-muted-foreground">
-              <Trans>引导节点</Trans>
-            </span>
-            <Badge
-              variant="outline"
-              className={cn(
-                "border-transparent text-xs",
-                bootstrapConnected
-                  ? "bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400"
-                  : "bg-muted text-muted-foreground",
-              )}
-            >
-              {bootstrapConnected ? t`已连接` : t`未连接`}
-            </Badge>
-          </div>
-          {/* 公网地址 */}
-          {publicAddr && (
+          )}
+          {/* 公网地址 — 高度不足时隐藏 */}
+          {showExtra && publicAddr && (
             <div className="flex items-center justify-between border-t border-border px-4 py-3">
               <span className="text-sm text-muted-foreground">
                 <Trans>公网地址</Trans>
@@ -448,8 +464,8 @@ function StopNodeContent({
           )}
         </div>
 
-        {/* 监听地址（折叠） */}
-        {listenAddrs.length > 0 && (
+        {/* 监听地址（折叠）— 高度不足时隐藏 */}
+        {showExtra && listenAddrs.length > 0 && (
           <details className="group rounded-xl border border-border">
             <summary className="flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground">
               <Trans>监听地址</Trans>
@@ -487,6 +503,6 @@ function StopNodeContent({
           </Button>
         </div>
       </ResponsiveDialogFooter>
-    </>
+    </div>
   );
 }
