@@ -5,6 +5,9 @@
 
 import { ArrowUpRight, ArrowDownLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { TransferStatus } from "@/commands/transfer";
+
+export type { TransferStatus };
 
 /* ─── 方向图标 ─── */
 
@@ -64,14 +67,6 @@ export function calcPercent(transferred: number, total: number): number {
 }
 
 /** 判断传输是否处于活跃状态 */
-export type TransferStatus =
-  | "pending"
-  | "waiting_accept"
-  | "transferring"
-  | "completed"
-  | "failed"
-  | "cancelled";
-
 export function isActiveStatus(status: TransferStatus): boolean {
   return (
     status === "pending" ||

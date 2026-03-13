@@ -60,9 +60,10 @@ export const TransferItem = memo(function TransferItem({
   const handlePause = useCallback(
     async (e: React.MouseEvent) => {
       e.stopPropagation();
-      useTransferStore.getState().cancelSession(sessionId);
       try {
         await pauseTransfer(sessionId);
+        // 后端已将会话写入 DB（paused），再刷新历史并移除活跃 session
+        useTransferStore.getState().cancelSession(sessionId);
       } catch (err) {
         toast.error(getErrorMessage(err));
       }
