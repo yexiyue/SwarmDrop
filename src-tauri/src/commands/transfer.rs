@@ -223,6 +223,7 @@ pub async fn clear_transfer_history(
 /// 暂停传输（自动检测发送/接收方向，通知对端）
 #[tauri::command]
 pub async fn pause_transfer(
+    app: tauri::AppHandle,
     db: State<'_, sea_orm::DatabaseConnection>,
     net: State<'_, NetManagerState>,
     session_id: Uuid,
@@ -230,7 +231,7 @@ pub async fn pause_transfer(
     let transfer = get_transfer(&net).await?;
 
     // 尝试暂停发送会话，如果不存在则尝试暂停接收会话
-    if transfer.pause_send(&session_id).await.is_err() {
+    if transfer.pause_send(&session_id, &app).await.is_err() {
         // 发送会话不存在，尝试接收会话（忽略不存在的错误——可能已被对端取消）
         let _ = transfer.pause_receive(&session_id).await;
     }

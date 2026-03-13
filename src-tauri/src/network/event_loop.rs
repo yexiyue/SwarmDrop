@@ -147,13 +147,17 @@ async fn handle_resume_request(
     // 生成密钥（发送方不持久化密钥，每次恢复重新生成）
     let key = crate::transfer::crypto::generate_key();
 
-    // 创建 SendSession 并注册到 TransferManager
-    let send_session = Arc::new(SendSession::new(
+    // 从 DB 构建 resume_state（file_id → (chunks_done, transferred_bytes)）
+    let resume_state = crate::transfer::offer::build_sender_resume_state(&db_files);
+
+    // 创建 SendSession 并注册到 TransferManager（带 resume 状态）
+    let send_session = Arc::new(SendSession::new_with_resume(
         session_id,
         peer_id,
         prepared_files,
         &key,
         app.clone(),
+        &resume_state,
     ));
     transfer.insert_send_session(session_id, send_session);
 
@@ -549,6 +553,23 @@ pub fn spawn_event_loop(
 
                             // 检查是否有发送会话（对端是接收方暂停的）
                             let direction = if let Some(s) = shared.transfer.get_send_session(&session_id) {
+                                // 保存发送方 per-file 进度到 DB（断点续传恢复时使用）
+                                if let Some(db) = app.try_state::<DatabaseConnection>() {
+                                    for (file_id, _chunks_done, transferred) in s.get_file_progress() {
+                                        if transferred > 0 {
+                                            if let Err(e) = crate::database::ops::update_sender_file_progress(
+                                                &db,
+                                                session_id,
+                                                file_id as i32,
+                                                transferred as i64,
+                                            )
+                                            .await
+                                            {
+                                                warn!("保存发送方文件进度失败: file_id={}, {}", file_id, e);
+                                            }
+                                        }
+                                    }
+                                }
                                 s.cancel();
                                 shared.transfer.remove_send_session(&session_id);
                                 TransferDirection::Send

@@ -623,12 +623,30 @@ impl TransferManager {
 
     // ============ 取消 ============
 
-    /// 暂停发送：通知对端 → 取消本地 SendSession
-    pub async fn pause_send(&self, session_id: &Uuid) -> AppResult<()> {
+    /// 暂停发送：通知对端 → 保存进度到 DB → 取消本地 SendSession
+    pub async fn pause_send(&self, session_id: &Uuid, app: &AppHandle) -> AppResult<()> {
         let (_, session) = self
             .send_sessions
             .remove(session_id)
             .ok_or_else(|| AppError::Transfer(format!("发送会话不存在: {session_id}")))?;
+
+        // 保存发送方 per-file 进度到 DB（断点续传恢复时使用）
+        if let Some(db) = app.try_state::<sea_orm::DatabaseConnection>() {
+            for (file_id, _chunks_done, transferred) in session.get_file_progress() {
+                if transferred > 0 {
+                    if let Err(e) = crate::database::ops::update_sender_file_progress(
+                        &db,
+                        *session_id,
+                        file_id as i32,
+                        transferred as i64,
+                    )
+                    .await
+                    {
+                        warn!("保存发送方文件进度失败: file_id={}, {}", file_id, e);
+                    }
+                }
+            }
+        }
 
         // 通知对端（接收方）暂停
         let _ = self
@@ -953,13 +971,17 @@ impl TransferManager {
             file_checksums.len()
         );
 
+        // 从 DB 构建 resume_state（file_id → (chunks_done, transferred_bytes)）
+        let resume_state = build_sender_resume_state(&files);
+
         // 先创建 SendSession 并插入 DashMap（接收方开始 pulling 前必须就绪）
-        let send_session = Arc::new(SendSession::new(
+        let send_session = Arc::new(SendSession::new_with_resume(
             session_id,
             target_peer,
             prepared_files,
             &key,
             app,
+            &resume_state,
         ));
         self.send_sessions.insert(session_id, send_session);
 
@@ -1115,4 +1137,36 @@ pub(crate) fn build_file_sink(save_location: &entity::SaveLocation) -> FileSink 
             unreachable!("AndroidPublicDir 不应出现在非 Android 平台")
         }
     }
+}
+
+/// 从 DB 文件记录构建发送方的 resume_state（file_id → (chunks_done, transferred_bytes)）
+///
+/// 利用 transferred_bytes 和 CHUNK_SIZE 反推 chunks_done。
+pub(crate) fn build_sender_resume_state(
+    files: &[entity::transfer_file::Model],
+) -> std::collections::HashMap<u32, (u32, u64)> {
+    use crate::file_source::{calc_total_chunks, CHUNK_SIZE};
+
+    files
+        .iter()
+        .filter_map(|f| {
+            let transferred = f.transferred_bytes as u64;
+            if transferred == 0 {
+                return None;
+            }
+            let file_id = f.file_id as u32;
+            let file_size = f.size as u64;
+            let total_chunks = calc_total_chunks(file_size);
+            let chunk_size = CHUNK_SIZE as u64;
+
+            // 反推 chunks_done：完整的 chunk 数 + 可能的最后一个小 chunk
+            let chunks_done = if transferred >= file_size {
+                total_chunks
+            } else {
+                (transferred / chunk_size) as u32
+            };
+
+            Some((file_id, (chunks_done, transferred)))
+        })
+        .collect()
 }

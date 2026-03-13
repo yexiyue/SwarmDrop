@@ -153,10 +153,6 @@ impl ProgressTracker {
         }
     }
 
-    pub fn init_files(&mut self, file_descs: &[FileDesc]) {
-        self.init_files_with_resume(file_descs, &std::collections::HashMap::new());
-    }
-
     /// 初始化 per-file 进度，支持断点续传恢复状态。
     /// `resume_state` 为每个文件的已完成 chunk 数和已传输字节数，首次传输传空 map。
     pub fn init_files_with_resume(
@@ -226,6 +222,16 @@ impl ProgressTracker {
 
     pub fn transferred_bytes(&self) -> u64 {
         self.transferred_bytes
+    }
+
+    /// 获取每个文件的已传输进度
+    ///
+    /// 返回 `Vec<(file_id, chunks_done, transferred_bytes)>`
+    pub fn get_file_progress(&self) -> Vec<(u32, u32, u64)> {
+        self.files
+            .iter()
+            .map(|f| (f.file_id, f.chunks_done, f.transferred))
+            .collect()
     }
 
     pub fn add_bytes(&mut self, bytes: u64) {
