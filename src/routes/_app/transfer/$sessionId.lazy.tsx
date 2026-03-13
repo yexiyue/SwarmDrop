@@ -13,6 +13,7 @@ import {
   Loader2,
   X,
   Pause,
+  Play,
 } from "lucide-react";
 import { Trans } from "@lingui/react/macro";
 import { t } from "@lingui/core/macro";
@@ -25,7 +26,7 @@ import { cn } from "@/lib/utils";
 import { openTransferResult } from "@/lib/file-picker";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
-import { cancelSend, cancelReceive, pauseTransfer } from "@/commands/transfer";
+import { cancelSend, cancelReceive, pauseTransfer, resumeTransfer } from "@/commands/transfer";
 import { FileTree } from "../send/-components/file-tree";
 import { buildTreeDataFromSession } from "../send/-file-tree";
 import type { TransferSession, TransferHistoryItem } from "@/commands/transfer";
@@ -117,6 +118,7 @@ function TransferDetailPage() {
   return (
     <TransferDetailContent
       session={session}
+      historyItem={historyItem}
       onBack={handleBack}
       isMobile={isMobile}
     />
@@ -182,13 +184,39 @@ const StatusBadge = memo(function StatusBadge({
 
 const TransferProgress = memo(function TransferProgress({
   session,
+  historyItem,
 }: {
   session: TransferSession;
+  historyItem?: TransferHistoryItem;
 }) {
   const progressPercent =
     session.progress
       ? calcPercent(session.progress.transferredBytes, session.progress.totalBytes)
       : 0;
+
+  // 来自历史记录的暂停会话（status 运行时为 "paused"）
+  if ((session.status as string) === "paused" && historyItem) {
+    const pausedPercent = calcPercent(historyItem.transferredBytes, historyItem.totalSize);
+    return (
+      <div className="flex flex-col gap-2 md:gap-2.5">
+        <div className="flex items-baseline justify-between">
+          <span className="text-2xl font-bold tabular-nums text-foreground md:text-3xl">
+            {pausedPercent}%
+          </span>
+          <span className="text-[11px] text-muted-foreground md:text-xs">
+            <Trans>已暂停</Trans>
+          </span>
+        </div>
+        <Progress value={pausedPercent} className="h-1.5 md:h-2" />
+        <div className="flex items-center justify-between text-[11px] text-muted-foreground md:text-xs">
+          <span>
+            {formatFileSize(historyItem.transferredBytes)} /{" "}
+            {formatFileSize(historyItem.totalSize)}
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   if (session.status === "transferring" && session.progress) {
     return (
@@ -295,20 +323,26 @@ const TransferProgress = memo(function TransferProgress({
 
 const TransferActions = memo(function TransferActions({
   session,
+  historyItem,
 }: {
   session: TransferSession;
+  historyItem?: TransferHistoryItem;
 }) {
   const isSend = session.direction === "send";
   const isActive = isActiveStatus(session.status);
+  const isPaused = (session.status as string) === "paused";
+  const navigate = useNavigate();
 
   const handlePause = useCallback(async () => {
-    useTransferStore.getState().cancelSession(session.sessionId);
     try {
       await pauseTransfer(session.sessionId);
+      // 后端已将会话写入 DB（paused），再刷新历史并移除活跃 session
+      useTransferStore.getState().cancelSession(session.sessionId);
+      navigate({ to: "/transfer" });
     } catch (err) {
       toast.error(getErrorMessage(err));
     }
-  }, [session.sessionId]);
+  }, [session.sessionId, navigate]);
 
   const handleCancel = useCallback(async () => {
     useTransferStore.getState().cancelSession(session.sessionId);
@@ -330,6 +364,42 @@ const TransferActions = memo(function TransferActions({
       toast.error(getErrorMessage(err));
     }
   }, [session]);
+
+  const handleResume = useCallback(async () => {
+    if (!historyItem) return;
+    try {
+      const result = await resumeTransfer(historyItem.sessionId);
+      useTransferStore.getState().addSession({
+        sessionId: result.sessionId,
+        direction: result.direction as "send" | "receive",
+        peerId: result.peerId,
+        deviceName: result.peerName,
+        files: result.files,
+        totalSize: result.totalSize,
+        status: "transferring",
+        progress: null,
+        error: null,
+        startedAt: Date.now(),
+        completedAt: null,
+      });
+      await useTransferStore.getState().loadHistory();
+      navigate({
+        to: "/transfer/$sessionId",
+        params: { sessionId: result.sessionId },
+      });
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    }
+  }, [historyItem, navigate]);
+
+  if (isPaused && historyItem) {
+    return (
+      <Button onClick={handleResume} className="w-full">
+        <Play className="mr-2 size-4" />
+        <Trans>恢复传输</Trans>
+      </Button>
+    );
+  }
 
   if (isActive) {
     return (
@@ -372,10 +442,12 @@ const TransferActions = memo(function TransferActions({
 
 const TransferDetailContent = memo(function TransferDetailContent({
   session,
+  historyItem,
   onBack,
   isMobile,
 }: {
   session: TransferSession;
+  historyItem?: TransferHistoryItem;
   onBack: () => void;
   isMobile: boolean;
 }) {
@@ -404,7 +476,7 @@ const TransferDetailContent = memo(function TransferDetailContent({
         <div className="mx-auto flex max-w-2xl flex-col gap-3 md:gap-5">
           <TransferStatusHeader session={session} />
 
-          <TransferProgress session={session} />
+          <TransferProgress session={session} historyItem={historyItem} />
 
           <div className="flex flex-col gap-1.5 md:gap-2">
             <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground md:text-xs">
@@ -422,7 +494,7 @@ const TransferDetailContent = memo(function TransferDetailContent({
 
           {!isMobile && (
             <div className="flex justify-end">
-              <TransferActions session={session} />
+              <TransferActions session={session} historyItem={historyItem} />
             </div>
           )}
         </div>
@@ -431,7 +503,7 @@ const TransferDetailContent = memo(function TransferDetailContent({
       {/* 移动端底部操作栏 */}
       {isMobile && (
         <div className="border-t border-border px-3 py-2">
-          <TransferActions session={session} />
+          <TransferActions session={session} historyItem={historyItem} />
         </div>
       )}
     </main>
