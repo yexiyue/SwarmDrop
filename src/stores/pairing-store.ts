@@ -99,8 +99,8 @@ interface PairingState {
   sendPairingRequest: () => Promise<void>;
   /** 处理收到的入站配对请求 */
   handleInboundRequest: (payload: QueuedInboundRequest) => void;
-  /** 接受配对请求 */
-  acceptRequest: () => Promise<void>;
+  /** 接受配对请求，返回是否成功 */
+  acceptRequest: () => Promise<boolean>;
   /** 拒绝配对请求 */
   rejectRequest: () => Promise<void>;
   /** Direct 模式配对（附近设备直连） */
@@ -209,7 +209,7 @@ export const usePairingStore = create<PairingState>()(
 
     async acceptRequest() {
       const { incomingRequest, current } = get();
-      if (!incomingRequest) return;
+      if (!incomingRequest) return false;
 
       const { pendingId, osInfo, method } = incomingRequest;
       // 立即清空，防止双击导致重复发送响应（pending channel 只能消费一次）
@@ -237,11 +237,13 @@ export const usePairingStore = create<PairingState>()(
             get().generateCode();
           }
         }
+        return true;
       } catch (err) {
-        if (handleNodeNotStarted(err)) return;
+        if (handleNodeNotStarted(err)) return false;
         const message = getErrorMessage(err);
         toast.error(message);
         get().processNextInbound();
+        return false;
       }
     },
 

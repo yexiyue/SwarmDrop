@@ -34,8 +34,10 @@ export function ConnectionRequestDialog() {
   const DeviceIcon = incomingRequest ? getDeviceIcon(incomingRequest.osInfo.os) : Monitor;
 
   const handleAccept = async () => {
-    await acceptRequest();
-    navigate({ to: "/devices" });
+    const success = await acceptRequest();
+    if (success) {
+      navigate({ to: "/devices" });
+    }
   };
 
   const handleOpenChange = (open: boolean) => {
