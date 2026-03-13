@@ -102,6 +102,8 @@ pub enum TransferRequest {
         session_id: Uuid,
         reason: String,
     },
+    /// 任一方暂停传输（通知对端保存进度）
+    Pause { session_id: Uuid },
     /// 接收方向发送方请求断点续传
     ResumeRequest {
         session_id: Uuid,

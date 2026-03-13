@@ -7,6 +7,7 @@ import {
   TRANSFER_FAILED,
   TRANSFER_ACCEPTED,
   TRANSFER_REJECTED,
+  TRANSFER_PAUSED,
   TRANSFER_DB_ERROR,
 } from "@/constants/events";
 import type {
@@ -17,6 +18,7 @@ import type {
   TransferFailedEvent,
   TransferAcceptedEvent,
   TransferRejectedEvent,
+  TransferPausedEvent,
   TransferDbErrorEvent,
   TransferHistoryItem,
 } from "@/commands/transfer";
@@ -63,6 +65,12 @@ export async function setupTransferListeners() {
 
     listen<TransferFailedEvent>(TRANSFER_FAILED, (event) => {
       useTransferStore.getState().failSession(event.payload);
+    }),
+
+    listen<TransferPausedEvent>(TRANSFER_PAUSED, (event) => {
+      // 对端暂停传输：移除活跃 session，刷新历史（DB 中已标记为 paused）
+      removeAndRefresh(event.payload.sessionId);
+      toast.info(t`对方已暂停传输`);
     }),
 
     listen<TransferAcceptedEvent>(TRANSFER_ACCEPTED, (event) => {

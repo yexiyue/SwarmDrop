@@ -219,17 +219,19 @@ pub async fn clear_transfer_history(
     crate::database::ops::clear_all_history(&db).await
 }
 
-/// 暂停传输
+/// 暂停传输（自动检测发送/接收方向，通知对端）
 #[tauri::command]
 pub async fn pause_transfer(
     db: State<'_, sea_orm::DatabaseConnection>,
     net: State<'_, NetManagerState>,
     session_id: Uuid,
 ) -> crate::AppResult<()> {
-    // 先取消运行时接收会话（确保 bitmap 刷写完成），再写 DB
     let transfer = get_transfer(&net).await?;
-    if let Some(session) = transfer.get_receive_session(&session_id) {
-        session.cancel_and_wait().await;
+
+    // 尝试暂停发送会话，如果不存在则尝试暂停接收会话
+    if transfer.pause_send(&session_id).await.is_err() {
+        // 发送会话不存在，尝试接收会话（忽略不存在的错误——可能已被对端取消）
+        let _ = transfer.pause_receive(&session_id).await;
     }
 
     crate::database::ops::mark_session_paused(&db, session_id).await?;

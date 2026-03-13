@@ -439,6 +439,7 @@ impl TransferManager {
 
                     let send_session = Arc::new(SendSession::new(
                         session_id,
+                        target_peer,
                         selected_prepared,
                         &key,
                         app.clone(),
@@ -621,6 +622,58 @@ impl TransferManager {
     }
 
     // ============ 取消 ============
+
+    /// 暂停发送：通知对端 → 取消本地 SendSession
+    pub async fn pause_send(&self, session_id: &Uuid) -> AppResult<()> {
+        let (_, session) = self
+            .send_sessions
+            .remove(session_id)
+            .ok_or_else(|| AppError::Transfer(format!("发送会话不存在: {session_id}")))?;
+
+        // 通知对端（接收方）暂停
+        let _ = self
+            .client
+            .send_request(
+                session.peer_id,
+                AppRequest::Transfer(TransferRequest::Pause {
+                    session_id: *session_id,
+                }),
+            )
+            .await;
+
+        session.cancel();
+        info!("Send session paused: session={}", session_id);
+        Ok(())
+    }
+
+    /// 暂停接收：取消本地 ReceiveSession → 通知对端
+    pub async fn pause_receive(&self, session_id: &Uuid) -> AppResult<()> {
+        let session = self
+            .receive_sessions
+            .get(session_id)
+            .map(|r| Arc::clone(r.value()))
+            .ok_or_else(|| AppError::Transfer(format!("接收会话不存在: {session_id}")))?;
+
+        // 先停止本地接收（确保 bitmap 刷写完成）
+        session.cancel_and_wait().await;
+
+        // 从 DashMap 中移除（on_finish 回调可能已移除，这里确保清理）
+        self.receive_sessions.remove(session_id);
+
+        // 通知对端（发送方）暂停
+        let _ = self
+            .client
+            .send_request(
+                session.peer_id,
+                AppRequest::Transfer(TransferRequest::Pause {
+                    session_id: *session_id,
+                }),
+            )
+            .await;
+
+        info!("Receive session paused: session={}", session_id);
+        Ok(())
+    }
 
     /// 取消发送
     pub async fn cancel_send(&self, session_id: &Uuid) -> AppResult<()> {

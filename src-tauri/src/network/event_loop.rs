@@ -14,7 +14,7 @@ use crate::protocol::{
     AppRequest, AppResponse, OfferRejectReason, PairingRequest, ResumeRejectReason,
     TransferRequest, TransferResponse,
 };
-use crate::transfer::progress::{TransferDbErrorEvent, TransferDirection, TransferFailedEvent};
+use crate::transfer::progress::{TransferDbErrorEvent, TransferDirection, TransferFailedEvent, TransferPausedEvent};
 use swarm_p2p_core::libp2p::PeerId;
 
 /// 配对请求事件 payload
@@ -73,6 +73,7 @@ fn reject_resume(session_id: Uuid, reason: ResumeRejectReason) -> TransferRespon
 async fn handle_resume_request(
     app: &AppHandle,
     session_id: Uuid,
+    peer_id: PeerId,
     file_checksums: &[FileChecksum],
     transfer: &Arc<TransferManager>,
 ) -> TransferResponse {
@@ -149,6 +150,7 @@ async fn handle_resume_request(
     // 创建 SendSession 并注册到 TransferManager
     let send_session = Arc::new(SendSession::new(
         session_id,
+        peer_id,
         prepared_files,
         &key,
         app.clone(),
@@ -417,6 +419,63 @@ pub fn spawn_event_loop(
                             let _ = app.emit(events::TRANSFER_FAILED, &event);
                         }
 
+                        AppRequest::Transfer(TransferRequest::Pause { session_id }) => {
+                            info!(
+                                "收到对方暂停传输: session={}",
+                                session_id
+                            );
+
+                            // 检查是否有发送会话（对端是接收方暂停的）
+                            let direction = if let Some(s) = shared.transfer.get_send_session(&session_id) {
+                                s.cancel();
+                                shared.transfer.remove_send_session(&session_id);
+                                TransferDirection::Send
+                            }
+                            // 检查是否有接收会话（对端是发送方暂停的）
+                            else if let Some(s) = shared.transfer.get_receive_session(&session_id) {
+                                shared.transfer.remove_receive_session(&session_id);
+                                s.cancel_and_wait().await;
+                                TransferDirection::Receive
+                            } else {
+                                TransferDirection::Unknown
+                            };
+
+                            // 回复 Ack + DB 标记暂停
+                            let client = shared.client.clone();
+                            let app2 = app.clone();
+                            tokio::spawn(async move {
+                                let response =
+                                    AppResponse::Transfer(TransferResponse::Ack { session_id });
+                                let _ = client.send_response(pending_id, response).await;
+
+                                if let Some(db) = app2.try_state::<DatabaseConnection>() {
+                                    if let Err(e) =
+                                        crate::database::ops::mark_session_paused(
+                                            &db, session_id,
+                                        )
+                                        .await
+                                    {
+                                        warn!("DB 标记暂停失败: {}", e);
+                                    }
+                                    if let Err(e) =
+                                        crate::database::ops::sync_session_transferred_bytes(
+                                            &db, session_id,
+                                        )
+                                        .await
+                                    {
+                                        warn!("同步 session 字节数失败: {}", e);
+                                    }
+                                }
+                            });
+
+                            // 发射暂停事件给前端
+                            let event = TransferPausedEvent {
+                                session_id,
+                                direction,
+                            };
+                            let _ = app.emit(events::TRANSFER_PAUSED, &event);
+                        }
+
                         AppRequest::Transfer(TransferRequest::Offer {
                             session_id,
                             files,
@@ -508,6 +567,7 @@ pub fn spawn_event_loop(
                                 let response = handle_resume_request(
                                     &app2,
                                     session_id,
+                                    peer_id,
                                     &file_checksums,
                                     &transfer,
                                 )

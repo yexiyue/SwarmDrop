@@ -107,6 +107,12 @@ export interface TransferFailedEvent {
   error: string;
 }
 
+/** 对端暂停传输 */
+export interface TransferPausedEvent {
+  sessionId: string;
+  direction: TransferDirection;
+}
+
 // === 文件来源 ===
 
 /**

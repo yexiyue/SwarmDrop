@@ -73,6 +73,13 @@ pub struct TransferFailedEvent {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct TransferPausedEvent {
+    pub session_id: Uuid,
+    pub direction: TransferDirection,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct TransferDbErrorEvent {
     pub session_id: Uuid,
     pub message: String,

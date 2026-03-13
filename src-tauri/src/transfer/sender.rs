@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+use swarm_p2p_core::libp2p::PeerId;
 use tauri::AppHandle;
 use tokio_util::sync::CancellationToken;
 use tracing::{info, warn};
@@ -24,6 +25,8 @@ use crate::{AppError, AppResult};
 pub struct SendSession {
     /// 传输会话 ID
     pub session_id: Uuid,
+    /// 对端 PeerId（暂停时需要通知对端）
+    pub peer_id: PeerId,
     /// 准备好的文件列表（含文件来源）
     files: Vec<PreparedFile>,
     /// 加密器
@@ -43,6 +46,7 @@ pub struct SendSession {
 impl SendSession {
     pub fn new(
         session_id: Uuid,
+        peer_id: PeerId,
         files: Vec<PreparedFile>,
         key: &[u8; 32],
         app: AppHandle,
@@ -65,6 +69,7 @@ impl SendSession {
 
         Self {
             session_id,
+            peer_id,
             files,
             crypto: TransferCrypto::new(key),
             app,
