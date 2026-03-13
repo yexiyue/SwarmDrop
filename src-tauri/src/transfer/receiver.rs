@@ -225,7 +225,8 @@ impl ReceiveSession {
             };
 
             if let Err(e) = pull_result {
-                part_file.cleanup(&self.app).await;
+                // 不删除 .part 文件——bitmap 已刷写到 DB，保留 .part 以支持断点续传。
+                // .part 文件仅在用户主动取消（cancel_receive）时才清理。
                 self.remove_created_part(&part_file).await;
                 self.fail_session(&progress, e.to_string()).await;
                 return Err(e);

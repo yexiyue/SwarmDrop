@@ -623,14 +623,35 @@ impl TransferManager {
 
     // ============ 取消 ============
 
-    /// 暂停发送：通知对端 → 保存进度到 DB → 取消本地 SendSession
+    /// 暂停发送：取消 → 通知对端 → 保存进度到 DB → 移除 SendSession
     pub async fn pause_send(&self, session_id: &Uuid, app: &AppHandle) -> AppResult<()> {
+        // 1. 先取消 session（仍在 DashMap 中），立即拒绝新的 ChunkRequest，减少竞态窗口
+        {
+            let session = self
+                .send_sessions
+                .get(session_id)
+                .ok_or_else(|| AppError::Transfer(format!("发送会话不存在: {session_id}")))?;
+            session.cancel();
+        }
+
+        // 2. 移除 session 获取所有权
         let (_, session) = self
             .send_sessions
             .remove(session_id)
             .ok_or_else(|| AppError::Transfer(format!("发送会话不存在: {session_id}")))?;
 
-        // 保存发送方 per-file 进度到 DB（断点续传恢复时使用）
+        // 3. 通知对端（接收方）暂停
+        let _ = self
+            .client
+            .send_request(
+                session.peer_id,
+                AppRequest::Transfer(TransferRequest::Pause {
+                    session_id: *session_id,
+                }),
+            )
+            .await;
+
+        // 4. 保存发送方 per-file 进度到 DB（断点续传恢复时使用）
         if let Some(db) = app.try_state::<sea_orm::DatabaseConnection>() {
             for (file_id, _chunks_done, transferred) in session.get_file_progress() {
                 if transferred > 0 {
@@ -648,18 +669,6 @@ impl TransferManager {
             }
         }
 
-        // 通知对端（接收方）暂停
-        let _ = self
-            .client
-            .send_request(
-                session.peer_id,
-                AppRequest::Transfer(TransferRequest::Pause {
-                    session_id: *session_id,
-                }),
-            )
-            .await;
-
-        session.cancel();
         info!("Send session paused: session={}", session_id);
         Ok(())
     }
