@@ -71,22 +71,16 @@ export function FolderRow({
         className="flex shrink-0 items-center gap-1.5"
         onClick={(e) => e.stopPropagation()}
       >
-        {mode === "select" && (
-          <>
-            <span className="text-xs text-muted-foreground">
-              <Trans>{fileCount} 项</Trans>
+        <span className="text-xs text-muted-foreground">
+          <Trans>{fileCount} 项</Trans>
+          {mode === "select" && totalSize > 0 && (
+            <>
               {" · "}
               {formatFileSize(totalSize)}
-            </span>
-            {onRemove && <RemoveButton onClick={onRemove} />}
-          </>
-        )}
-
-        {mode === "transfer" && (
-          <span className="text-xs text-muted-foreground">
-            <Trans>{fileCount} 项</Trans>
-          </span>
-        )}
+            </>
+          )}
+        </span>
+        {mode === "select" && onRemove && <RemoveButton onClick={onRemove} />}
       </div>
     </div>
   );

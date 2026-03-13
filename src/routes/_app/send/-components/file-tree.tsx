@@ -155,6 +155,12 @@ export function FileTree({
                 ? getFileStatus(data, mode, progress, completedFileIds, errorFileIds)
                 : undefined;
 
+            // 共享的 onRemove 回调
+            const onRemove =
+              mode === "select" && onRemoveFile && data.absolutePath
+                ? () => onRemoveFile(data.absolutePath!)
+                : undefined;
+
             return (
               <div
                 key={data.id}
@@ -180,11 +186,7 @@ export function FileTree({
                         item.expand();
                       }
                     }}
-                    onRemove={
-                      mode === "select" && onRemoveFile && data.absolutePath
-                        ? () => onRemoveFile(data.absolutePath!)
-                        : undefined
-                    }
+                    onRemove={onRemove}
                   />
                 ) : (
                   <FileTreeItem
@@ -193,11 +195,7 @@ export function FileTree({
                     variant={fileStatus!}
                     level={level}
                     progress={getFileProgress(data, progress)}
-                    onRemove={
-                      mode === "select" && onRemoveFile && data.absolutePath
-                        ? () => onRemoveFile(data.absolutePath!)
-                        : undefined
-                    }
+                    onRemove={onRemove}
                     onRetry={
                       fileStatus === "error" && onRetryFile && data.fileId != null
                         ? () => onRetryFile(data.fileId!)

@@ -118,6 +118,19 @@ const STATUS_TRAIL: Partial<
   completed: Check,
 };
 
+function renderTrailIcon(variant: FileStatus, infoClass: string) {
+  const TrailIcon = STATUS_TRAIL[variant];
+  if (!TrailIcon) return null;
+  return (
+    <TrailIcon
+      className={cn(
+        "size-3.5",
+        variant === "completed" ? "text-green-500" : infoClass,
+      )}
+    />
+  );
+}
+
 /* ─── 主组件 ─── */
 
 export function FileTreeItem({
@@ -162,18 +175,8 @@ export function FileTreeItem({
             <RotateCcw className="size-3.5" />
           </button>
         )}
-        {STATUS_TRAIL[variant] &&
-          (() => {
-            const TrailIcon = STATUS_TRAIL[variant]!;
-            return (
-              <TrailIcon
-                className={cn(
-                  "size-3.5",
-                  variant === "completed" ? "text-green-500" : styles.info,
-                )}
-              />
-            );
-          })()}
+        {variant in STATUS_TRAIL &&
+          renderTrailIcon(variant, styles.info)}
       </div>
     </div>
   );
