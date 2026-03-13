@@ -870,9 +870,186 @@ impl TransferManager {
         }
     }
 
+    /// 发送方发起断点续传：重建 SendSession → 发送 ResumeOffer → 接收方创建 ReceiveSession
+    pub async fn initiate_resume_as_sender(
+        &self,
+        db: &DatabaseConnection,
+        session_id: Uuid,
+        app: AppHandle,
+    ) -> AppResult<ResumeInfo> {
+        // 从 DB 读取 session
+        let session = entity::TransferSession::find_by_id(session_id)
+            .one(db)
+            .await?
+            .ok_or_else(|| AppError::Transfer("会话不存在".into()))?;
+
+        if session.status != entity::SessionStatus::Paused
+            && session.status != entity::SessionStatus::Failed
+        {
+            return Err(AppError::Transfer(format!(
+                "会话状态不支持恢复: {:?}",
+                session.status
+            )));
+        }
+
+        let target_peer: PeerId = session
+            .peer_id
+            .as_str()
+            .parse()
+            .map_err(|_| AppError::Transfer("无效的 PeerId".into()))?;
+
+        let files = crate::database::ops::get_session_files(db, session_id).await?;
+
+        // 重建 PreparedFile 并验证源文件
+        let mut prepared_files = Vec::with_capacity(files.len());
+        let mut file_checksums = Vec::with_capacity(files.len());
+        let mut resume_file_infos = Vec::with_capacity(files.len());
+
+        for f in &files {
+            let source_path = f
+                .source_path
+                .as_ref()
+                .ok_or_else(|| AppError::Transfer(format!("文件缺少 source_path: file_id={}", f.file_id)))?;
+
+            let path = std::path::PathBuf::from(source_path);
+            match tokio::fs::metadata(&path).await {
+                Ok(meta) if meta.len() == f.size as u64 => {}
+                _ => {
+                    return Err(AppError::Transfer(format!(
+                        "源文件不存在或大小不匹配: {}",
+                        source_path
+                    )));
+                }
+            }
+
+            prepared_files.push(PreparedFile {
+                file_id: f.file_id as u32,
+                name: f.name.clone(),
+                relative_path: f.relative_path.clone(),
+                source: FileSource::Path { path },
+                size: f.size as u64,
+                checksum: f.checksum.clone(),
+            });
+
+            file_checksums.push(FileChecksum {
+                file_id: f.file_id as u32,
+                checksum: f.checksum.clone(),
+            });
+
+            resume_file_infos.push(ResumeFileInfo {
+                file_id: f.file_id,
+                name: f.name.clone(),
+                relative_path: f.relative_path.clone(),
+                size: f.size,
+            });
+        }
+
+        // 生成密钥
+        let key = generate_key();
+
+        info!(
+            "发送方发起断点续传: session={}, files={}",
+            session_id,
+            file_checksums.len()
+        );
+
+        // 先创建 SendSession 并插入 DashMap（接收方开始 pulling 前必须就绪）
+        let send_session = Arc::new(SendSession::new(
+            session_id,
+            target_peer,
+            prepared_files,
+            &key,
+            app,
+        ));
+        self.send_sessions.insert(session_id, send_session);
+
+        // 发送 ResumeOffer 给接收方
+        let response = self
+            .client
+            .send_request(
+                target_peer,
+                AppRequest::Transfer(TransferRequest::ResumeOffer {
+                    session_id,
+                    key,
+                    file_checksums,
+                }),
+            )
+            .await
+            .map_err(|e| {
+                // 发送失败时清理 SendSession
+                self.send_sessions.remove(&session_id);
+                AppError::Transfer(format!("ResumeOffer 发送失败: {e}"))
+            })?;
+
+        match response {
+            AppResponse::Transfer(TransferResponse::ResumeOfferResult {
+                accepted: true, ..
+            }) => {
+                info!("ResumeOffer accepted for session {}", session_id);
+
+                crate::database::ops::mark_session_transferring(db, session_id).await?;
+
+                let peer_id = session.peer_id.0;
+                let peer_name = session.peer_name;
+                let total_size = session.total_size;
+
+                let transferred_bytes: i64 = files.iter().map(|f| f.transferred_bytes).sum();
+
+                Ok(ResumeInfo {
+                    peer_id,
+                    peer_name,
+                    files: resume_file_infos,
+                    total_size,
+                    transferred_bytes,
+                })
+            }
+            AppResponse::Transfer(TransferResponse::ResumeOfferResult {
+                accepted: false,
+                reason,
+                ..
+            }) => {
+                // 接收方拒绝，清理 SendSession
+                self.send_sessions.remove(&session_id);
+
+                let reason_str = match reason {
+                    Some(ResumeRejectReason::FileModified) => "接收方文件校验不匹配",
+                    Some(ResumeRejectReason::SessionNotFound) => "接收方找不到对应会话",
+                    Some(ResumeRejectReason::SenderCancelled) => "接收方已取消传输",
+                    None => "未知原因",
+                };
+                info!(
+                    "ResumeOffer rejected for session {}: {}",
+                    session_id, reason_str
+                );
+                crate::database::ops::mark_session_failed(db, session_id, reason_str).await?;
+                Err(AppError::Transfer(reason_str.into()))
+            }
+            other => {
+                self.send_sessions.remove(&session_id);
+                Err(AppError::Transfer(format!("意外的响应类型: {other:?}")))
+            }
+        }
+    }
+
     /// 获取网络客户端（供 event_loop 中处理 ResumeRequest 时使用）
     pub fn client(&self) -> &AppNetClient {
         &self.client
+    }
+
+    /// 公开接口：创建 ReceiveSession 并开始拉取（供 event_loop 中处理 ResumeOffer 时使用）
+    #[expect(clippy::too_many_arguments, reason = "传输会话初始化需要完整上下文")]
+    pub fn start_receive_from_offer(
+        &self,
+        session_id: Uuid,
+        peer_id: PeerId,
+        files: Vec<FileInfo>,
+        total_size: u64,
+        sink: FileSink,
+        key: &[u8; 32],
+        app: AppHandle,
+        initial_bitmaps: std::collections::HashMap<u32, Vec<u8>>,
+    ) {
+        self.start_receive_session(session_id, peer_id, files, total_size, sink, key, app, initial_bitmaps);
     }
 
     // ============ 内部方法 ============
@@ -924,7 +1101,7 @@ fn source_path_string(source: &FileSource) -> String {
 }
 
 /// 根据 SaveLocation 构造 FileSink
-fn build_file_sink(save_location: &entity::SaveLocation) -> FileSink {
+pub(crate) fn build_file_sink(save_location: &entity::SaveLocation) -> FileSink {
     match save_location {
         entity::SaveLocation::Path { path } => FileSink::Path {
             save_dir: std::path::PathBuf::from(path),

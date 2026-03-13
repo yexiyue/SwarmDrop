@@ -18,4 +18,5 @@ pub const TRANSFER_FAILED: &str = "transfer-failed";
 pub const TRANSFER_ACCEPTED: &str = "transfer-accepted";
 pub const TRANSFER_REJECTED: &str = "transfer-rejected";
 pub const TRANSFER_PAUSED: &str = "transfer-paused";
+pub const TRANSFER_RESUMED: &str = "transfer-resumed";
 pub const TRANSFER_DB_ERROR: &str = "transfer-db-error";

@@ -14,7 +14,7 @@ use crate::protocol::{
     AppRequest, AppResponse, OfferRejectReason, PairingRequest, ResumeRejectReason,
     TransferRequest, TransferResponse,
 };
-use crate::transfer::progress::{TransferDbErrorEvent, TransferDirection, TransferFailedEvent, TransferPausedEvent};
+use crate::transfer::progress::{TransferDbErrorEvent, TransferDirection, TransferFailedEvent, TransferPausedEvent, TransferResumedEvent, TransferResumedFileInfo};
 use swarm_p2p_core::libp2p::PeerId;
 
 /// 配对请求事件 payload
@@ -164,6 +164,128 @@ async fn handle_resume_request(
         accepted: true,
         reason: None,
         key: Some(key),
+    }
+}
+
+/// 接收方处理 ResumeOffer：验证文件校验和，创建 ReceiveSession，开始拉取
+async fn handle_resume_offer(
+    app: &AppHandle,
+    session_id: Uuid,
+    peer_id: PeerId,
+    key: &[u8; 32],
+    file_checksums: &[FileChecksum],
+    transfer: &Arc<TransferManager>,
+) -> TransferResponse {
+    let db = match app.try_state::<DatabaseConnection>() {
+        Some(db) => db.inner().clone(),
+        None => return reject_resume_offer(session_id, ResumeRejectReason::SessionNotFound),
+    };
+
+    // 查 DB 中是否有此 session
+    let session = match entity::TransferSession::find_by_id(session_id)
+        .one(&db)
+        .await
+    {
+        Ok(Some(s)) => s,
+        _ => return reject_resume_offer(session_id, ResumeRejectReason::SessionNotFound),
+    };
+
+    if session.status == entity::SessionStatus::Cancelled {
+        return reject_resume_offer(session_id, ResumeRejectReason::SenderCancelled);
+    }
+
+    // 获取 DB 中的文件列表
+    let db_files = match crate::database::ops::get_session_files(&db, session_id).await {
+        Ok(files) => files,
+        Err(_) => return reject_resume_offer(session_id, ResumeRejectReason::SessionNotFound),
+    };
+
+    // 校验文件 checksum 是否匹配
+    for fc in file_checksums {
+        let matched = db_files
+            .iter()
+            .any(|f| f.file_id == fc.file_id as i32 && f.checksum == fc.checksum);
+        if !matched {
+            return reject_resume_offer(session_id, ResumeRejectReason::FileModified);
+        }
+    }
+
+    // 接受恢复：更新 DB 状态
+    if let Err(e) = crate::database::ops::mark_session_transferring(&db, session_id).await {
+        warn!("DB 标记 session transferring 失败: {}", e);
+    }
+
+    // 构建 FileInfo、initial_bitmaps
+    let mut file_infos = Vec::with_capacity(db_files.len());
+    let mut initial_bitmaps = std::collections::HashMap::with_capacity(db_files.len());
+    let mut resumed_file_infos = Vec::new();
+
+    for f in &db_files {
+        let fid = f.file_id as u32;
+        file_infos.push(crate::protocol::FileInfo {
+            file_id: fid,
+            name: f.name.clone(),
+            relative_path: f.relative_path.clone(),
+            size: f.size as u64,
+            checksum: f.checksum.clone(),
+        });
+        initial_bitmaps.insert(fid, f.completed_chunks.clone());
+        resumed_file_infos.push(TransferResumedFileInfo {
+            file_id: fid,
+            name: f.name.clone(),
+            relative_path: f.relative_path.clone(),
+            size: f.size as u64,
+            is_directory: false,
+        });
+    }
+
+    let save_location = session.save_path.unwrap_or(entity::SaveLocation::Path {
+        path: String::new(),
+    });
+    let total_size = session.total_size as u64;
+    let peer_name = session.peer_name.clone();
+    let peer_id_str = session.peer_id.0.clone();
+
+    // 创建 ReceiveSession 并开始拉取
+    transfer.start_receive_from_offer(
+        session_id,
+        peer_id,
+        file_infos,
+        total_size,
+        crate::transfer::offer::build_file_sink(&save_location),
+        key,
+        app.clone(),
+        initial_bitmaps,
+    );
+
+    // 发射 TRANSFER_RESUMED 事件给前端
+    let _ = app.emit(
+        events::TRANSFER_RESUMED,
+        TransferResumedEvent {
+            session_id,
+            direction: TransferDirection::Receive,
+            peer_id: peer_id_str,
+            peer_name,
+            files: resumed_file_infos,
+            total_size,
+        },
+    );
+
+    info!("接受发送方断点续传: session={}", session_id);
+
+    TransferResponse::ResumeOfferResult {
+        session_id,
+        accepted: true,
+        reason: None,
+    }
+}
+
+/// 构造拒绝 ResumeOffer 的响应
+fn reject_resume_offer(session_id: Uuid, reason: ResumeRejectReason) -> TransferResponse {
+    TransferResponse::ResumeOfferResult {
+        session_id,
+        accepted: false,
+        reason: Some(reason),
     }
 }
 
@@ -577,6 +699,41 @@ pub fn spawn_event_loop(
                                     .await
                                 {
                                     warn!("发送 ResumeResult 失败: {}", e);
+                                }
+                            });
+                        }
+
+                        // === 发送方发起的断点续传（接收方处理 ResumeOffer） ===
+                        AppRequest::Transfer(TransferRequest::ResumeOffer {
+                            session_id,
+                            key,
+                            file_checksums,
+                        }) => {
+                            info!(
+                                "收到发送方断点续传请求: session={}, files={}",
+                                session_id,
+                                file_checksums.len()
+                            );
+
+                            let client = shared.client.clone();
+                            let app2 = app.clone();
+                            let transfer = shared.transfer.clone();
+
+                            tokio::spawn(async move {
+                                let response = handle_resume_offer(
+                                    &app2,
+                                    session_id,
+                                    peer_id,
+                                    &key,
+                                    &file_checksums,
+                                    &transfer,
+                                )
+                                .await;
+                                if let Err(e) = client
+                                    .send_response(pending_id, AppResponse::Transfer(response))
+                                    .await
+                                {
+                                    warn!("发送 ResumeOfferResult 失败: {}", e);
                                 }
                             });
                         }

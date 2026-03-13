@@ -110,6 +110,18 @@ pub enum TransferRequest {
         /// 每个文件的校验和（用于验证源文件是否被修改）
         file_checksums: Vec<FileChecksum>,
     },
+    /// 发送方向接收方发起断点续传（发送方主动恢复）
+    ResumeOffer {
+        session_id: Uuid,
+        /// 发送方生成的 256-bit 对称加密密钥
+        #[serde(
+            serialize_with = "serialize_key",
+            deserialize_with = "deserialize_key"
+        )]
+        key: [u8; 32],
+        /// 每个文件的校验和（用于验证文件一致性）
+        file_checksums: Vec<FileChecksum>,
+    },
 }
 
 /// Offer 被拒绝的原因（类型化，供前端 i18n 使用）
@@ -170,6 +182,27 @@ pub enum TransferResponse {
         )]
         key: Option<[u8; 32]>,
     },
+    /// 接收方回复发送方的 ResumeOffer
+    ResumeOfferResult {
+        session_id: Uuid,
+        accepted: bool,
+        /// 拒绝时的原因
+        reason: Option<ResumeRejectReason>,
+    },
+}
+
+/// 将 `[u8; 32]` 序列化为 bytes array（CBOR 友好）
+fn serialize_key<S: serde::Serializer>(key: &[u8; 32], serializer: S) -> Result<S::Ok, S::Error> {
+    serializer.serialize_bytes(&key[..])
+}
+
+/// 从 bytes 反序列化 `[u8; 32]`
+fn deserialize_key<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<[u8; 32], D::Error> {
+    let v: Vec<u8> = serde_bytes::deserialize(deserializer)?;
+    v.try_into()
+        .map_err(|_| serde::de::Error::custom("expected 32 bytes for key"))
 }
 
 /// 将 `Option<[u8; 32]>` 序列化为 bytes array（CBOR 友好）

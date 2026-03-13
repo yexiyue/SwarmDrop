@@ -78,6 +78,29 @@ pub struct TransferPausedEvent {
     pub direction: TransferDirection,
 }
 
+/// 对端发起断点续传，本地自动恢复（推送给前端创建运行时 session）
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TransferResumedEvent {
+    pub session_id: Uuid,
+    pub direction: TransferDirection,
+    pub peer_id: String,
+    pub peer_name: String,
+    pub files: Vec<TransferResumedFileInfo>,
+    pub total_size: u64,
+}
+
+/// 恢复事件中的文件信息
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TransferResumedFileInfo {
+    pub file_id: u32,
+    pub name: String,
+    pub relative_path: String,
+    pub size: u64,
+    pub is_directory: bool,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TransferDbErrorEvent {

@@ -12,6 +12,7 @@ use uuid::Uuid;
 use crate::file_source::{EnumeratedFile, FileSource};
 use crate::network::NetManagerState;
 use crate::transfer::offer::{PrepareProgress, StartSendResult, TransferManager};
+use sea_orm::EntityTrait;
 
 // ============ scan_sources ============
 
@@ -259,7 +260,7 @@ pub struct ResumeTransferResult {
     pub transferred_bytes: u64,
 }
 
-/// 恢复传输（接收方发起 ResumeRequest）
+/// 恢复传输（根据方向自动选择接收方或发送方恢复流程）
 #[tauri::command]
 pub async fn resume_transfer(
     app: tauri::AppHandle,
@@ -268,11 +269,29 @@ pub async fn resume_transfer(
     session_id: Uuid,
 ) -> crate::AppResult<ResumeTransferResult> {
     let transfer = get_transfer(&net).await?;
-    let resume_info = transfer.initiate_resume(&db, session_id, app).await?;
+
+    // 从 DB 读取会话方向
+    let session = entity::TransferSession::find_by_id(session_id)
+        .one(db.inner())
+        .await?
+        .ok_or_else(|| crate::AppError::Transfer("会话不存在".into()))?;
+
+    let (resume_info, direction_str) = match session.direction {
+        entity::TransferDirection::Receive => {
+            let info = transfer.initiate_resume(&db, session_id, app).await?;
+            (info, "receive")
+        }
+        entity::TransferDirection::Send => {
+            let info = transfer
+                .initiate_resume_as_sender(&db, session_id, app)
+                .await?;
+            (info, "send")
+        }
+    };
 
     Ok(ResumeTransferResult {
         session_id,
-        direction: "receive".into(),
+        direction: direction_str.into(),
         peer_id: resume_info.peer_id,
         peer_name: resume_info.peer_name,
         files: resume_info

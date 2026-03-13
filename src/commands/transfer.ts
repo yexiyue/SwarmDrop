@@ -113,6 +113,16 @@ export interface TransferPausedEvent {
   direction: TransferDirection;
 }
 
+/** 对端发起断点续传，本地自动恢复 */
+export interface TransferResumedEvent {
+  sessionId: string;
+  direction: TransferDirection;
+  peerId: string;
+  peerName: string;
+  files: TransferFileInfo[];
+  totalSize: number;
+}
+
 // === 文件来源 ===
 
 /**
