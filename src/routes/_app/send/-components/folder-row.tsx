@@ -3,10 +3,11 @@
  * 文件树中的文件夹行组件，支持展开/折叠
  */
 
-import { ChevronRight, ChevronDown, Folder, FolderOpen, X } from "lucide-react";
+import { ChevronRight, ChevronDown, Folder, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Trans } from "@lingui/react/macro";
 import { formatFileSize } from "@/lib/format";
+import { RemoveButton } from "./file-tree-item";
 
 interface FolderRowProps {
   name: string;
@@ -42,7 +43,7 @@ export function FolderRow({
   return (
     <div
       className={cn(
-        "flex items-center gap-2 rounded-md px-2 py-1.5 cursor-pointer",
+        "flex items-center gap-2.5 rounded-lg px-2.5 py-2 cursor-pointer",
         isExpanded ? "bg-accent" : "hover:bg-muted/50",
       )}
       style={{ paddingLeft: `${level * 22 + 8}px` }}
@@ -57,9 +58,9 @@ export function FolderRow({
       }}
     >
       {/* leftGroup */}
-      <div className="flex min-w-0 flex-1 items-center gap-2">
+      <div className="flex min-w-0 flex-1 items-center gap-2.5">
         <ChevronIcon className="size-4 shrink-0 text-muted-foreground" />
-        <FolderIcon className="size-4 shrink-0 text-amber-500" />
+        <FolderIcon className="size-4.5 shrink-0 text-amber-500" />
         <span className="min-w-0 truncate text-sm font-medium text-foreground">
           {name}
         </span>
@@ -77,15 +78,7 @@ export function FolderRow({
               {" · "}
               {formatFileSize(totalSize)}
             </span>
-            {onRemove && (
-              <button
-                type="button"
-                onClick={onRemove}
-                className="cursor-pointer rounded-sm p-0.5 text-muted-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive"
-              >
-                <X className="size-3.5" />
-              </button>
-            )}
+            {onRemove && <RemoveButton onClick={onRemove} />}
           </>
         )}
 

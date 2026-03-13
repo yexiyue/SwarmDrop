@@ -20,17 +20,25 @@ import { t } from "@lingui/core/macro";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useTransferStore } from "@/stores/transfer-store";
+import { useNetworkStore } from "@/stores/network-store";
+import { useSecretStore } from "@/stores/secret-store";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { formatFileSize, formatSpeed, formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { openTransferResult } from "@/lib/file-picker";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
-import { cancelSend, cancelReceive, pauseTransfer, resumeTransfer } from "@/commands/transfer";
+import {
+  cancelSend,
+  cancelReceive,
+  pauseTransfer,
+  resumeTransfer,
+} from "@/commands/transfer";
+import { getDeviceIcon } from "@/components/pairing/device-icon";
 import { FileTree } from "../send/-components/file-tree";
 import { buildTreeDataFromSession } from "../send/-file-tree";
 import type { TransferSession, TransferHistoryItem } from "@/commands/transfer";
-import { DirectionIcon, calcPercent, isActiveStatus } from "./-shared";
+import { calcPercent, isActiveStatus } from "./-shared";
 
 export const Route = createLazyFileRoute("/_app/transfer/$sessionId")({
   component: TransferDetailPage,
@@ -46,8 +54,7 @@ const STATUS_CLASSNAMES: Record<TransferSession["status"], string> = {
   completed:
     "bg-green-100 text-green-600 dark:bg-green-500/15 dark:text-green-400",
   failed: "bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-400",
-  cancelled:
-    "bg-gray-100 text-gray-600 dark:bg-gray-500/15 dark:text-gray-400",
+  cancelled: "bg-gray-100 text-gray-600 dark:bg-gray-500/15 dark:text-gray-400",
 };
 
 /** 将 DB 历史记录映射为 TransferSession 形状（供详情页组件复用） */
@@ -94,7 +101,9 @@ function TransferDetailPage() {
     ),
   );
   const session = useMemo(
-    () => activeSession ?? (historyItem ? historyToSession(historyItem) : undefined),
+    () =>
+      activeSession ??
+      (historyItem ? historyToSession(historyItem) : undefined),
     [activeSession, historyItem],
   );
 
@@ -135,19 +144,45 @@ const TransferStatusHeader = memo(function TransferStatusHeader({
   const isSend = session.direction === "send";
   const isActive = isActiveStatus(session.status);
 
+  // 从 network store / secret store 查找设备 OS
+  const deviceOs = useNetworkStore(
+    (s) => s.devices.find((d) => d.peerId === session.peerId)?.os,
+  );
+  const pairedOs = useSecretStore(
+    (s) => s.pairedDevices.find((d) => d.peerId === session.peerId)?.os,
+  );
+  const os = deviceOs ?? pairedOs ?? "";
+  const DeviceIcon = getDeviceIcon(os);
+
   return (
-    <div className="flex items-center gap-2.5 md:gap-3">
-      <DirectionIcon isSend={isSend} />
+    <div className="flex items-center gap-3 md:gap-3.5">
+      {/* 设备平台图标 */}
+      <div
+        className={cn(
+          "flex size-11 shrink-0 items-center justify-center rounded-full md:size-12",
+          isSend
+            ? "bg-blue-50 dark:bg-blue-500/15"
+            : "bg-green-50 dark:bg-green-500/15",
+        )}
+      >
+        <DeviceIcon
+          className={cn(
+            "size-5.5 md:size-6",
+            isSend
+              ? "text-blue-600 dark:text-blue-400"
+              : "text-green-600 dark:text-green-400",
+          )}
+        />
+      </div>
       <div className="min-w-0 flex-1">
         <h2 className="truncate text-[15px] font-semibold text-foreground md:text-base">
-          {isSend ? (
-            <Trans>发送到 {session.deviceName}</Trans>
-          ) : (
-            <Trans>来自 {session.deviceName}</Trans>
-          )}
+          {session.deviceName}
         </h2>
         <p className="text-[11px] text-muted-foreground md:text-xs">
-          {session.files.length} <Trans>个文件</Trans> ·{" "}
+          {isSend ? <Trans>发送</Trans> : <Trans>接收</Trans>}
+          {" · "}
+          {session.files.length} <Trans>个文件</Trans>
+          {" · "}
           {formatFileSize(session.totalSize)}
         </p>
       </div>
@@ -189,14 +224,19 @@ const TransferProgress = memo(function TransferProgress({
   session: TransferSession;
   historyItem?: TransferHistoryItem;
 }) {
-  const progressPercent =
-    session.progress
-      ? calcPercent(session.progress.transferredBytes, session.progress.totalBytes)
-      : 0;
+  const progressPercent = session.progress
+    ? calcPercent(
+        session.progress.transferredBytes,
+        session.progress.totalBytes,
+      )
+    : 0;
 
   // 来自历史记录的暂停会话（status 运行时为 "paused"）
   if ((session.status as string) === "paused" && historyItem) {
-    const pausedPercent = calcPercent(historyItem.transferredBytes, historyItem.totalSize);
+    const pausedPercent = calcPercent(
+      historyItem.transferredBytes,
+      historyItem.totalSize,
+    );
     return (
       <div className="flex flex-col gap-2 md:gap-2.5">
         <div className="flex items-baseline justify-between">
@@ -405,20 +445,12 @@ const TransferActions = memo(function TransferActions({
     return (
       <div className="flex w-full gap-2">
         {session.status === "transferring" && (
-          <Button
-            variant="secondary"
-            onClick={handlePause}
-            className="flex-1"
-          >
+          <Button variant="secondary" onClick={handlePause} className="flex-1">
             <Pause className="mr-2 size-4" />
             <Trans>暂停传输</Trans>
           </Button>
         )}
-        <Button
-          variant="outline"
-          onClick={handleCancel}
-          className="flex-1"
-        >
+        <Button variant="outline" onClick={handleCancel} className="flex-1">
           <X className="mr-2 size-4" />
           <Trans>取消传输</Trans>
         </Button>

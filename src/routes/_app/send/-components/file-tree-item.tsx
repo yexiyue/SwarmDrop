@@ -34,59 +34,48 @@ interface FileTreeItemProps {
   onRetry?: () => void;
 }
 
-/** 根据文件名后缀选择图标 */
+/* ─── 文件图标映射（数据驱动） ─── */
+
+const EXT_ICON_MAP: [ReadonlySet<string>, typeof File][] = [
+  [new Set(["jpg", "jpeg", "png", "gif", "svg", "webp", "bmp", "ico"]), FileImage],
+  [new Set(["md", "txt", "doc", "docx", "pdf"]), FileText],
+  [
+    new Set([
+      "ts", "tsx", "js", "jsx", "json", "css", "html",
+      "rs", "py", "go", "java", "toml", "yaml", "yml",
+    ]),
+    FileCode,
+  ],
+  [new Set(["zip", "tar", "gz", "rar", "7z"]), FileArchive],
+];
+
 function getFileIcon(name: string) {
-  const ext = name.split(".").pop()?.toLowerCase();
-  switch (ext) {
-    case "jpg":
-    case "jpeg":
-    case "png":
-    case "gif":
-    case "svg":
-    case "webp":
-    case "bmp":
-    case "ico":
-      return FileImage;
-    case "md":
-    case "txt":
-    case "doc":
-    case "docx":
-    case "pdf":
-      return FileText;
-    case "ts":
-    case "tsx":
-    case "js":
-    case "jsx":
-    case "json":
-    case "css":
-    case "html":
-    case "rs":
-    case "py":
-    case "go":
-    case "java":
-    case "toml":
-    case "yaml":
-    case "yml":
-      return FileCode;
-    case "zip":
-    case "tar":
-    case "gz":
-    case "rar":
-    case "7z":
-      return FileArchive;
-    default:
-      return File;
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+  for (const [exts, Icon] of EXT_ICON_MAP) {
+    if (exts.has(ext)) return Icon;
   }
+  return File;
 }
+
+/* ─── 共享删除按钮 ─── */
+
+export function RemoveButton({ onClick }: { onClick?: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="cursor-pointer rounded-sm p-0.5 text-muted-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive"
+    >
+      <X className="size-3.5" />
+    </button>
+  );
+}
+
+/* ─── 变体样式 ─── */
 
 const variantStyles: Record<
   FileStatus,
-  {
-    row: string;
-    icon: string;
-    name: string;
-    info: string;
-  }
+  { row: string; icon: string; name: string; info: string }
 > = {
   select: {
     row: "hover:bg-muted/50",
@@ -95,19 +84,19 @@ const variantStyles: Record<
     info: "text-muted-foreground",
   },
   waiting: {
-    row: "",
-    icon: "text-muted-foreground/60",
+    row: "opacity-55",
+    icon: "text-muted-foreground",
     name: "text-muted-foreground",
-    info: "text-muted-foreground/60",
+    info: "text-muted-foreground",
   },
   transferring: {
-    row: "bg-accent border border-blue-200",
+    row: "bg-blue-50/70 border border-blue-200 dark:bg-blue-500/10 dark:border-blue-500/25",
     icon: "text-blue-500",
     name: "text-foreground",
-    info: "text-blue-600 font-medium",
+    info: "text-blue-600 dark:text-blue-400 font-medium",
   },
   completed: {
-    row: "",
+    row: "bg-green-50/40 dark:bg-green-500/5",
     icon: "text-green-500",
     name: "text-foreground",
     info: "text-muted-foreground",
@@ -120,6 +109,17 @@ const variantStyles: Record<
   },
 };
 
+/* ─── 状态尾标 ─── */
+
+const STATUS_TRAIL: Partial<
+  Record<FileStatus, React.ComponentType<{ className?: string }>>
+> = {
+  waiting: Timer,
+  completed: Check,
+};
+
+/* ─── 主组件 ─── */
+
 export function FileTreeItem({
   name,
   size,
@@ -131,67 +131,28 @@ export function FileTreeItem({
 }: FileTreeItemProps) {
   const styles = variantStyles[variant];
   const Icon = getFileIcon(name);
+  const isTransferring = variant === "transferring";
 
-  if (variant === "transferring") {
-    return (
-      <div
-        className={cn("flex flex-col gap-1 rounded-md px-2 py-1.5", styles.row)}
-        style={{ paddingLeft: `${level * 22 + 8}px` }}
-      >
-        {/* 顶部行：leftGroup + rightGroup */}
-        <div className="flex items-center gap-2">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <Icon className={cn("size-4 shrink-0", styles.icon)} />
-            <span className={cn("min-w-0 truncate text-sm", styles.name)}>
-              {name}
-            </span>
-          </div>
-          <span className={cn("shrink-0 text-xs", styles.info)}>
-            {Math.round(progress)}%
-          </span>
-        </div>
-        {/* 全宽进度条 */}
-        <Progress value={progress} className="h-1" />
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className={cn(
-        "flex items-center gap-2 rounded-md px-2 py-1.5",
-        styles.row,
-      )}
-      style={{ paddingLeft: `${level * 22 + 8}px` }}
-    >
-      {/* leftGroup */}
-      <div className="flex min-w-0 flex-1 items-center gap-2">
-        <Icon className={cn("size-4 shrink-0", styles.icon)} />
+  // 图标 + 文件名行（所有变体共享）
+  const nameRow = (
+    <div className="flex items-center gap-2.5">
+      <div className="flex min-w-0 flex-1 items-center gap-2.5">
+        <Icon className={cn("size-4.5 shrink-0", styles.icon)} />
         <span className={cn("min-w-0 truncate text-sm", styles.name)}>
           {name}
         </span>
       </div>
 
-      {/* rightGroup */}
+      {/* 右侧信息区 */}
       <div className="flex shrink-0 items-center gap-1.5">
         <span className={cn("text-xs", styles.info)}>
-          {variant === "error" ? <Trans>失败</Trans> : formatFileSize(size)}
+          {isTransferring
+            ? `${Math.round(progress)}%`
+            : variant === "error"
+              ? <Trans>失败</Trans>
+              : formatFileSize(size)}
         </span>
-        {variant === "select" && (
-          <button
-            type="button"
-            onClick={onRemove}
-            className="cursor-pointer rounded-sm p-0.5 text-muted-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive"
-          >
-            <X className="size-3.5" />
-          </button>
-        )}
-        {variant === "waiting" && (
-          <Timer className={cn("size-3.5", styles.info)} />
-        )}
-        {variant === "completed" && (
-          <Check className="size-3.5 text-green-500" />
-        )}
+        {variant === "select" && <RemoveButton onClick={onRemove} />}
         {variant === "error" && (
           <button
             type="button"
@@ -201,7 +162,33 @@ export function FileTreeItem({
             <RotateCcw className="size-3.5" />
           </button>
         )}
+        {STATUS_TRAIL[variant] &&
+          (() => {
+            const TrailIcon = STATUS_TRAIL[variant]!;
+            return (
+              <TrailIcon
+                className={cn(
+                  "size-3.5",
+                  variant === "completed" ? "text-green-500" : styles.info,
+                )}
+              />
+            );
+          })()}
       </div>
+    </div>
+  );
+
+  return (
+    <div
+      className={cn(
+        "flex flex-col rounded-lg px-2.5 py-2",
+        isTransferring ? "gap-1.5" : "gap-0",
+        styles.row,
+      )}
+      style={{ paddingLeft: `${level * 22 + 8}px` }}
+    >
+      {nameRow}
+      {isTransferring && <Progress value={progress} className="h-1.5" />}
     </div>
   );
 }
