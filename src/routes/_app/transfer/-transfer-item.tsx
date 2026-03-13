@@ -6,8 +6,6 @@
 
 import { memo, useCallback } from "react";
 import {
-  ArrowUpRight,
-  ArrowDownLeft,
   X,
   Pause,
   CheckCircle2,
@@ -25,13 +23,20 @@ import {
   formatDuration,
   formatRelativeTime,
 } from "@/lib/format";
-import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
 import { openTransferResult } from "@/lib/file-picker";
 import { useNavigate } from "@tanstack/react-router";
+import {
+  DirectionIcon,
+  TransferCard,
+  calcPercent,
+  isActiveStatus,
+  ACTION_BTN_CLASS,
+  DESTRUCTIVE_BTN_CLASS,
+} from "./-shared";
 
 interface TransferItemProps {
   sessionId: string;
@@ -68,9 +73,7 @@ export const TransferItem = memo(function TransferItem({
   const handleCancel = useCallback(
     async (e: React.MouseEvent) => {
       e.stopPropagation();
-      // 乐观更新：立即从 UI 移除
       useTransferStore.getState().cancelSession(sessionId);
-      // 异步通知后端取消
       try {
         if (session?.direction === "send") {
           await cancelSend(sessionId);
@@ -101,55 +104,21 @@ export const TransferItem = memo(function TransferItem({
   if (!session) return null;
 
   const isSend = session.direction === "send";
-  const isActive =
-    session.status === "pending" ||
-    session.status === "waiting_accept" ||
-    session.status === "transferring";
-
-  const progressPercent =
-    session.progress && session.progress.totalBytes > 0
-      ? Math.round(
-          (session.progress.transferredBytes / session.progress.totalBytes) *
-            100,
-        )
-      : 0;
-
+  const isActive = isActiveStatus(session.status);
+  const progressPercent = session.progress
+    ? calcPercent(session.progress.transferredBytes, session.progress.totalBytes)
+    : 0;
   const activeFileName = session.progress?.files?.find(
     (f) => f.status === "transferring",
   )?.name;
 
   return (
-    <div
-      className="group relative flex cursor-pointer items-start gap-2.5 rounded-xl border border-border bg-card p-3 transition-colors hover:bg-accent/40 hover:shadow-sm md:gap-3.5 md:p-4"
-      onClick={handleClick}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          handleClick();
-        }
-      }}
-    >
-      {/* 1. 左侧：方向图标 */}
-      <div
-        className={cn(
-          "flex size-9 shrink-0 items-center justify-center rounded-lg md:size-11 md:rounded-xl",
-          isSend
-            ? "bg-blue-50 text-blue-500 dark:bg-blue-500/15 dark:text-blue-400"
-            : "bg-green-50 text-green-500 dark:bg-green-500/15 dark:text-green-400",
-        )}
-      >
-        {isSend ? (
-          <ArrowUpRight className="size-4 md:size-5" strokeWidth={2.5} />
-        ) : (
-          <ArrowDownLeft className="size-4 md:size-5" strokeWidth={2.5} />
-        )}
-      </div>
+    <TransferCard onClick={handleClick} alignItems="start">
+      <DirectionIcon isSend={isSend} />
 
-      {/* 2. 中间：详细信息 */}
-      <div className="flex min-w-0 flex-1 flex-col gap-1 pt-0.5 md:gap-1.5">
-        {/* 第一行：方向 + 设备名 */}
-        <h3 className="truncate text-sm font-medium text-foreground md:text-[15px]">
+      {/* 中间：详细信息 */}
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5 md:gap-1">
+        <h3 className="truncate text-[13px] font-medium text-foreground md:text-sm">
           {isSend ? (
             <Trans>发送到 {session.deviceName}</Trans>
           ) : (
@@ -157,8 +126,7 @@ export const TransferItem = memo(function TransferItem({
           )}
         </h3>
 
-        {/* 第二行：文件数 + 大小 */}
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground md:text-[13px]">
+        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground md:text-xs">
           <span>
             {session.files.length} <Trans>个文件</Trans>
           </span>
@@ -166,52 +134,47 @@ export const TransferItem = memo(function TransferItem({
           <span>{formatFileSize(session.totalSize)}</span>
         </div>
 
-        {/* 第三行：状态区域 */}
+        {/* 状态区域 */}
         <div className="mt-0.5">
-          {/* 传输进度 */}
           {session.status === "transferring" && session.progress && (
-            <div className="flex max-w-sm flex-col gap-2 mt-1">
+            <div className="flex flex-col gap-1.5 mt-0.5">
               <Progress value={progressPercent} className="h-1.5" />
-              <div className="flex items-center justify-between text-[12px]">
-                <span className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
-                  <Loader2 className="size-3.5 animate-spin" />
-                  <span className="max-w-[10em] truncate">
+              <div className="flex items-center justify-between text-[11px] md:text-[12px]">
+                <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                  <Loader2 className="size-3 animate-spin md:size-3.5" />
+                  <span className="max-w-[8em] truncate md:max-w-[12em]">
                     {activeFileName || t`传输中`}
                   </span>
                 </span>
                 <span className="text-muted-foreground">
                   {formatSpeed(session.progress.speed)} · {progressPercent}%
                   {session.progress.eta != null && (
-                    <>
-                      {" "}
-                      · <Trans>剩余 {formatDuration(session.progress.eta)}</Trans>
-                    </>
+                    <span className="hidden md:inline">
+                      {" "}· <Trans>剩余 {formatDuration(session.progress.eta)}</Trans>
+                    </span>
                   )}
                 </span>
               </div>
             </div>
           )}
 
-          {/* 等待确认 */}
           {session.status === "waiting_accept" && (
-            <div className="flex items-center gap-1.5 text-[13px] text-amber-600 dark:text-amber-400">
-              <Loader2 className="size-3.5 animate-spin" />
+            <div className="flex items-center gap-1.5 text-[12px] text-amber-600 dark:text-amber-400 md:text-[13px]">
+              <Loader2 className="size-3 animate-spin md:size-3.5" />
               <Trans>等待对方确认...</Trans>
             </div>
           )}
 
-          {/* 等待中 */}
           {session.status === "pending" && (
-            <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-              <Loader2 className="size-3.5 animate-spin" />
+            <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground md:text-[13px]">
+              <Loader2 className="size-3 animate-spin md:size-3.5" />
               <Trans>准备中...</Trans>
             </div>
           )}
 
-          {/* 已完成 */}
           {session.status === "completed" && (
-            <div className="flex items-center gap-1.5 text-[13px] text-green-600 dark:text-green-400">
-              <CheckCircle2 className="size-4" />
+            <div className="flex items-center gap-1.5 text-[12px] text-green-600 dark:text-green-400 md:text-[13px]">
+              <CheckCircle2 className="size-3.5 md:size-4" />
               <Trans>传输完成</Trans>
               {session.completedAt && (
                 <span className="text-muted-foreground">
@@ -221,63 +184,43 @@ export const TransferItem = memo(function TransferItem({
             </div>
           )}
 
-          {/* 失败 */}
           {session.status === "failed" && (
-            <div className="flex items-center gap-1.5 text-[13px] text-destructive">
-              <XCircle className="size-4 shrink-0" />
+            <div className="flex items-center gap-1.5 text-[12px] text-destructive md:text-[13px]">
+              <XCircle className="size-3.5 shrink-0 md:size-4" />
               <span className="truncate">{session.error || t`传输失败`}</span>
             </div>
           )}
 
-          {/* 已取消 */}
           {session.status === "cancelled" && (
-            <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-              <XCircle className="size-4" />
+            <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground md:text-[13px]">
+              <XCircle className="size-3.5 md:size-4" />
               <Trans>已取消</Trans>
               {session.completedAt && (
-                <span>— {formatRelativeTime(session.completedAt)}</span>
+                <span className="hidden md:inline">— {formatRelativeTime(session.completedAt)}</span>
               )}
             </div>
           )}
         </div>
       </div>
 
-      {/* 3. 右侧：操作按钮 */}
-      <div className="flex shrink-0 items-start gap-0.5 -mr-1 md:gap-1 md:-mr-2">
+      {/* 右侧：操作按钮 */}
+      <div className="flex shrink-0 items-start gap-0.5 -mr-1 md:-mr-1.5">
         {session.status === "transferring" && (
-          <Button
-            size="icon"
-            variant="ghost"
-            className="size-7 text-muted-foreground hover:bg-accent hover:text-foreground md:size-8"
-            onClick={handlePause}
-            title={t`暂停传输`}
-          >
-            <Pause className="size-4" />
+          <Button size="icon" variant="ghost" className={ACTION_BTN_CLASS} onClick={handlePause} title={t`暂停传输`}>
+            <Pause className="size-3.5 md:size-4" />
           </Button>
         )}
         {isActive && (
-          <Button
-            size="icon"
-            variant="ghost"
-            className="size-7 text-muted-foreground hover:bg-destructive/10 hover:text-destructive md:size-8"
-            onClick={handleCancel}
-            title={t`取消传输`}
-          >
-            <X className="size-4" />
+          <Button size="icon" variant="ghost" className={DESTRUCTIVE_BTN_CLASS} onClick={handleCancel} title={t`取消传输`}>
+            <X className="size-3.5 md:size-4" />
           </Button>
         )}
         {session.status === "completed" && session.saveLocation && (
-          <Button
-            size="icon"
-            variant="ghost"
-            className="size-7 text-muted-foreground hover:bg-accent hover:text-foreground md:size-8"
-            onClick={handleOpenFolder}
-            title={t`打开文件夹`}
-          >
-            <FolderOpen className="size-4" />
+          <Button size="icon" variant="ghost" className={ACTION_BTN_CLASS} onClick={handleOpenFolder} title={t`打开文件夹`}>
+            <FolderOpen className="size-3.5 md:size-4" />
           </Button>
         )}
       </div>
-    </div>
+    </TransferCard>
   );
 });

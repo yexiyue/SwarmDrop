@@ -14,6 +14,7 @@ import { Trans } from "@lingui/react/macro";
 import { useShallow } from "zustand/react/shallow";
 import { usePairingStore } from "@/stores/pairing-store";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
+import { usePairingSuccess } from "@/hooks/use-pairing-success";
 import { MobileGenerateCodeView } from "./-components/mobile-generate-code-view";
 import { MobileInputCodeView } from "./-components/mobile-input-code-view";
 import {
@@ -29,10 +30,9 @@ function MobilePairingPage() {
   const navigate = useNavigate();
   const breakpoint = useBreakpoint();
 
-  const { current, generateCode, openInput, sendPairingRequest, reset } =
+  const { generateCode, openInput, sendPairingRequest, reset } =
     usePairingStore(
       useShallow((state) => ({
-        current: state.current,
         generateCode: state.generateCode,
         openInput: state.openInput,
         sendPairingRequest: state.sendPairingRequest,
@@ -59,12 +59,8 @@ function MobilePairingPage() {
     };
   }, [generateCode]);
 
-  // 配对成功后自动返回
-  useEffect(() => {
-    if (current.phase === "success") {
-      navigate({ to: "/devices" });
-    }
-  }, [current.phase, navigate]);
+  // 配对成功后自动跳转到设备页面
+  usePairingSuccess();
 
   const handleClose = () => {
     navigate({ to: "/devices" });

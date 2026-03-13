@@ -1,6 +1,4 @@
 import {
-  ArrowDownLeft,
-  ArrowUpRight,
   CheckCircle2,
   XCircle,
   Pause,
@@ -19,7 +17,6 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import type { TransferHistoryItem } from "@/commands/transfer";
 import { resumeTransfer, deleteTransferSession } from "@/commands/transfer";
 import { formatFileSize, formatRelativeTime } from "@/lib/format";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
@@ -27,6 +24,13 @@ import { getErrorMessage } from "@/lib/errors";
 import { useTransferStore } from "@/stores/transfer-store";
 import { useNavigate } from "@tanstack/react-router";
 import { openTransferResult } from "@/lib/file-picker";
+import {
+  DirectionIcon,
+  TransferCard,
+  calcPercent,
+  ACTION_BTN_CLASS,
+  DESTRUCTIVE_BTN_CLASS,
+} from "./-shared";
 
 interface HistoryItemProps {
   item: TransferHistoryItem;
@@ -130,52 +134,28 @@ export function HistoryItem({ item }: HistoryItemProps) {
   const firstFileName = files?.[0]?.name || t`未知文件`;
   const displayFileName =
     fileCount > 1 ? t`${firstFileName} 等 ${fileCount} 个文件` : firstFileName;
-  const progressPercent =
-    totalSize > 0 ? Math.round((transferredBytes / totalSize) * 100) : 0;
+  const progressPercent = calcPercent(transferredBytes, totalSize);
   const canResume = status === "failed" || status === "paused";
 
   return (
-    <div
-      className="group relative flex cursor-pointer items-center gap-2.5 rounded-xl border border-border bg-card p-3 transition-colors hover:bg-accent/40 hover:shadow-sm md:items-start md:gap-3.5 md:p-4"
-      onClick={handleClick}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") handleClick();
-      }}
-    >
-      <div
-        className={cn(
-          "flex size-10 shrink-0 items-center justify-center rounded-lg md:size-16 md:rounded-xl",
-          isSend
-            ? "bg-blue-50 text-blue-500 dark:bg-blue-500/15 dark:text-blue-400"
-            : "bg-green-50 text-green-500 dark:bg-green-500/15 dark:text-green-400",
-        )}
-      >
-        {isSend ? (
-          <ArrowUpRight className="size-5 md:size-7" strokeWidth={2.5} />
-        ) : (
-          <ArrowDownLeft className="size-5 md:size-7" strokeWidth={2.5} />
-        )}
-      </div>
+    <TransferCard onClick={handleClick}>
+      <DirectionIcon isSend={isSend} />
 
-      {/* 2. 中间：核心信息 */}
-      <div className="flex min-w-0 flex-1 flex-col gap-1 md:gap-1.5">
-        {/* 第一行：文件名 */}
+      {/* 中间：核心信息 */}
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5 md:gap-1">
         <div className="flex items-center gap-1.5 md:gap-2">
           <span className="hidden md:inline-flex">
             {getFileIcon(firstFileName, fileCount)}
           </span>
           <h3
-            className="truncate text-sm font-medium text-foreground md:text-[15px]"
+            className="truncate text-[13px] font-medium text-foreground md:text-sm"
             title={displayFileName}
           >
             {displayFileName}
           </h3>
         </div>
 
-        {/* 第二行：方向 + 设备名 + 大小 */}
-        <div className="flex items-center gap-1.5 text-xs text-muted-foreground md:text-[13px]">
+        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground md:text-xs">
           <span className="shrink-0">
             {isSend ? <Trans>发送到</Trans> : <Trans>来自</Trans>}
           </span>
@@ -186,11 +166,11 @@ export function HistoryItem({ item }: HistoryItemProps) {
           <span className="shrink-0">{formatFileSize(totalSize)}</span>
         </div>
 
-        {/* 第三行：状态栏 */}
+        {/* 状态栏 */}
         <div className="mt-0.5">
           {status === "completed" && (
-            <div className="flex items-center gap-1.5 text-[13px] text-green-600 dark:text-green-400">
-              <CheckCircle2 className="size-4" />
+            <div className="flex items-center gap-1.5 text-[12px] text-green-600 dark:text-green-400 md:text-[13px]">
+              <CheckCircle2 className="size-3.5 md:size-4" />
               <Trans>传输完成</Trans>
               <span className="text-muted-foreground">
                 — {formatFileSize(transferredBytes)}
@@ -199,11 +179,11 @@ export function HistoryItem({ item }: HistoryItemProps) {
           )}
 
           {status === "paused" && (
-            <div className="flex max-w-sm flex-col gap-2 mt-1">
+            <div className="flex flex-col gap-1.5 mt-0.5">
               <Progress value={progressPercent} className="h-1.5" />
-              <div className="flex items-center justify-between text-[12px]">
-                <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
-                  <Pause className="size-3.5" />
+              <div className="flex items-center justify-between text-[11px] md:text-[12px]">
+                <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                  <Pause className="size-3 md:size-3.5" />
                   <Trans>已暂停</Trans>
                 </span>
                 <span className="text-muted-foreground">
@@ -215,66 +195,53 @@ export function HistoryItem({ item }: HistoryItemProps) {
           )}
 
           {status === "failed" && (
-            <div className="flex items-center gap-1.5 text-[13px] text-destructive">
-              <XCircle className="size-4 shrink-0" />
+            <div className="flex items-center gap-1.5 text-[12px] text-destructive md:text-[13px]">
+              <XCircle className="size-3.5 shrink-0 md:size-4" />
               <span className="truncate">{errorMessage || t`传输失败`}</span>
             </div>
           )}
 
           {status === "cancelled" && (
-            <div className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
-              <XCircle className="size-4" />
+            <div className="flex items-center gap-1.5 text-[12px] text-muted-foreground md:text-[13px]">
+              <XCircle className="size-3.5 md:size-4" />
               <Trans>已取消</Trans>
             </div>
           )}
         </div>
       </div>
 
-      {/* 3. 右侧：时间 + 操作按钮（桌面端垂直排列） */}
-      <div className="flex shrink-0 flex-col items-end justify-between -mr-1 md:-mr-2">
-        <span className="text-[11px] text-muted-foreground md:text-xs">
+      {/* 右侧：时间 + 操作按钮 */}
+      <div className="flex shrink-0 flex-col items-end gap-1 -mr-1 md:-mr-1.5">
+        <span className="text-[10px] text-muted-foreground md:text-[11px]">
           {formatRelativeTime(finishedAt || startedAt)}
         </span>
 
-        {/* 操作按钮 */}
-        <div className="flex items-center gap-0.5 md:gap-1">
+        <div className="flex items-center gap-0.5">
           {canResume && (
             <Button
               size="icon"
               variant="ghost"
-              className="size-7 text-muted-foreground hover:bg-accent hover:text-foreground md:size-8"
+              className={ACTION_BTN_CLASS}
               onClick={onResume}
               title={status === "paused" ? t`恢复传输` : t`重试传输`}
             >
               {status === "paused" ? (
-                <Play className="size-4" />
+                <Play className="size-3.5 md:size-4" />
               ) : (
-                <RotateCcw className="size-4" />
+                <RotateCcw className="size-3.5 md:size-4" />
               )}
             </Button>
           )}
           {status === "completed" && item.savePath && (
-            <Button
-              size="icon"
-              variant="ghost"
-              className="size-7 text-muted-foreground hover:bg-accent hover:text-foreground md:size-8"
-              onClick={onOpenFolder}
-              title={t`打开文件夹`}
-            >
-              <FolderOpen className="size-4" />
+            <Button size="icon" variant="ghost" className={ACTION_BTN_CLASS} onClick={onOpenFolder} title={t`打开文件夹`}>
+              <FolderOpen className="size-3.5 md:size-4" />
             </Button>
           )}
-          <Button
-            size="icon"
-            variant="ghost"
-            className="size-7 text-muted-foreground hover:bg-destructive/10 hover:text-destructive md:size-8"
-            onClick={onDelete}
-            title={t`删除记录`}
-          >
-            <Trash2 className="size-4" />
+          <Button size="icon" variant="ghost" className={DESTRUCTIVE_BTN_CLASS} onClick={onDelete} title={t`删除记录`}>
+            <Trash2 className="size-3.5 md:size-4" />
           </Button>
         </div>
       </div>
-    </div>
+    </TransferCard>
   );
 }
