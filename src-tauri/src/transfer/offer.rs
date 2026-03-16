@@ -751,37 +751,9 @@ impl TransferManager {
         session_id: Uuid,
         app: AppHandle,
     ) -> AppResult<ResumeInfo> {
-        // 从 DB 读取 session 和文件
-        let session = entity::TransferSession::find_by_id(session_id)
-            .one(db)
-            .await?
-            .ok_or_else(|| AppError::Transfer("会话不存在".into()))?;
-
-        if session.status != entity::SessionStatus::Paused
-            && session.status != entity::SessionStatus::Failed
-        {
-            return Err(AppError::Transfer(format!(
-                "会话状态不支持恢复: {:?}",
-                session.status
-            )));
-        }
-
-        let target_peer: PeerId = session
-            .peer_id
-            .as_str()
-            .parse()
-            .map_err(|_| AppError::Transfer("无效的 PeerId".into()))?;
-
+        let (session, target_peer) = load_resumable_session(db, session_id).await?;
         let files = crate::database::ops::get_session_files(db, session_id).await?;
-
-        // 构造 file checksums
-        let file_checksums: Vec<FileChecksum> = files
-            .iter()
-            .map(|f| FileChecksum {
-                file_id: f.file_id as u32,
-                checksum: f.checksum.clone(),
-            })
-            .collect();
+        let file_checksums = build_file_checksums(&files);
 
         info!(
             "发起断点续传: session={}, files={}",
@@ -812,7 +784,6 @@ impl TransferManager {
 
                 crate::database::ops::mark_session_transferring(db, session_id).await?;
 
-                // 在 start_receive_session 消耗 app 之前，将 session 字段 move 出来
                 let total_size = session.total_size;
                 let save_location = session.save_path.unwrap_or(entity::SaveLocation::Path {
                     path: String::new(),
@@ -820,31 +791,8 @@ impl TransferManager {
                 let peer_id = session.peer_id.0;
                 let peer_name = session.peer_name;
 
-                // 单次遍历同时构建所有集合
-                let mut file_infos = Vec::with_capacity(files.len());
-                let mut initial_bitmaps =
-                    std::collections::HashMap::with_capacity(files.len());
-                let mut transferred_bytes: i64 = 0;
-                let mut resume_file_infos = Vec::with_capacity(files.len());
-
-                for f in &files {
-                    let fid = f.file_id as u32;
-                    file_infos.push(FileInfo {
-                        file_id: fid,
-                        name: f.name.clone(),
-                        relative_path: f.relative_path.clone(),
-                        size: f.size as u64,
-                        checksum: f.checksum.clone(),
-                    });
-                    initial_bitmaps.insert(fid, f.completed_chunks.clone());
-                    transferred_bytes += f.transferred_bytes;
-                    resume_file_infos.push(ResumeFileInfo {
-                        file_id: f.file_id,
-                        name: f.name.clone(),
-                        relative_path: f.relative_path.clone(),
-                        size: f.size,
-                    });
-                }
+                let (file_infos, initial_bitmaps) = build_file_infos_and_bitmaps(&files);
+                let (resume_file_infos, transferred_bytes) = build_resume_file_infos(&files);
 
                 self.start_receive_session(
                     session_id,
@@ -904,72 +852,13 @@ impl TransferManager {
         session_id: Uuid,
         app: AppHandle,
     ) -> AppResult<ResumeInfo> {
-        // 从 DB 读取 session
-        let session = entity::TransferSession::find_by_id(session_id)
-            .one(db)
-            .await?
-            .ok_or_else(|| AppError::Transfer("会话不存在".into()))?;
-
-        if session.status != entity::SessionStatus::Paused
-            && session.status != entity::SessionStatus::Failed
-        {
-            return Err(AppError::Transfer(format!(
-                "会话状态不支持恢复: {:?}",
-                session.status
-            )));
-        }
-
-        let target_peer: PeerId = session
-            .peer_id
-            .as_str()
-            .parse()
-            .map_err(|_| AppError::Transfer("无效的 PeerId".into()))?;
-
+        let (session, target_peer) = load_resumable_session(db, session_id).await?;
         let files = crate::database::ops::get_session_files(db, session_id).await?;
 
         // 重建 PreparedFile 并验证源文件
-        let mut prepared_files = Vec::with_capacity(files.len());
-        let mut file_checksums = Vec::with_capacity(files.len());
-        let mut resume_file_infos = Vec::with_capacity(files.len());
-
-        for f in &files {
-            let source_path = f
-                .source_path
-                .as_ref()
-                .ok_or_else(|| AppError::Transfer(format!("文件缺少 source_path: file_id={}", f.file_id)))?;
-
-            let path = std::path::PathBuf::from(source_path);
-            match tokio::fs::metadata(&path).await {
-                Ok(meta) if meta.len() == f.size as u64 => {}
-                _ => {
-                    return Err(AppError::Transfer(format!(
-                        "源文件不存在或大小不匹配: {}",
-                        source_path
-                    )));
-                }
-            }
-
-            prepared_files.push(PreparedFile {
-                file_id: f.file_id as u32,
-                name: f.name.clone(),
-                relative_path: f.relative_path.clone(),
-                source: FileSource::Path { path },
-                size: f.size as u64,
-                checksum: f.checksum.clone(),
-            });
-
-            file_checksums.push(FileChecksum {
-                file_id: f.file_id as u32,
-                checksum: f.checksum.clone(),
-            });
-
-            resume_file_infos.push(ResumeFileInfo {
-                file_id: f.file_id,
-                name: f.name.clone(),
-                relative_path: f.relative_path.clone(),
-                size: f.size,
-            });
-        }
+        let prepared_files = build_prepared_files_from_db(&files).await?;
+        let file_checksums = build_file_checksums(&files);
+        let (resume_file_infos, _) = build_resume_file_infos(&files);
 
         // 生成密钥
         let key = generate_key();
@@ -980,7 +869,7 @@ impl TransferManager {
             file_checksums.len()
         );
 
-        // 从 DB 构建 resume_state（file_id → (chunks_done, transferred_bytes)）
+        // 从 DB 构建 resume_state
         let resume_state = build_sender_resume_state(&files);
 
         // 先创建 SendSession 并插入 DashMap（接收方开始 pulling 前必须就绪）
@@ -1007,7 +896,6 @@ impl TransferManager {
             )
             .await
             .map_err(|e| {
-                // 发送失败时清理 SendSession
                 self.send_sessions.remove(&session_id);
                 AppError::Transfer(format!("ResumeOffer 发送失败: {e}"))
             })?;
@@ -1020,17 +908,13 @@ impl TransferManager {
 
                 crate::database::ops::mark_session_transferring(db, session_id).await?;
 
-                let peer_id = session.peer_id.0;
-                let peer_name = session.peer_name;
-                let total_size = session.total_size;
-
                 let transferred_bytes: i64 = files.iter().map(|f| f.transferred_bytes).sum();
 
                 Ok(ResumeInfo {
-                    peer_id,
-                    peer_name,
+                    peer_id: session.peer_id.0,
+                    peer_name: session.peer_name,
                     files: resume_file_infos,
-                    total_size,
+                    total_size: session.total_size,
                     transferred_bytes,
                 })
             }
@@ -1039,7 +923,6 @@ impl TransferManager {
                 reason,
                 ..
             }) => {
-                // 接收方拒绝，清理 SendSession
                 self.send_sessions.remove(&session_id);
 
                 let reason_str = match reason {
@@ -1179,4 +1062,116 @@ pub(crate) fn build_sender_resume_state(
             Some((file_id, (chunks_done, transferred)))
         })
         .collect()
+}
+
+// ============ 断点续传辅助函数 ============
+
+/// 解析 PeerId 字符串，失败时返回统一的传输错误
+pub(crate) fn parse_peer_id(s: &str) -> AppResult<PeerId> {
+    s.parse()
+        .map_err(|_| AppError::Transfer(format!("无效的 PeerId: {s}")))
+}
+
+/// 从 DB 加载可恢复的会话（状态必须为 Paused 或 Failed），同时返回解析后的 PeerId
+pub(crate) async fn load_resumable_session(
+    db: &DatabaseConnection,
+    session_id: Uuid,
+) -> AppResult<(entity::transfer_session::Model, PeerId)> {
+    let session = entity::TransferSession::find_by_id(session_id)
+        .one(db)
+        .await?
+        .ok_or_else(|| AppError::Transfer("会话不存在".into()))?;
+
+    if !matches!(
+        session.status,
+        entity::SessionStatus::Paused | entity::SessionStatus::Failed
+    ) {
+        return Err(AppError::Transfer(format!(
+            "会话状态不支持恢复: {:?}",
+            session.status
+        )));
+    }
+
+    let target_peer = parse_peer_id(&session.peer_id)?;
+    Ok((session, target_peer))
+}
+
+/// 从 DB 文件记录构建 ResumeFileInfo 列表和 transferred_bytes 合计
+pub(crate) fn build_resume_file_infos(
+    files: &[entity::transfer_file::Model],
+) -> (Vec<ResumeFileInfo>, i64) {
+    let mut infos = Vec::with_capacity(files.len());
+    let mut transferred_bytes: i64 = 0;
+    for f in files {
+        infos.push(ResumeFileInfo {
+            file_id: f.file_id,
+            name: f.name.clone(),
+            relative_path: f.relative_path.clone(),
+            size: f.size,
+        });
+        transferred_bytes += f.transferred_bytes;
+    }
+    (infos, transferred_bytes)
+}
+
+/// 从 DB 文件记录构建 FileChecksum 列表
+pub(crate) fn build_file_checksums(files: &[entity::transfer_file::Model]) -> Vec<FileChecksum> {
+    files
+        .iter()
+        .map(|f| FileChecksum {
+            file_id: f.file_id as u32,
+            checksum: f.checksum.clone(),
+        })
+        .collect()
+}
+
+/// 从 DB 文件记录构建 FileInfo 列表和 initial_bitmaps
+pub(crate) fn build_file_infos_and_bitmaps(
+    files: &[entity::transfer_file::Model],
+) -> (Vec<FileInfo>, std::collections::HashMap<u32, Vec<u8>>) {
+    let mut file_infos = Vec::with_capacity(files.len());
+    let mut bitmaps = std::collections::HashMap::with_capacity(files.len());
+    for f in files {
+        let fid = f.file_id as u32;
+        file_infos.push(FileInfo {
+            file_id: fid,
+            name: f.name.clone(),
+            relative_path: f.relative_path.clone(),
+            size: f.size as u64,
+            checksum: f.checksum.clone(),
+        });
+        bitmaps.insert(fid, f.completed_chunks.clone());
+    }
+    (file_infos, bitmaps)
+}
+
+/// 从 DB 文件记录重建 PreparedFile 列表（验证源文件存在且大小匹配）
+pub(crate) async fn build_prepared_files_from_db(
+    files: &[entity::transfer_file::Model],
+) -> AppResult<Vec<PreparedFile>> {
+    let mut prepared = Vec::with_capacity(files.len());
+    for f in files {
+        let source_path = f.source_path.as_ref().ok_or_else(|| {
+            AppError::Transfer(format!("文件缺少 source_path: file_id={}", f.file_id))
+        })?;
+        let path = std::path::PathBuf::from(source_path);
+        match tokio::fs::metadata(&path).await {
+            Ok(meta) if meta.len() == f.size as u64 => {}
+            _ => {
+                return Err(AppError::Transfer(format!(
+                    "源文件不存在或大小不匹配: {}",
+                    source_path
+                )));
+            }
+        }
+        prepared.push(PreparedFile {
+            file_id: f.file_id as u32,
+            name: f.name.clone(),
+            relative_path: f.relative_path.clone(),
+            source: FileSource::Path { path },
+            size: f.size as u64,
+            checksum: f.checksum.clone(),
+        });
+    }
+    Ok(prepared)
 }

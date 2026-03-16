@@ -28,58 +28,23 @@ import { cn } from "@/lib/utils";
 import { openTransferResult } from "@/lib/file-picker";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
-import {
-  cancelSend,
-  cancelReceive,
-  pauseTransfer,
-  resumeTransfer,
-} from "@/commands/transfer";
 import { getDeviceIcon } from "@/components/pairing/device-icon";
 import { FileTree } from "../send/-components/file-tree";
 import { buildTreeDataFromSession } from "../send/-file-tree";
 import type { TransferSession, TransferHistoryItem } from "@/commands/transfer";
-import { calcPercent, isActiveStatus } from "./-shared";
+import {
+  calcPercent,
+  isActiveStatus,
+  STATUS_CLASSNAMES,
+  historyToSession,
+  doPauseTransfer,
+  doCancelTransfer,
+  doResumeTransfer,
+} from "./-shared";
 
 export const Route = createLazyFileRoute("/_app/transfer/$sessionId")({
   component: TransferDetailPage,
 });
-
-// className 静态配置
-const STATUS_CLASSNAMES: Record<TransferSession["status"], string> = {
-  pending: "bg-gray-100 text-gray-600 dark:bg-gray-500/15 dark:text-gray-400",
-  waiting_accept:
-    "bg-yellow-100 text-yellow-600 dark:bg-yellow-500/15 dark:text-yellow-400",
-  transferring:
-    "bg-blue-100 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400",
-  completed:
-    "bg-green-100 text-green-600 dark:bg-green-500/15 dark:text-green-400",
-  failed: "bg-red-100 text-red-600 dark:bg-red-500/15 dark:text-red-400",
-  cancelled: "bg-gray-100 text-gray-600 dark:bg-gray-500/15 dark:text-gray-400",
-};
-
-/** 将 DB 历史记录映射为 TransferSession 形状（供详情页组件复用） */
-function historyToSession(item: TransferHistoryItem): TransferSession {
-  return {
-    sessionId: item.sessionId,
-    direction: item.direction,
-    peerId: item.peerId,
-    deviceName: item.peerName,
-    files: item.files.map((f) => ({
-      fileId: f.fileId,
-      name: f.name,
-      relativePath: f.relativePath,
-      size: f.size,
-      isDirectory: false,
-    })),
-    totalSize: item.totalSize,
-    status: item.status as TransferSession["status"],
-    progress: null,
-    error: item.errorMessage,
-    startedAt: item.startedAt,
-    completedAt: item.finishedAt,
-    saveLocation: item.savePath ?? undefined,
-  };
-}
 
 function TransferDetailPage() {
   const { sessionId } = Route.useParams();
@@ -375,26 +340,15 @@ const TransferActions = memo(function TransferActions({
 
   const handlePause = useCallback(async () => {
     try {
-      await pauseTransfer(session.sessionId);
-      // 后端已将会话写入 DB（paused），再刷新历史并移除活跃 session
-      useTransferStore.getState().cancelSession(session.sessionId);
+      await doPauseTransfer(session.sessionId);
       navigate({ to: "/transfer" });
-    } catch (err) {
-      toast.error(getErrorMessage(err));
+    } catch {
+      // doPauseTransfer 已 toast
     }
   }, [session.sessionId, navigate]);
 
   const handleCancel = useCallback(async () => {
-    useTransferStore.getState().cancelSession(session.sessionId);
-    try {
-      if (isSend) {
-        await cancelSend(session.sessionId);
-      } else {
-        await cancelReceive(session.sessionId);
-      }
-    } catch (err) {
-      toast.error(getErrorMessage(err));
-    }
+    await doCancelTransfer(session.sessionId, isSend ? "send" : "receive");
   }, [isSend, session.sessionId]);
 
   const handleOpenFolder = useCallback(async () => {
@@ -408,24 +362,10 @@ const TransferActions = memo(function TransferActions({
   const handleResume = useCallback(async () => {
     if (!historyItem) return;
     try {
-      const result = await resumeTransfer(historyItem.sessionId);
-      useTransferStore.getState().addSession({
-        sessionId: result.sessionId,
-        direction: result.direction as "send" | "receive",
-        peerId: result.peerId,
-        deviceName: result.peerName,
-        files: result.files,
-        totalSize: result.totalSize,
-        status: "transferring",
-        progress: null,
-        error: null,
-        startedAt: Date.now(),
-        completedAt: null,
-      });
-      await useTransferStore.getState().loadHistory();
+      const newSessionId = await doResumeTransfer(historyItem.sessionId);
       navigate({
         to: "/transfer/$sessionId",
-        params: { sessionId: result.sessionId },
+        params: { sessionId: newSessionId },
       });
     } catch (err) {
       toast.error(getErrorMessage(err));

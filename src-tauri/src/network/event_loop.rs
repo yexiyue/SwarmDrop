@@ -56,7 +56,10 @@ use sea_orm::EntityTrait;
 
 use crate::file_source::FileSource;
 use crate::protocol::FileChecksum;
-use crate::transfer::offer::{PreparedFile, TransferManager};
+use crate::transfer::offer::{
+    build_file_checksums, build_file_infos_and_bitmaps, build_prepared_files_from_db,
+    build_sender_resume_state, PreparedFile, TransferManager,
+};
 use crate::transfer::sender::SendSession;
 
 /// 构造拒绝恢复的响应
