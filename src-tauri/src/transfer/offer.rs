@@ -1168,11 +1168,12 @@ pub(crate) fn build_sender_resume_state(
             let total_chunks = calc_total_chunks(file_size);
             let chunk_size = CHUNK_SIZE as u64;
 
-            // 反推 chunks_done：完整的 chunk 数 + 可能的最后一个小 chunk
+            // 反推 chunks_done：transferred 覆盖了多少个完整/部分 chunk
+            // 最后一个 chunk 可能小于 CHUNK_SIZE，需要用 div_ceil 正确计算
             let chunks_done = if transferred >= file_size {
                 total_chunks
             } else {
-                (transferred / chunk_size) as u32
+                (transferred.div_ceil(chunk_size)) as u32
             };
 
             Some((file_id, (chunks_done, transferred)))

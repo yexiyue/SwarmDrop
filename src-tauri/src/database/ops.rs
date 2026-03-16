@@ -106,6 +106,34 @@ pub async fn update_file_checkpoint(
     Ok(())
 }
 
+/// 重置文件的 checkpoint（bitmap 清零 + transferred_bytes 归零）
+///
+/// 校验失败后调用——.part 文件已被删除，需要清除 DB 中的 bitmap，
+/// 确保下次恢复时重新下载该文件的所有 chunk。
+pub async fn reset_file_checkpoint(
+    db: &DatabaseConnection,
+    session_id: Uuid,
+    file_id: i32,
+) -> AppResult<()> {
+    let file = entity::TransferFile::load()
+        .filter(entity::transfer_file::Column::SessionId.eq(session_id))
+        .filter(entity::transfer_file::Column::FileId.eq(file_id))
+        .with(entity::TransferSession)
+        .one(db)
+        .await?
+        .ok_or_else(|| crate::AppError::Transfer("文件记录不存在".into()))?;
+
+    let mut model = file.into_active_model();
+    model.completed_chunks = Set(vec![]);
+    model.transferred_bytes = Set(0);
+    if let Some(session) = model.session.as_mut() {
+        session.updated_at = Set(now_ms());
+    }
+    model.save(db).await?;
+
+    Ok(())
+}
+
 /// 更新发送方文件的已传输字节数（不修改 bitmap，发送方不使用 bitmap）
 pub async fn update_sender_file_progress(
     db: &DatabaseConnection,
