@@ -3,8 +3,8 @@
  * 停止节点确认弹窗（移动端 Bottom Sheet / 桌面端 Dialog）
  */
 
-import { platform, type as osType } from "@tauri-apps/plugin-os";
-import { useSyncExternalStore } from "react";
+import { hostname, platform, type as osType } from "@tauri-apps/plugin-os";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useNetworkStore } from "@/stores/network-store";
 import { useSecretStore } from "@/stores/secret-store";
 import { usePreferencesStore } from "@/stores/preferences-store";
@@ -83,6 +83,11 @@ export function StopNodeSheet({ open, onOpenChange }: StopNodeSheetProps) {
   const deviceId = useSecretStore((s) => s.deviceId);
   const deviceName = usePreferencesStore((s) => s.deviceName);
 
+  const [systemHostname, setSystemHostname] = useState("");
+  useEffect(() => {
+    hostname().then((name) => setSystemHostname(name ?? ""));
+  }, []);
+
   const currentPlatform = platform();
   const currentOsType = osType();
   const DeviceIcon = getDeviceIcon(currentOsType);
@@ -105,6 +110,7 @@ export function StopNodeSheet({ open, onOpenChange }: StopNodeSheetProps) {
           startedAt={startedAt}
           peerId={deviceId}
           deviceName={deviceName}
+          systemHostname={systemHostname}
           platformName={currentPlatform}
           DeviceIcon={DeviceIcon}
           natStatus={natStatus}
@@ -128,6 +134,7 @@ function StopNodeContent({
   startedAt,
   peerId,
   deviceName,
+  systemHostname,
   platformName,
   DeviceIcon,
   natStatus,
@@ -145,6 +152,7 @@ function StopNodeContent({
   startedAt: number | null;
   peerId: string | null;
   deviceName: string;
+  systemHostname: string;
   platformName: string;
   DeviceIcon: React.ComponentType<{ className?: string }>;
   natStatus: string;
@@ -171,7 +179,7 @@ function StopNodeContent({
     : "—";
 
   const uptimeText = startedAt ? formatUptime(startedAt) : "—";
-  const displayName = deviceName || "SwarmDrop";
+  const displayName = deviceName || systemHostname || "SwarmDrop";
   const avatarInitials = displayName.slice(0, 2).toUpperCase();
 
   const platformLabel: Record<string, string> = {
