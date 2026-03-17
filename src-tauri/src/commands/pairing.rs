@@ -7,8 +7,6 @@ use serde::{Deserialize, Serialize};
 use swarm_p2p_core::libp2p::{Multiaddr, PeerId};
 use tauri::{AppHandle, Emitter, State};
 
-use super::not_started;
-
 /// 查询设备信息的返回类型
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -23,12 +21,7 @@ pub async fn generate_pairing_code(
     net: State<'_, NetManagerState>,
     expires_in_secs: Option<u64>,
 ) -> AppResult<PairingCodeInfo> {
-    let guard = net.lock().await;
-    let manager = guard.as_ref().ok_or_else(not_started)?;
-    manager
-        .pairing()
-        .generate_code(expires_in_secs.unwrap_or(300))
-        .await
+    with_manager!(net, |m| m.pairing().generate_code(expires_in_secs.unwrap_or(300)).await)
 }
 
 /// 通过配对码查询对端设备信息
@@ -37,13 +30,10 @@ pub async fn get_device_info(
     net: State<'_, NetManagerState>,
     code: String,
 ) -> AppResult<DeviceInfo> {
-    let guard = net.lock().await;
-    let manager = guard.as_ref().ok_or_else(not_started)?;
-    let (peer_id, record) = manager.pairing().get_device_info(&code).await?;
-
+    let (peer_id, code_record) = with_manager!(net, |m| m.pairing().get_device_info(&code).await)?;
     Ok(DeviceInfo {
         peer_id,
-        code_record: record,
+        code_record,
     })
 }
 
@@ -58,12 +48,8 @@ pub async fn request_pairing(
     method: PairingMethod,
     addrs: Option<Vec<Multiaddr>>,
 ) -> AppResult<PairingResponse> {
-    let guard = net.lock().await;
-    let manager = guard.as_ref().ok_or_else(not_started)?;
-    let (response, paired_info) = manager
-        .pairing()
-        .request_pairing(peer_id, method, addrs)
-        .await?;
+    let (response, paired_info) =
+        with_manager!(net, |m| m.pairing().request_pairing(peer_id, method, addrs).await)?;
 
     if let Some(info) = paired_info {
         let _ = app.emit(events::PAIRED_DEVICE_ADDED, &info);
@@ -97,12 +83,11 @@ pub async fn respond_pairing_request(
     method: PairingMethod,
     response: PairingResponse,
 ) -> AppResult<()> {
-    let guard = net.lock().await;
-    let manager = guard.as_ref().ok_or_else(not_started)?;
-    let paired_info = manager
-        .pairing()
-        .handle_pairing_request(pending_id, &method, response)
-        .await?;
+    let paired_info = with_manager!(net, |m| {
+        m.pairing()
+            .handle_pairing_request(pending_id, &method, response)
+            .await
+    })?;
 
     if let Some(info) = paired_info {
         let _ = app.emit(events::PAIRED_DEVICE_ADDED, &info);

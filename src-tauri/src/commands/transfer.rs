@@ -338,6 +338,8 @@ pub async fn resolve_android_dir_uri(
 /// 从 Tauri State 中获取 TransferManager（短暂持锁后立即释放）
 async fn get_transfer(net: &NetManagerState) -> crate::AppResult<Arc<TransferManager>> {
     let guard = net.lock().await;
-    let manager = guard.as_ref().ok_or_else(super::not_started)?;
+    let manager = guard
+        .as_ref()
+        .ok_or(crate::AppError::NodeNotStarted)?;
     Ok(manager.transfer_arc())
 }

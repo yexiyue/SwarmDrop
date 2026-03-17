@@ -3,12 +3,13 @@
  * 移动端"生成配对码" Tab 内容：Link 图标 + 说明 + 6 位码展示 + 倒计时 + 重新生成按钮
  */
 
-import { useEffect, useState } from "react";
 import { Link, Clock, RefreshCw, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Trans } from "@lingui/react/macro";
 import { useShallow } from "zustand/react/shallow";
 import { usePairingStore } from "@/stores/pairing-store";
+import { useCountdown } from "@/hooks/use-countdown";
+import { formatCountdown } from "@/lib/format";
 
 export function MobileGenerateCodeView() {
   const { current, regenerateCode } = usePairingStore(
@@ -22,31 +23,7 @@ export function MobileGenerateCodeView() {
   const isLoading = current.phase === "idle";
   const errorMessage = current.phase === "error" ? current.message : null;
 
-  const [remainingSeconds, setRemainingSeconds] = useState(0);
-
-  // 倒计时
-  useEffect(() => {
-    if (!codeInfo) return;
-
-    const updateRemaining = () => {
-      const now = Math.floor(Date.now() / 1000);
-      const remaining = Math.max(0, codeInfo.expiresAt - now);
-      setRemainingSeconds(remaining);
-    };
-
-    updateRemaining();
-    const interval = setInterval(updateRemaining, 1000);
-    return () => clearInterval(interval);
-  }, [codeInfo]);
-
-  // 直接从 expiresAt 判断，避免 remainingSeconds 初始为 0 时的误判
-  const isExpired = codeInfo !== null && Math.floor(Date.now() / 1000) >= codeInfo.expiresAt;
-
-  const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${s.toString().padStart(2, "0")}`;
-  };
+  const { remainingSeconds, isExpired } = useCountdown(codeInfo?.expiresAt ?? null);
 
   const codeDigits = codeInfo?.code.split("") ?? [];
 
@@ -101,7 +78,7 @@ export function MobileGenerateCodeView() {
           {isExpired ? (
             <Trans>配对码已过期</Trans>
           ) : (
-            <Trans>配对码将在 {formatTime(remainingSeconds)} 后过期</Trans>
+            <Trans>配对码将在 {formatCountdown(remainingSeconds)} 后过期</Trans>
           )}
         </div>
       )}

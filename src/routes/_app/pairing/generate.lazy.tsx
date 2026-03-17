@@ -14,6 +14,8 @@ import { Trans } from "@lingui/react/macro";
 import { useShallow } from "zustand/react/shallow";
 import { usePairingStore } from "@/stores/pairing-store";
 import { usePairingSuccess } from "@/hooks/use-pairing-success";
+import { useCountdown } from "@/hooks/use-countdown";
+import { formatCountdown } from "@/lib/format";
 
 export const Route = createLazyFileRoute("/_app/pairing/generate")({
   component: PairingGeneratePage,
@@ -35,7 +37,6 @@ function PairingGeneratePage() {
   const isLoading = current.phase === "idle";
   const errorMessage = current.phase === "error" ? current.message : null;
 
-  const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [copied, setCopied] = useState(false);
 
   // 进入页面时生成配对码
@@ -50,19 +51,7 @@ function PairingGeneratePage() {
   usePairingSuccess();
 
   // 倒计时
-  useEffect(() => {
-    if (!codeInfo) return;
-
-    const updateRemaining = () => {
-      const now = Math.floor(Date.now() / 1000);
-      const remaining = Math.max(0, codeInfo.expiresAt - now);
-      setRemainingSeconds(remaining);
-    };
-
-    updateRemaining();
-    const interval = setInterval(updateRemaining, 1000);
-    return () => clearInterval(interval);
-  }, [codeInfo]);
+  const { remainingSeconds, isExpired } = useCountdown(codeInfo?.expiresAt ?? null);
 
   // 复制状态自动重置
   useEffect(() => {
@@ -70,15 +59,6 @@ function PairingGeneratePage() {
     const timer = setTimeout(() => setCopied(false), 2000);
     return () => clearTimeout(timer);
   }, [copied]);
-
-  // 直接从 expiresAt 判断，避免 remainingSeconds 初始为 0 时的误判
-  const isExpired = codeInfo !== null && Math.floor(Date.now() / 1000) >= codeInfo.expiresAt;
-
-  const formatTime = (seconds: number) => {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${s.toString().padStart(2, "0")}`;
-  };
 
   const handleCopy = useCallback(async () => {
     if (!codeInfo) return;
@@ -169,7 +149,7 @@ function PairingGeneratePage() {
               {isExpired ? (
                 <Trans>配对码已过期</Trans>
               ) : (
-                <Trans>配对码将在 {formatTime(remainingSeconds)} 后过期</Trans>
+                <Trans>配对码将在 {formatCountdown(remainingSeconds)} 后过期</Trans>
               )}
             </div>
           )}

@@ -192,44 +192,22 @@ impl TransferManager {
     fn run_cleanup(&self) {
         let now = Instant::now();
 
-        // 清理过期的 prepared transfers
-        let expired_prepared: Vec<Uuid> = self
-            .prepared
-            .iter()
-            .filter(|r| now.duration_since(r.value().created_at).as_secs() > PREPARED_TIMEOUT_SECS)
-            .map(|r| *r.key())
-            .collect();
-        for id in &expired_prepared {
-            self.prepared.remove(id);
-        }
-        if !expired_prepared.is_empty() {
-            info!("清理 {} 个过期的 prepared transfers", expired_prepared.len());
-        }
+        remove_expired(&self.prepared, |v| {
+            now.duration_since(v.created_at).as_secs() > PREPARED_TIMEOUT_SECS
+        }, "prepared transfers");
 
-        // 清理过期的 pending offers
-        let expired_pending: Vec<Uuid> = self
-            .pending
-            .iter()
-            .filter(|r| {
-                now.duration_since(r.value().created_at).as_secs() > PENDING_OFFER_TIMEOUT_SECS
-            })
-            .map(|r| *r.key())
-            .collect();
-        for id in &expired_pending {
-            self.pending.remove(id);
-        }
-        if !expired_pending.is_empty() {
-            info!("清理 {} 个过期的 pending offers", expired_pending.len());
-        }
+        remove_expired(&self.pending, |v| {
+            now.duration_since(v.created_at).as_secs() > PENDING_OFFER_TIMEOUT_SECS
+        }, "pending offers");
 
-        // 清理空闲超时的 send sessions
-        let idle_sessions: Vec<Uuid> = self
+        // 清理空闲超时的 send sessions（需要额外 cancel 操作）
+        let idle_ids: Vec<Uuid> = self
             .send_sessions
             .iter()
             .filter(|r| r.value().idle_ms() > SEND_SESSION_IDLE_TIMEOUT_MS)
             .map(|r| *r.key())
             .collect();
-        for id in &idle_sessions {
+        for id in &idle_ids {
             if let Some((_, session)) = self.send_sessions.remove(id) {
                 session.cancel();
                 warn!("清理空闲超时的 send session: {}", id);
@@ -653,20 +631,8 @@ impl TransferManager {
 
         // 4. 保存发送方 per-file 进度到 DB（断点续传恢复时使用）
         if let Some(db) = app.try_state::<sea_orm::DatabaseConnection>() {
-            for (file_id, _chunks_done, transferred) in session.get_file_progress() {
-                if transferred > 0 {
-                    if let Err(e) = crate::database::ops::update_sender_file_progress(
-                        &db,
-                        *session_id,
-                        file_id as i32,
-                        transferred as i64,
-                    )
-                    .await
-                    {
-                        warn!("保存发送方文件进度失败: file_id={}, {}", file_id, e);
-                    }
-                }
-            }
+            let progress = session.get_file_progress();
+            let _ = crate::database::ops::save_sender_file_progress(&db, *session_id, &progress).await;
         }
 
         info!("Send session paused: session={}", session_id);
@@ -1092,7 +1058,7 @@ pub(crate) async fn load_resumable_session(
         )));
     }
 
-    let target_peer = parse_peer_id(&session.peer_id)?;
+    let target_peer = parse_peer_id(&session.peer_id.0)?;
     Ok((session, target_peer))
 }
 
@@ -1174,4 +1140,19 @@ pub(crate) async fn build_prepared_files_from_db(
         });
     }
     Ok(prepared)
+}
+
+/// 从 DashMap 中移除满足条件的条目并记录日志
+fn remove_expired<V>(map: &DashMap<Uuid, V>, is_expired: impl Fn(&V) -> bool, label: &str) {
+    let expired: Vec<Uuid> = map
+        .iter()
+        .filter(|r| is_expired(r.value()))
+        .map(|r| *r.key())
+        .collect();
+    for id in &expired {
+        map.remove(id);
+    }
+    if !expired.is_empty() {
+        info!("清理 {} 个过期的 {}", expired.len(), label);
+    }
 }

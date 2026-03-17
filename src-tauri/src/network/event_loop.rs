@@ -57,8 +57,7 @@ use sea_orm::EntityTrait;
 use crate::file_source::FileSource;
 use crate::protocol::FileChecksum;
 use crate::transfer::offer::{
-    build_file_checksums, build_file_infos_and_bitmaps, build_prepared_files_from_db,
-    build_sender_resume_state, PreparedFile, TransferManager,
+    build_file_infos_and_bitmaps, build_sender_resume_state, PreparedFile, TransferManager,
 };
 use crate::transfer::sender::SendSession;
 
@@ -72,6 +71,61 @@ fn reject_resume(session_id: Uuid, reason: ResumeRejectReason) -> TransferRespon
     }
 }
 
+/// 断点续传校验上下文（公共校验阶段的输出）
+struct ResumeContext {
+    session: entity::transfer_session::Model,
+    db_files: Vec<entity::transfer_file::Model>,
+}
+
+/// 断点续传公共校验：获取 DB → 查 session → 检查状态 → 获取文件 → 校验 checksum
+///
+/// 成功返回 `ResumeContext`，失败返回预构造的拒绝响应（由调用方包装为具体的 Response 类型）。
+async fn validate_resume_session(
+    app: &AppHandle,
+    session_id: Uuid,
+    file_checksums: &[FileChecksum],
+) -> Result<ResumeContext, ResumeRejectReason> {
+    let db = app
+        .try_state::<DatabaseConnection>()
+        .map(|s| s.inner().clone())
+        .ok_or(ResumeRejectReason::SessionNotFound)?;
+
+    let session = entity::TransferSession::find_by_id(session_id)
+        .one(&db)
+        .await
+        .ok()
+        .flatten()
+        .ok_or(ResumeRejectReason::SessionNotFound)?;
+
+    if session.status == entity::SessionStatus::Cancelled {
+        return Err(ResumeRejectReason::SenderCancelled);
+    }
+
+    let db_files = crate::database::ops::get_session_files(&db, session_id)
+        .await
+        .map_err(|_| ResumeRejectReason::SessionNotFound)?;
+
+    // 校验文件 checksum 是否匹配
+    for fc in file_checksums {
+        let matched = db_files
+            .iter()
+            .any(|f| f.file_id == fc.file_id as i32 && f.checksum == fc.checksum);
+        if !matched {
+            return Err(ResumeRejectReason::FileModified);
+        }
+    }
+
+    // 更新 DB 状态
+    if let Err(e) = crate::database::ops::mark_session_transferring(&db, session_id).await {
+        warn!("DB 标记 session transferring 失败: {}", e);
+    }
+
+    Ok(ResumeContext {
+        session,
+        db_files,
+    })
+}
+
 /// 发送方处理 ResumeRequest：验证文件校验和，重建 PreparedFile，创建 SendSession
 async fn handle_resume_request(
     app: &AppHandle,
@@ -80,48 +134,14 @@ async fn handle_resume_request(
     file_checksums: &[FileChecksum],
     transfer: &Arc<TransferManager>,
 ) -> TransferResponse {
-    let db = match app.try_state::<DatabaseConnection>() {
-        Some(db) => db.inner().clone(),
-        None => return reject_resume(session_id, ResumeRejectReason::SessionNotFound),
+    let ctx = match validate_resume_session(app, session_id, file_checksums).await {
+        Ok(ctx) => ctx,
+        Err(reason) => return reject_resume(session_id, reason),
     };
-
-    // 查 DB 中是否有此 session
-    let session = match entity::TransferSession::find_by_id(session_id)
-        .one(&db)
-        .await
-    {
-        Ok(Some(s)) => s,
-        _ => return reject_resume(session_id, ResumeRejectReason::SessionNotFound),
-    };
-
-    if session.status == entity::SessionStatus::Cancelled {
-        return reject_resume(session_id, ResumeRejectReason::SenderCancelled);
-    }
-
-    // 获取 DB 中的文件列表
-    let db_files = match crate::database::ops::get_session_files(&db, session_id).await {
-        Ok(files) => files,
-        Err(_) => return reject_resume(session_id, ResumeRejectReason::SessionNotFound),
-    };
-
-    // 校验文件 checksum 是否匹配
-    for fc in file_checksums {
-        let matched = db_files
-            .iter()
-            .any(|f| f.file_id == fc.file_id as i32 && f.checksum == fc.checksum);
-        if !matched {
-            return reject_resume(session_id, ResumeRejectReason::FileModified);
-        }
-    }
-
-    // 接受恢复：更新 DB 状态
-    if let Err(e) = crate::database::ops::mark_session_transferring(&db, session_id).await {
-        warn!("DB 标记 session transferring 失败: {}", e);
-    }
 
     // 从 DB 文件记录重建 PreparedFile 列表
-    let mut prepared_files = Vec::with_capacity(db_files.len());
-    for db_file in &db_files {
+    let mut prepared_files = Vec::with_capacity(ctx.db_files.len());
+    for db_file in &ctx.db_files {
         let Some(source_path) = &db_file.source_path else {
             warn!("文件缺少 source_path: file_id={}", db_file.file_id);
             return reject_resume(session_id, ResumeRejectReason::SessionNotFound);
@@ -151,7 +171,7 @@ async fn handle_resume_request(
     let key = crate::transfer::crypto::generate_key();
 
     // 从 DB 构建 resume_state（file_id → (chunks_done, transferred_bytes)）
-    let resume_state = crate::transfer::offer::build_sender_resume_state(&db_files);
+    let resume_state = build_sender_resume_state(&ctx.db_files);
 
     // 创建 SendSession 并注册到 TransferManager（带 resume 状态）
     let send_session = Arc::new(SendSession::new_with_resume(
@@ -183,62 +203,18 @@ async fn handle_resume_offer(
     file_checksums: &[FileChecksum],
     transfer: &Arc<TransferManager>,
 ) -> TransferResponse {
-    let db = match app.try_state::<DatabaseConnection>() {
-        Some(db) => db.inner().clone(),
-        None => return reject_resume_offer(session_id, ResumeRejectReason::SessionNotFound),
+    let ctx = match validate_resume_session(app, session_id, file_checksums).await {
+        Ok(ctx) => ctx,
+        Err(reason) => return reject_resume_offer(session_id, reason),
     };
 
-    // 查 DB 中是否有此 session
-    let session = match entity::TransferSession::find_by_id(session_id)
-        .one(&db)
-        .await
-    {
-        Ok(Some(s)) => s,
-        _ => return reject_resume_offer(session_id, ResumeRejectReason::SessionNotFound),
-    };
+    // 构建 FileInfo、initial_bitmaps（复用已有辅助函数）
+    let (file_infos, initial_bitmaps) = build_file_infos_and_bitmaps(&ctx.db_files);
 
-    if session.status == entity::SessionStatus::Cancelled {
-        return reject_resume_offer(session_id, ResumeRejectReason::SenderCancelled);
-    }
-
-    // 获取 DB 中的文件列表
-    let db_files = match crate::database::ops::get_session_files(&db, session_id).await {
-        Ok(files) => files,
-        Err(_) => return reject_resume_offer(session_id, ResumeRejectReason::SessionNotFound),
-    };
-
-    // 校验文件 checksum 是否匹配
-    for fc in file_checksums {
-        let matched = db_files
-            .iter()
-            .any(|f| f.file_id == fc.file_id as i32 && f.checksum == fc.checksum);
-        if !matched {
-            return reject_resume_offer(session_id, ResumeRejectReason::FileModified);
-        }
-    }
-
-    // 接受恢复：更新 DB 状态
-    if let Err(e) = crate::database::ops::mark_session_transferring(&db, session_id).await {
-        warn!("DB 标记 session transferring 失败: {}", e);
-    }
-
-    // 构建 FileInfo、initial_bitmaps
-    let mut file_infos = Vec::with_capacity(db_files.len());
-    let mut initial_bitmaps = std::collections::HashMap::with_capacity(db_files.len());
-    let mut resumed_file_infos = Vec::new();
-
-    for f in &db_files {
-        let fid = f.file_id as u32;
-        file_infos.push(crate::protocol::FileInfo {
-            file_id: fid,
-            name: f.name.clone(),
-            relative_path: f.relative_path.clone(),
-            size: f.size as u64,
-            checksum: f.checksum.clone(),
-        });
-        initial_bitmaps.insert(fid, f.completed_chunks.clone());
+    let mut resumed_file_infos = Vec::with_capacity(ctx.db_files.len());
+    for f in &ctx.db_files {
         resumed_file_infos.push(TransferResumedFileInfo {
-            file_id: fid,
+            file_id: f.file_id as u32,
             name: f.name.clone(),
             relative_path: f.relative_path.clone(),
             size: f.size as u64,
@@ -246,12 +222,12 @@ async fn handle_resume_offer(
         });
     }
 
-    let save_location = session.save_path.unwrap_or(entity::SaveLocation::Path {
+    let save_location = ctx.session.save_path.unwrap_or(entity::SaveLocation::Path {
         path: String::new(),
     });
-    let total_size = session.total_size as u64;
-    let peer_name = session.peer_name.clone();
-    let peer_id_str = session.peer_id.0.clone();
+    let total_size = ctx.session.total_size as u64;
+    let peer_name = ctx.session.peer_name.clone();
+    let peer_id_str = ctx.session.peer_id.0.clone();
 
     // 创建 ReceiveSession 并开始拉取
     transfer.start_receive_from_offer(
@@ -558,20 +534,10 @@ pub fn spawn_event_loop(
                             let direction = if let Some(s) = shared.transfer.get_send_session(&session_id) {
                                 // 保存发送方 per-file 进度到 DB（断点续传恢复时使用）
                                 if let Some(db) = app.try_state::<DatabaseConnection>() {
-                                    for (file_id, _chunks_done, transferred) in s.get_file_progress() {
-                                        if transferred > 0 {
-                                            if let Err(e) = crate::database::ops::update_sender_file_progress(
-                                                &db,
-                                                session_id,
-                                                file_id as i32,
-                                                transferred as i64,
-                                            )
-                                            .await
-                                            {
-                                                warn!("保存发送方文件进度失败: file_id={}, {}", file_id, e);
-                                            }
-                                        }
-                                    }
+                                    let progress = s.get_file_progress();
+                                    let _ = crate::database::ops::save_sender_file_progress(
+                                        &db, session_id, &progress,
+                                    ).await;
                                 }
                                 s.cancel();
                                 shared.transfer.remove_send_session(&session_id);
