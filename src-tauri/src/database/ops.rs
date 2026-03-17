@@ -87,6 +87,52 @@ pub async fn update_file_checkpoint(
     completed_chunks: Vec<u8>,
     transferred_bytes: i64,
 ) -> AppResult<()> {
+    update_file(db, session_id, file_id, |model| {
+        model.completed_chunks = Set(completed_chunks);
+        model.transferred_bytes = Set(transferred_bytes);
+    })
+    .await
+}
+
+/// 重置文件的 checkpoint（bitmap 清零 + transferred_bytes 归零）
+///
+/// 校验失败后调用——.part 文件已被删除，需要清除 DB 中的 bitmap，
+/// 确保下次恢复时重新下载该文件的所有 chunk。
+pub async fn reset_file_checkpoint(
+    db: &DatabaseConnection,
+    session_id: Uuid,
+    file_id: i32,
+) -> AppResult<()> {
+    update_file(db, session_id, file_id, |model| {
+        model.completed_chunks = Set(vec![]);
+        model.transferred_bytes = Set(0);
+    })
+    .await
+}
+
+/// 更新发送方文件的已传输字节数（不修改 bitmap，发送方不使用 bitmap）
+pub async fn update_sender_file_progress(
+    db: &DatabaseConnection,
+    session_id: Uuid,
+    file_id: i32,
+    transferred_bytes: i64,
+) -> AppResult<()> {
+    update_file(db, session_id, file_id, |model| {
+        model.transferred_bytes = Set(transferred_bytes);
+    })
+    .await
+}
+
+/// 通用文件更新：加载文件记录 → 应用修改 → 保存（同时更新关联 session 的 updated_at）
+async fn update_file<F>(
+    db: &DatabaseConnection,
+    session_id: Uuid,
+    file_id: i32,
+    apply: F,
+) -> AppResult<()>
+where
+    F: FnOnce(&mut entity::transfer_file::ActiveModelEx),
+{
     let file = entity::TransferFile::load()
         .filter(entity::transfer_file::Column::SessionId.eq(session_id))
         .filter(entity::transfer_file::Column::FileId.eq(file_id))
@@ -96,13 +142,33 @@ pub async fn update_file_checkpoint(
         .ok_or_else(|| crate::AppError::Transfer("文件记录不存在".into()))?;
 
     let mut model = file.into_active_model();
-    model.completed_chunks = Set(completed_chunks);
-    model.transferred_bytes = Set(transferred_bytes);
+    apply(&mut model);
     if let Some(session) = model.session.as_mut() {
         session.updated_at = Set(now_ms());
     }
     model.save(db).await?;
 
+    Ok(())
+}
+
+/// 批量保存发送方 per-file 进度到 DB（断点续传恢复时使用）
+///
+/// `progress` 为 `(file_id, chunks_done, transferred_bytes)` 三元组列表。
+pub async fn save_sender_file_progress(
+    db: &DatabaseConnection,
+    session_id: Uuid,
+    progress: &[(u32, u32, u64)],
+) -> AppResult<()> {
+    for &(file_id, _chunks_done, transferred) in progress {
+        if transferred > 0 {
+            if let Err(e) =
+                update_sender_file_progress(db, session_id, file_id as i32, transferred as i64)
+                    .await
+            {
+                tracing::warn!("保存发送方文件进度失败: file_id={}, {}", file_id, e);
+            }
+        }
+    }
     Ok(())
 }
 

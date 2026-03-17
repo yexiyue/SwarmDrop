@@ -11,11 +11,11 @@ import { useLingui } from "@lingui/react/macro";
 import { msg } from "@lingui/core/macro";
 import type { MessageDescriptor } from "@lingui/core";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordInput } from "@/components/ui/password-input";
 import { useAuthStore } from "@/stores/auth-store";
 import { getAuthErrorMessage, getLoadingMessage, isKnownErrorType } from "@/lib/auth-messages";
-import { ArrowLeft, Eye, EyeOff, Check, Circle, Loader2 } from "lucide-react";
+import { ArrowLeft, Check, Circle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const Route = createLazyFileRoute("/_auth/setup-password")({
@@ -77,8 +77,6 @@ function SetupPasswordPage() {
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
 
   // Calculate strength score, no need for useMemo (simple calculation)
   const strengthScore = calculatePasswordScore(password);
@@ -142,27 +140,12 @@ function SetupPasswordPage() {
           <Label htmlFor="password">
             <Trans>密码</Trans>
           </Label>
-          <div className="relative">
-            <Input
-              id="password"
-              type={showPassword ? "text" : "password"}
-              placeholder={t(msg`输入至少 8 位密码`)}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="pr-10"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              {showPassword ? (
-                <EyeOff className="h-4 w-4" />
-              ) : (
-                <Eye className="h-4 w-4" />
-              )}
-            </button>
-          </div>
+          <PasswordInput
+            id="password"
+            placeholder={t(msg`输入至少 8 位密码`)}
+            value={password}
+            onChange={setPassword}
+          />
         </div>
 
         {/* Confirm Password */}
@@ -170,27 +153,12 @@ function SetupPasswordPage() {
           <Label htmlFor="confirm">
             <Trans>确认密码</Trans>
           </Label>
-          <div className="relative">
-            <Input
-              id="confirm"
-              type={showConfirm ? "text" : "password"}
-              placeholder={t(msg`再次输入密码`)}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="pr-10"
-            />
-            <button
-              type="button"
-              onClick={() => setShowConfirm(!showConfirm)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              {showConfirm ? (
-                <EyeOff className="h-4 w-4" />
-              ) : (
-                <Eye className="h-4 w-4" />
-              )}
-            </button>
-          </div>
+          <PasswordInput
+            id="confirm"
+            placeholder={t(msg`再次输入密码`)}
+            value={confirmPassword}
+            onChange={setConfirmPassword}
+          />
           {confirmPassword && password !== confirmPassword && (
             <p className="text-sm text-destructive">
               <Trans>密码不匹配</Trans>

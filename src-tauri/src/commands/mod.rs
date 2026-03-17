@@ -4,6 +4,26 @@
 //! 所有业务逻辑委托给 [`network`](crate::network)、
 //! [`device`](crate::device) 和 [`pairing`](crate::pairing) 模块。
 
+use crate::device::{DeviceFilter, DeviceListResult, PairedDeviceInfo};
+use crate::network::{NetManager, NetManagerState, NetworkStatus};
+use crate::protocol::{AppRequest, AppResponse};
+use crate::AppError;
+use swarm_p2p_core::libp2p::{identity::Keypair, PeerId};
+use tauri::{AppHandle, Manager, State};
+use tokio::sync::Mutex;
+use tracing::{info, warn};
+
+/// 从 NetManagerState 获取 manager 引用并执行表达式（短暂持锁）
+macro_rules! with_manager {
+    ($net:expr, |$m:ident| $body:expr) => {{
+        let guard = $net.lock().await;
+        let $m = guard
+            .as_ref()
+            .ok_or_else(|| $crate::AppError::NodeNotStarted)?;
+        $body
+    }};
+}
+
 mod identity;
 mod mcp;
 mod pairing;
@@ -15,20 +35,6 @@ pub use identity::*;
 pub use mcp::*;
 pub use pairing::*;
 pub use transfer::*;
-
-use crate::device::{DeviceFilter, DeviceListResult, PairedDeviceInfo};
-use crate::network::{NetManager, NetManagerState, NetworkStatus};
-use crate::protocol::{AppRequest, AppResponse};
-use crate::AppError;
-use swarm_p2p_core::libp2p::{identity::Keypair, PeerId};
-use tauri::{AppHandle, Manager, State};
-use tokio::sync::Mutex;
-use tracing::{info, warn};
-
-/// 节点未启动时的统一错误
-pub(super) fn not_started() -> AppError {
-    AppError::NodeNotStarted
-}
 
 #[tauri::command]
 pub async fn start(
@@ -110,8 +116,7 @@ pub async fn list_devices(
     filter: Option<DeviceFilter>,
 ) -> crate::AppResult<DeviceListResult> {
     let guard = net.lock().await;
-    let manager = guard.as_ref().ok_or_else(not_started)?;
-
+    let manager = guard.as_ref().ok_or(AppError::NodeNotStarted)?;
     let devices = manager.devices().get_devices(filter.unwrap_or_default());
     let total = devices.len();
     Ok(DeviceListResult { devices, total })

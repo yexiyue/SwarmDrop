@@ -193,7 +193,39 @@ impl ReceiveSession {
             }
 
             let initial_bitmap = self.initial_bitmaps.get(&file_info.file_id);
-            let is_fully_complete = initial_bitmap
+
+            // 断点续传安全检查：.part 文件必须存在且大小正确，否则 bitmap 无效
+            // （.part 可能被校验失败删除或磁盘损坏，但 DB bitmap 仍保留）
+            let effective_bitmap = if is_resume {
+                if let Some(bm) = initial_bitmap {
+                    let probe = self.sink.build_part_file(&file_info.relative_path, file_info.size);
+                    let part_ok = tokio::fs::metadata(&probe.part_path)
+                        .await
+                        .map(|m| m.len() == file_info.size)
+                        .unwrap_or(false);
+                    if part_ok {
+                        Some(bm)
+                    } else {
+                        warn!(
+                            ".part 文件不存在或大小不匹配，忽略 bitmap: {} (file_id={})",
+                            file_info.name, file_info.file_id
+                        );
+                        // 同步清除 DB 中的过期 bitmap
+                        if let Some(db) = self.app.try_state::<DatabaseConnection>() {
+                            let _ = crate::database::ops::reset_file_checkpoint(
+                                &db, self.session_id, file_info.file_id as i32,
+                            ).await;
+                        }
+                        None
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+
+            let is_fully_complete = effective_bitmap
                 .map(|bm| count_completed_in_bitmap(bm, total_chunks) >= total_chunks)
                 .unwrap_or(false);
 
@@ -219,13 +251,14 @@ impl ReceiveSession {
                 Ok(())
             } else {
                 self.pull_file_chunks(
-                    file_info, total_chunks, &part_file, &progress, initial_bitmap,
+                    file_info, total_chunks, &part_file, &progress, effective_bitmap,
                 )
                 .await
             };
 
             if let Err(e) = pull_result {
-                part_file.cleanup(&self.app).await;
+                // 不删除 .part 文件——bitmap 已刷写到 DB，保留 .part 以支持断点续传。
+                // .part 文件仅在用户主动取消（cancel_receive）时才清理。
                 self.remove_created_part(&part_file).await;
                 self.fail_session(&progress, e.to_string()).await;
                 return Err(e);
@@ -240,6 +273,19 @@ impl ReceiveSession {
                 }
                 Err(e) => {
                     self.remove_created_part(&part_file).await;
+                    // 校验失败意味着 .part 已被删除，必须清除 DB 中的 bitmap，
+                    // 否则下次恢复时跳过"已完成"的 chunk 导致数据全零→再次校验失败
+                    if let Some(db) = self.app.try_state::<DatabaseConnection>() {
+                        if let Err(e2) = crate::database::ops::reset_file_checkpoint(
+                            &db,
+                            self.session_id,
+                            file_info.file_id as i32,
+                        )
+                        .await
+                        {
+                            warn!("重置文件 checkpoint 失败: file_id={}, {}", file_info.file_id, e2);
+                        }
+                    }
                     let msg = format!(
                         "文件校验失败: {} (file_id={})",
                         file_info.name, file_info.file_id

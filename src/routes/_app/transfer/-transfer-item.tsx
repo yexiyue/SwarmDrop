@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { Trans } from "@lingui/react/macro";
 import { t } from "@lingui/core/macro";
-import { cancelSend, cancelReceive, pauseTransfer } from "@/commands/transfer";
 import { useTransferStore } from "@/stores/transfer-store";
 import {
   formatFileSize,
@@ -34,6 +33,8 @@ import {
   TransferCard,
   calcPercent,
   isActiveStatus,
+  doPauseTransfer,
+  doCancelTransfer,
   ACTION_BTN_CLASS,
   DESTRUCTIVE_BTN_CLASS,
 } from "./-shared";
@@ -61,11 +62,9 @@ export const TransferItem = memo(function TransferItem({
     async (e: React.MouseEvent) => {
       e.stopPropagation();
       try {
-        await pauseTransfer(sessionId);
-        // 后端已将会话写入 DB（paused），再刷新历史并移除活跃 session
-        useTransferStore.getState().cancelSession(sessionId);
-      } catch (err) {
-        toast.error(getErrorMessage(err));
+        await doPauseTransfer(sessionId);
+      } catch {
+        // doPauseTransfer 已 toast
       }
     },
     [sessionId],
@@ -74,16 +73,8 @@ export const TransferItem = memo(function TransferItem({
   const handleCancel = useCallback(
     async (e: React.MouseEvent) => {
       e.stopPropagation();
-      useTransferStore.getState().cancelSession(sessionId);
-      try {
-        if (session?.direction === "send") {
-          await cancelSend(sessionId);
-        } else {
-          await cancelReceive(sessionId);
-        }
-      } catch (err) {
-        toast.error(getErrorMessage(err));
-      }
+      if (!session) return;
+      await doCancelTransfer(sessionId, session.direction);
     },
     [sessionId, session?.direction],
   );

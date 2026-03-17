@@ -10,10 +10,10 @@ import { Trans } from "@lingui/react/macro";
 import { useLingui } from "@lingui/react/macro";
 import { msg } from "@lingui/core/macro";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { useAuthStore, BiometryType } from "@/stores/auth-store";
 import { getAuthErrorMessage, isKnownErrorType } from "@/lib/auth-messages";
-import { ScanFace, Fingerprint, Eye, EyeOff, Loader2 } from "lucide-react";
+import { ScanFace, Fingerprint, Loader2 } from "lucide-react";
 
 export const Route = createLazyFileRoute("/_auth/unlock")({
   component: UnlockPage,
@@ -50,7 +50,6 @@ function UnlockPage() {
     : null;
 
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   // 默认显示生物识别模式（如果启用了的话）
   const [showPasswordMode, setShowPasswordMode] = useState(false);
 
@@ -135,26 +134,11 @@ function UnlockPage() {
 
       {/* Password Form */}
       <form onSubmit={handlePasswordUnlock} className="w-full space-y-4">
-        <div className="relative">
-          <Input
-            type={showPassword ? "text" : "password"}
-            placeholder={t(msg`输入密码`)}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="pr-10"
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-          >
-            {showPassword ? (
-              <EyeOff className="h-4 w-4" />
-            ) : (
-              <Eye className="h-4 w-4" />
-            )}
-          </button>
-        </div>
+        <PasswordInput
+          value={password}
+          onChange={setPassword}
+          placeholder={t(msg`输入密码`)}
+        />
 
         {/* Error */}
         {error && <p className="text-sm text-destructive text-center">{translatedError}</p>}

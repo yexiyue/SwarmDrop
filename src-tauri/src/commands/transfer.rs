@@ -12,6 +12,7 @@ use uuid::Uuid;
 use crate::file_source::{EnumeratedFile, FileSource};
 use crate::network::NetManagerState;
 use crate::transfer::offer::{PrepareProgress, StartSendResult, TransferManager};
+use sea_orm::EntityTrait;
 
 // ============ scan_sources ============
 
@@ -219,17 +220,20 @@ pub async fn clear_transfer_history(
     crate::database::ops::clear_all_history(&db).await
 }
 
-/// 暂停传输
+/// 暂停传输（自动检测发送/接收方向，通知对端）
 #[tauri::command]
 pub async fn pause_transfer(
+    app: tauri::AppHandle,
     db: State<'_, sea_orm::DatabaseConnection>,
     net: State<'_, NetManagerState>,
     session_id: Uuid,
 ) -> crate::AppResult<()> {
-    // 先取消运行时接收会话（确保 bitmap 刷写完成），再写 DB
     let transfer = get_transfer(&net).await?;
-    if let Some(session) = transfer.get_receive_session(&session_id) {
-        session.cancel_and_wait().await;
+
+    // 尝试暂停发送会话，如果不存在则尝试暂停接收会话
+    if transfer.pause_send(&session_id, &app).await.is_err() {
+        // 发送会话不存在，尝试接收会话（忽略不存在的错误——可能已被对端取消）
+        let _ = transfer.pause_receive(&session_id).await;
     }
 
     crate::database::ops::mark_session_paused(&db, session_id).await?;
@@ -257,7 +261,7 @@ pub struct ResumeTransferResult {
     pub transferred_bytes: u64,
 }
 
-/// 恢复传输（接收方发起 ResumeRequest）
+/// 恢复传输（根据方向自动选择接收方或发送方恢复流程）
 #[tauri::command]
 pub async fn resume_transfer(
     app: tauri::AppHandle,
@@ -266,11 +270,29 @@ pub async fn resume_transfer(
     session_id: Uuid,
 ) -> crate::AppResult<ResumeTransferResult> {
     let transfer = get_transfer(&net).await?;
-    let resume_info = transfer.initiate_resume(&db, session_id, app).await?;
+
+    // 从 DB 读取会话方向
+    let session = entity::TransferSession::find_by_id(session_id)
+        .one(db.inner())
+        .await?
+        .ok_or_else(|| crate::AppError::Transfer("会话不存在".into()))?;
+
+    let (resume_info, direction_str) = match session.direction {
+        entity::TransferDirection::Receive => {
+            let info = transfer.initiate_resume(&db, session_id, app).await?;
+            (info, "receive")
+        }
+        entity::TransferDirection::Send => {
+            let info = transfer
+                .initiate_resume_as_sender(&db, session_id, app)
+                .await?;
+            (info, "send")
+        }
+    };
 
     Ok(ResumeTransferResult {
         session_id,
-        direction: "receive".into(),
+        direction: direction_str.into(),
         peer_id: resume_info.peer_id,
         peer_name: resume_info.peer_name,
         files: resume_info
@@ -316,6 +338,8 @@ pub async fn resolve_android_dir_uri(
 /// 从 Tauri State 中获取 TransferManager（短暂持锁后立即释放）
 async fn get_transfer(net: &NetManagerState) -> crate::AppResult<Arc<TransferManager>> {
     let guard = net.lock().await;
-    let manager = guard.as_ref().ok_or_else(super::not_started)?;
+    let manager = guard
+        .as_ref()
+        .ok_or(crate::AppError::NodeNotStarted)?;
     Ok(manager.transfer_arc())
 }

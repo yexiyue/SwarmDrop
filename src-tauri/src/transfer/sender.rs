@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+use swarm_p2p_core::libp2p::PeerId;
 use tauri::AppHandle;
 use tokio_util::sync::CancellationToken;
 use tracing::{info, warn};
@@ -24,6 +25,8 @@ use crate::{AppError, AppResult};
 pub struct SendSession {
     /// 传输会话 ID
     pub session_id: Uuid,
+    /// 对端 PeerId（暂停时需要通知对端）
+    pub peer_id: PeerId,
     /// 准备好的文件列表（含文件来源）
     files: Vec<PreparedFile>,
     /// 加密器
@@ -43,9 +46,36 @@ pub struct SendSession {
 impl SendSession {
     pub fn new(
         session_id: Uuid,
+        peer_id: PeerId,
         files: Vec<PreparedFile>,
         key: &[u8; 32],
         app: AppHandle,
+    ) -> Self {
+        Self::new_inner(session_id, peer_id, files, key, app, &std::collections::HashMap::new())
+    }
+
+    /// 断点续传专用构造函数
+    ///
+    /// `resume_state` 为每个文件的已完成 chunk 数和已传输字节数（从 DB 读取），
+    /// 使 ProgressTracker 从正确的位置开始计数。
+    pub fn new_with_resume(
+        session_id: Uuid,
+        peer_id: PeerId,
+        files: Vec<PreparedFile>,
+        key: &[u8; 32],
+        app: AppHandle,
+        resume_state: &std::collections::HashMap<u32, (u32, u64)>,
+    ) -> Self {
+        Self::new_inner(session_id, peer_id, files, key, app, resume_state)
+    }
+
+    fn new_inner(
+        session_id: Uuid,
+        peer_id: PeerId,
+        files: Vec<PreparedFile>,
+        key: &[u8; 32],
+        app: AppHandle,
+        resume_state: &std::collections::HashMap<u32, (u32, u64)>,
     ) -> Self {
         let total_bytes: u64 = files.iter().map(|f| f.size).sum();
         let total_files = files.len();
@@ -61,10 +91,11 @@ impl SendSession {
                 size: f.size,
             })
             .collect();
-        tracker.init_files(&file_descs);
+        tracker.init_files_with_resume(&file_descs, resume_state);
 
         Self {
             session_id,
+            peer_id,
             files,
             crypto: TransferCrypto::new(key),
             app,
@@ -83,6 +114,16 @@ impl SendSession {
     /// 获取已发送总字节数（从 ProgressTracker 读取）
     pub fn total_bytes_sent(&self) -> u64 {
         self.progress.lock().map_or(0, |p| p.transferred_bytes())
+    }
+
+    /// 获取每个文件的已传输进度（用于暂停时持久化到 DB）
+    ///
+    /// 返回 `Vec<(file_id, chunks_done, transferred_bytes)>`
+    pub fn get_file_progress(&self) -> Vec<(u32, u32, u64)> {
+        self.progress
+            .lock()
+            .map(|p| p.get_file_progress())
+            .unwrap_or_default()
     }
 
     /// 处理 ChunkRequest：读取文件分块 → 加密 → 上报进度 → 返回 Chunk 响应

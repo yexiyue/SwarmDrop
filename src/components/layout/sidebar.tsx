@@ -27,7 +27,7 @@ import {
   SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { navItems } from "@/components/layout/nav-items";
+import { navItems, isNavActive } from "@/components/layout/nav-items";
 
 const themeOptions: {
   value: string;
@@ -98,11 +98,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu className="gap-0.5">
               {navItems.map((item) => {
-                const isActive =
-                  currentPath === item.href ||
-                  (item.href === "/devices" &&
-                    currentPath.startsWith("/pairing")) ||
-                  (item.href !== "/" && currentPath.startsWith(item.href));
+                const isActive = isNavActive(currentPath, item.href);
                 const Icon = item.icon;
 
                 return (

@@ -7,6 +7,8 @@ import {
   TRANSFER_FAILED,
   TRANSFER_ACCEPTED,
   TRANSFER_REJECTED,
+  TRANSFER_PAUSED,
+  TRANSFER_RESUMED,
   TRANSFER_DB_ERROR,
 } from "@/constants/events";
 import type {
@@ -17,6 +19,8 @@ import type {
   TransferFailedEvent,
   TransferAcceptedEvent,
   TransferRejectedEvent,
+  TransferPausedEvent,
+  TransferResumedEvent,
   TransferDbErrorEvent,
   TransferHistoryItem,
 } from "@/commands/transfer";
@@ -63,6 +67,32 @@ export async function setupTransferListeners() {
 
     listen<TransferFailedEvent>(TRANSFER_FAILED, (event) => {
       useTransferStore.getState().failSession(event.payload);
+    }),
+
+    listen<TransferPausedEvent>(TRANSFER_PAUSED, (event) => {
+      // 对端暂停传输：移除活跃 session，刷新历史（DB 中已标记为 paused）
+      removeAndRefresh(event.payload.sessionId);
+      toast.info(t`对方已暂停传输`);
+    }),
+
+    listen<TransferResumedEvent>(TRANSFER_RESUMED, (event) => {
+      // 对端（发送方）发起恢复传输：添加到活跃 session，刷新历史
+      const { sessionId, direction, peerId, peerName, files, totalSize } =
+        event.payload;
+      useTransferStore.getState().addSession({
+        sessionId,
+        direction,
+        peerId,
+        deviceName: peerName,
+        files,
+        totalSize,
+        status: "transferring",
+        progress: null,
+        error: null,
+        startedAt: Date.now(),
+        completedAt: null,
+      });
+      useTransferStore.getState().loadHistory();
     }),
 
     listen<TransferAcceptedEvent>(TRANSFER_ACCEPTED, (event) => {

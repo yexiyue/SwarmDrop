@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { Trans, useLingui } from "@lingui/react/macro";
 import type { TransferHistoryItem } from "@/commands/transfer";
-import { resumeTransfer, deleteTransferSession } from "@/commands/transfer";
+import { deleteTransferSession } from "@/commands/transfer";
 import { formatFileSize, formatRelativeTime } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -28,6 +28,7 @@ import {
   DirectionIcon,
   TransferCard,
   calcPercent,
+  doResumeTransfer,
   ACTION_BTN_CLASS,
   DESTRUCTIVE_BTN_CLASS,
 } from "./-shared";
@@ -59,7 +60,7 @@ function getFileIcon(fileName: string, count: number) {
 export function HistoryItem({ item }: HistoryItemProps) {
   const { t } = useLingui();
   const navigate = useNavigate();
-  const { loadHistory, addSession } = useTransferStore();
+  const { loadHistory } = useTransferStore();
 
   const {
     sessionId,
@@ -87,24 +88,10 @@ export function HistoryItem({ item }: HistoryItemProps) {
     };
 
   const onResume = withAction(async () => {
-    const result = await resumeTransfer(sessionId);
-    addSession({
-      sessionId: result.sessionId,
-      direction: result.direction as "send" | "receive",
-      peerId: result.peerId,
-      deviceName: result.peerName,
-      files: result.files,
-      totalSize: result.totalSize,
-      status: "transferring",
-      progress: null,
-      error: null,
-      startedAt: Date.now(),
-      completedAt: null,
-    });
-    await loadHistory();
+    const newSessionId = await doResumeTransfer(sessionId);
     navigate({
       to: "/transfer/$sessionId",
-      params: { sessionId: result.sessionId },
+      params: { sessionId: newSessionId },
     });
   });
 
