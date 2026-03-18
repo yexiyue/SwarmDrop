@@ -4,6 +4,7 @@
  */
 
 import { Loader2 } from "lucide-react";
+import { MarkdownContent } from "@/components/ui/markdown-content";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -58,8 +59,8 @@ export function ForceUpdateDialog() {
         </DialogHeader>
 
         {promptContent && (
-          <div className="rounded-lg bg-muted p-3 text-sm">
-            {promptContent}
+          <div className="max-h-48 overflow-y-auto rounded-lg bg-muted p-3">
+            <MarkdownContent content={promptContent} />
           </div>
         )}
 

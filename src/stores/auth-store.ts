@@ -252,8 +252,8 @@ export const useAuthStore = create<AuthState>()(
           const response = await getData({
             domain: BIOMETRY_DOMAIN,
             name: STRONGHOLD_PASSWORD_KEY,
-            reason: "Unlock SwarmDrop",
-            cancelTitle: "Cancel",
+            reason: "验证身份以解锁 SwarmDrop",
+            cancelTitle: "取消",
           });
 
           const password = response.data;

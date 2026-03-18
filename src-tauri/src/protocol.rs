@@ -59,6 +59,26 @@ pub struct FileInfo {
     pub checksum: String,
 }
 
+/// 文件校验和（断点续传请求中携带）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileChecksum {
+    pub file_id: u32,
+    pub checksum: String,
+}
+
+/// 断点续传被拒绝的原因
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "type")]
+pub enum ResumeRejectReason {
+    /// 源文件已被修改
+    FileModified,
+    /// 发送方找不到对应会话
+    SessionNotFound,
+    /// 发送方已取消传输
+    SenderCancelled,
+}
+
 /// 传输请求
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", tag = "kind")]
@@ -81,6 +101,26 @@ pub enum TransferRequest {
     Cancel {
         session_id: Uuid,
         reason: String,
+    },
+    /// 任一方暂停传输（通知对端保存进度）
+    Pause { session_id: Uuid },
+    /// 接收方向发送方请求断点续传
+    ResumeRequest {
+        session_id: Uuid,
+        /// 每个文件的校验和（用于验证源文件是否被修改）
+        file_checksums: Vec<FileChecksum>,
+    },
+    /// 发送方向接收方发起断点续传（发送方主动恢复）
+    ResumeOffer {
+        session_id: Uuid,
+        /// 发送方生成的 256-bit 对称加密密钥
+        #[serde(
+            serialize_with = "serialize_key",
+            deserialize_with = "deserialize_key"
+        )]
+        key: [u8; 32],
+        /// 每个文件的校验和（用于验证文件一致性）
+        file_checksums: Vec<FileChecksum>,
     },
 }
 
@@ -122,6 +162,47 @@ pub enum TransferResponse {
     },
     /// 发送方确认传输完成
     Ack { session_id: Uuid },
+    /// 发送方处理 ChunkRequest 失败时返回的错误
+    ChunkError {
+        session_id: Uuid,
+        file_id: u32,
+        chunk_index: u32,
+        error: String,
+    },
+    /// 发送方回复断点续传请求
+    ResumeResult {
+        session_id: Uuid,
+        accepted: bool,
+        /// 拒绝时的原因
+        reason: Option<ResumeRejectReason>,
+        /// 接受时由接收方原始生成的对称加密密钥（发送方不持有，接收方重新提供）
+        #[serde(
+            serialize_with = "serialize_opt_key",
+            deserialize_with = "deserialize_opt_key"
+        )]
+        key: Option<[u8; 32]>,
+    },
+    /// 接收方回复发送方的 ResumeOffer
+    ResumeOfferResult {
+        session_id: Uuid,
+        accepted: bool,
+        /// 拒绝时的原因
+        reason: Option<ResumeRejectReason>,
+    },
+}
+
+/// 将 `[u8; 32]` 序列化为 bytes array（CBOR 友好）
+fn serialize_key<S: serde::Serializer>(key: &[u8; 32], serializer: S) -> Result<S::Ok, S::Error> {
+    serializer.serialize_bytes(&key[..])
+}
+
+/// 从 bytes 反序列化 `[u8; 32]`
+fn deserialize_key<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<[u8; 32], D::Error> {
+    let v: Vec<u8> = serde_bytes::deserialize(deserializer)?;
+    v.try_into()
+        .map_err(|_| serde::de::Error::custom("expected 32 bytes for key"))
 }
 
 /// 将 `Option<[u8; 32]>` 序列化为 bytes array（CBOR 友好）

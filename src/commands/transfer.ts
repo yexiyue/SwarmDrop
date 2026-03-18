@@ -8,6 +8,11 @@ import type { AndroidFsUri } from "tauri-plugin-android-fs-api";
 
 // === 类型定义 ===
 
+/** 保存位置（跨平台） */
+export type SaveLocation =
+  | { type: "path"; path: string }
+  | { type: "androidPublicDir"; subdir: string };
+
 /** 传输方向 */
 export type TransferDirection = "send" | "receive";
 
@@ -49,11 +54,7 @@ export interface TransferSession {
   error: string | null;
   startedAt: number;
   completedAt: number | null;
-  savePath?: string;
-  /** Android 端已保存文件的 FileUri 列表 */
-  fileUris?: AndroidFsUri[];
-  /** Android 端保存目录的 FileUri */
-  saveDirUri?: AndroidFsUri;
+  saveLocation?: SaveLocation;
 }
 
 // === 事件类型 ===
@@ -96,11 +97,7 @@ export interface TransferCompleteEvent {
   direction: TransferDirection;
   totalBytes: number;
   elapsedMs: number;
-  savePath?: string;
-  /** Android 端已保存文件的 FileUri 列表（桌面端为空数组） */
-  fileUris: AndroidFsUri[];
-  /** Android 端保存目录的 FileUri（桌面端为 null） */
-  saveDirUri?: AndroidFsUri;
+  saveLocation?: SaveLocation;
 }
 
 /** 传输失败 */
@@ -108,6 +105,22 @@ export interface TransferFailedEvent {
   sessionId: string;
   direction: TransferDirection;
   error: string;
+}
+
+/** 对端暂停传输 */
+export interface TransferPausedEvent {
+  sessionId: string;
+  direction: TransferDirection;
+}
+
+/** 对端发起断点续传，本地自动恢复 */
+export interface TransferResumedEvent {
+  sessionId: string;
+  direction: TransferDirection;
+  peerId: string;
+  peerName: string;
+  files: TransferFileInfo[];
+  totalSize: number;
 }
 
 // === 文件来源 ===
@@ -159,11 +172,37 @@ export type OfferRejectReason =
   | { type: "not_paired" }
   | { type: "user_declined" };
 
-/** 开始发送的结果 */
+/** 开始发送的结果（立即返回 session_id，后续通过事件通知） */
 export interface StartSendResult {
   sessionId: string;
-  accepted: boolean;
+}
+
+/** 对方接受 Offer 的事件 */
+export interface TransferAcceptedEvent {
+  sessionId: string;
+}
+
+/** 对方拒绝 Offer 的事件 */
+export interface TransferRejectedEvent {
+  sessionId: string;
   reason: OfferRejectReason | null;
+}
+
+/** DB 操作失败事件（传输记录保存失败时触发） */
+export interface TransferDbErrorEvent {
+  sessionId: string;
+  message: string;
+}
+
+/** 恢复传输的结果（返回给前端以创建运行时 session） */
+export interface ResumeTransferResult {
+  sessionId: string;
+  direction: string;
+  peerId: string;
+  peerName: string;
+  files: TransferFileInfo[];
+  totalSize: number;
+  transferredBytes: number;
 }
 
 /**
@@ -196,9 +235,10 @@ export async function prepareSend(
 export async function startSend(
   preparedId: string,
   peerId: string,
+  peerName: string,
   selectedFileIds: number[],
 ): Promise<StartSendResult> {
-  return invoke("start_send", { preparedId, peerId, selectedFileIds });
+  return invoke("start_send", { preparedId, peerId, peerName, selectedFileIds });
 }
 
 /** 取消发送 */
@@ -209,9 +249,9 @@ export async function cancelSend(sessionId: string): Promise<void> {
 /** 确认接收 */
 export async function acceptReceive(
   sessionId: string,
-  savePath: string,
+  saveLocation: SaveLocation,
 ): Promise<void> {
-  return invoke("accept_receive", { sessionId, savePath });
+  return invoke("accept_receive", { sessionId, saveLocation });
 }
 
 /** 拒绝接收 */
@@ -222,4 +262,93 @@ export async function rejectReceive(sessionId: string): Promise<void> {
 /** 取消接收 */
 export async function cancelReceive(sessionId: string): Promise<void> {
   return invoke("cancel_receive", { sessionId });
+}
+
+// === 传输历史 API ===
+
+/** 历史会话状态（对应 Rust SessionStatus） */
+export type HistorySessionStatus =
+  | "transferring"
+  | "paused"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+/** 历史文件状态（对应 Rust FileStatus） */
+export type HistoryFileStatus =
+  | "pending"
+  | "transferring"
+  | "completed"
+  | "failed";
+
+/** 传输历史文件记录 */
+export interface TransferHistoryFile {
+  fileId: number;
+  name: string;
+  relativePath: string;
+  size: number;
+  status: HistoryFileStatus;
+  transferredBytes: number;
+}
+
+/** 传输历史会话记录（对应 Rust TransferHistoryItem） */
+export interface TransferHistoryItem {
+  sessionId: string;
+  direction: TransferDirection;
+  peerId: string;
+  peerName: string;
+  totalSize: number;
+  transferredBytes: number;
+  status: HistorySessionStatus;
+  startedAt: number;
+  updatedAt: number;
+  finishedAt: number | null;
+  errorMessage: string | null;
+  savePath: SaveLocation | null;
+  files: TransferHistoryFile[];
+}
+
+/** 查询传输历史列表（可选按状态过滤） */
+export async function getTransferHistory(
+  status?: HistorySessionStatus,
+): Promise<TransferHistoryItem[]> {
+  return invoke("get_transfer_history", { status: status ?? null });
+}
+
+/** 查询单个传输会话详情 */
+export async function getTransferSession(
+  sessionId: string,
+): Promise<TransferHistoryItem> {
+  return invoke("get_transfer_session", { sessionId });
+}
+
+/** 删除单个传输会话 */
+export async function deleteTransferSession(
+  sessionId: string,
+): Promise<void> {
+  return invoke("delete_transfer_session", { sessionId });
+}
+
+/** 清空所有传输历史 */
+export async function clearTransferHistory(): Promise<void> {
+  return invoke("clear_transfer_history");
+}
+
+/** 暂停传输 */
+export async function pauseTransfer(sessionId: string): Promise<void> {
+  return invoke("pause_transfer", { sessionId });
+}
+
+/** 恢复传输（断点续传） */
+export async function resumeTransfer(
+  sessionId: string,
+): Promise<ResumeTransferResult> {
+  return invoke("resume_transfer", { sessionId });
+}
+
+/** 解析 Android 公共目录的 content:// URI（用于 showViewDirDialog） */
+export async function resolveAndroidDirUri(
+  subdir: string,
+): Promise<AndroidFsUri | null> {
+  return invoke("resolve_android_dir_uri", { subdir });
 }

@@ -262,6 +262,27 @@ impl FileSink {
         }
     }
 
+    /// 打开已有 .part 文件或创建新文件（断点续传用）
+    ///
+    /// 桌面端：检查 .part 文件存在且大小匹配时以读写模式打开，否则创建新文件。
+    /// Android 端：暂不支持断点续传，回退到 create_part_file。
+    pub async fn open_or_create_part_file(
+        &self,
+        relative_path: &str,
+        file_size: u64,
+        #[allow(unused_variables)] app: &tauri::AppHandle,
+    ) -> AppResult<PartFile> {
+        match self {
+            Self::Path { save_dir } => {
+                path_ops::open_or_create_part_file(save_dir, relative_path, file_size).await
+            }
+            #[cfg(target_os = "android")]
+            Self::AndroidPublicDir { subdir } => {
+                android_ops::create_part_file(subdir, relative_path, file_size, app).await
+            }
+        }
+    }
+
     /// 构建 PartFile（不创建实际文件，不含写入句柄）
     ///
     /// 用于桌面端清理场景：已知 relative_path 但不需要创建文件。
@@ -279,29 +300,25 @@ impl FileSink {
         }
     }
 
-    /// 获取保存目录的显示字符串（用于完成事件）
+    /// 转换为 `SaveLocation` 枚举（用于完成事件和数据库持久化）
+    pub fn to_save_location(&self) -> entity::SaveLocation {
+        match self {
+            Self::Path { save_dir } => entity::SaveLocation::Path {
+                path: save_dir.to_string_lossy().into_owned(),
+            },
+            #[cfg(target_os = "android")]
+            Self::AndroidPublicDir { subdir } => entity::SaveLocation::AndroidPublicDir {
+                subdir: subdir.clone(),
+            },
+        }
+    }
+
+    /// 获取保存目录的显示字符串
     pub fn save_dir_display(&self) -> Cow<'_, str> {
         match self {
             Self::Path { save_dir } => save_dir.to_string_lossy(),
             #[cfg(target_os = "android")]
             Self::AndroidPublicDir { .. } => Cow::Borrowed("Download"),
-        }
-    }
-
-    /// 获取保存目录的 FileUri（Android 端用于 showViewDirDialog）
-    ///
-    /// 桌面端返回 None，Android 端通过 `resolve_initial_location` 获取标准 content URI。
-    pub async fn resolve_save_dir_uri(
-        &self,
-        #[allow(unused_variables)] app: &tauri::AppHandle,
-    ) -> Option<serde_json::Value> {
-        match self {
-            Self::Path { .. } => None,
-            #[cfg(target_os = "android")]
-            Self::AndroidPublicDir { subdir } => {
-                let uri = android_ops::resolve_save_dir_uri(subdir, app).await?;
-                serde_json::to_value(&uri).ok()
-            }
         }
     }
 

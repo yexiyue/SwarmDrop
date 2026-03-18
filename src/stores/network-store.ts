@@ -12,6 +12,7 @@ import {
   listDevices,
   getNetworkStatus,
 } from "@/commands/network";
+import { startMcpServer } from "@/commands/mcp";
 import {
   DEVICES_CHANGED,
   NETWORK_STATUS_CHANGED,
@@ -132,8 +133,16 @@ export const useNetworkStore = create<NetworkState>()((set, get) => ({
       // 设置 Tauri Event 监听（在启动前设置，避免丢失早期事件）
       await setupEventListeners();
 
-      const { customBootstrapNodes } = usePreferencesStore.getState();
+      const { customBootstrapNodes, mcp } = usePreferencesStore.getState();
       await start(pairedDevices, customBootstrapNodes);
+
+      // 如果启用了 MCP 自动启动，启动 MCP Server
+      if (mcp.autoStart) {
+        startMcpServer(mcp.port).catch((err) => {
+          console.error("Failed to auto-start MCP server:", err);
+        });
+      }
+
       // status 会在收到 listening 事件后更新为 running
     } catch (err) {
       console.error("Failed to start node:", err);
@@ -152,6 +161,7 @@ export const useNetworkStore = create<NetworkState>()((set, get) => ({
     try {
       await shutdown();
       await cleanupEventListeners();
+      usePairingStore.getState().reset();
       set({
         status: "stopped",
         devices: [],

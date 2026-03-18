@@ -29,6 +29,13 @@ export function formatDuration(seconds: number): string {
   return `${h}h ${m}m`;
 }
 
+/** 格式化分:秒倒计时 (如 "4:30") */
+export function formatCountdown(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 /** 格式化相对时间 */
 export function formatRelativeTime(date: Date | number): string {
   const now = Date.now();

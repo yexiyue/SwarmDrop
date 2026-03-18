@@ -4,16 +4,6 @@
 //! 所有业务逻辑委托给 [`network`](crate::network)、
 //! [`device`](crate::device) 和 [`pairing`](crate::pairing) 模块。
 
-mod identity;
-mod pairing;
-mod transfer;
-
-// glob re-export：Tauri 的 #[tauri::command] 宏会生成 __cmd__* 隐藏符号，
-// generate_handler! 需要通过模块路径访问这些符号，显式导出无法覆盖。
-pub use identity::*;
-pub use pairing::*;
-pub use transfer::*;
-
 use crate::device::{DeviceFilter, DeviceListResult, PairedDeviceInfo};
 use crate::network::{NetManager, NetManagerState, NetworkStatus};
 use crate::protocol::{AppRequest, AppResponse};
@@ -23,10 +13,28 @@ use tauri::{AppHandle, Manager, State};
 use tokio::sync::Mutex;
 use tracing::{info, warn};
 
-/// 节点未启动时的统一错误
-pub(super) fn not_started() -> AppError {
-    AppError::NodeNotStarted
+/// 从 NetManagerState 获取 manager 引用并执行表达式（短暂持锁）
+macro_rules! with_manager {
+    ($net:expr, |$m:ident| $body:expr) => {{
+        let guard = $net.lock().await;
+        let $m = guard
+            .as_ref()
+            .ok_or_else(|| $crate::AppError::NodeNotStarted)?;
+        $body
+    }};
 }
+
+mod identity;
+mod mcp;
+mod pairing;
+mod transfer;
+
+// glob re-export：Tauri 的 #[tauri::command] 宏会生成 __cmd__* 隐藏符号，
+// generate_handler! 需要通过模块路径访问这些符号，显式导出无法覆盖。
+pub use identity::*;
+pub use mcp::*;
+pub use pairing::*;
+pub use transfer::*;
 
 #[tauri::command]
 pub async fn start(
@@ -36,13 +44,13 @@ pub async fn start(
     custom_bootstrap_nodes: Option<Vec<String>>,
 ) -> crate::AppResult<()> {
     let agent_version = crate::device::OsInfo::default().to_agent_version();
-    let result = crate::network::config::create_node_config(
+    let config = crate::network::config::create_node_config(
         agent_version,
         &custom_bootstrap_nodes.unwrap_or_default(),
     );
 
     let (client, receiver) =
-        swarm_p2p_core::start::<AppRequest, AppResponse>((*keypair).clone(), result.config)
+        swarm_p2p_core::start::<AppRequest, AppResponse>((*keypair).clone(), config)
             .map_err(|e| AppError::Network(e.to_string()))?;
 
     let peer_id = PeerId::from_public_key(&keypair.public());
@@ -50,7 +58,6 @@ pub async fn start(
         client.clone(),
         peer_id,
         paired_devices,
-        result.bootstrap_peer_ids,
     );
 
     // 宣布上线（bootstrap 前发布，尽早让对方发现）
@@ -94,6 +101,8 @@ pub async fn shutdown(app: AppHandle) -> crate::AppResult<()> {
             if let Err(e) = manager.pairing().announce_offline().await {
                 warn!("Failed to announce offline: {}", e);
             }
+            // 取消所有后台任务（超时清理等）
+            manager.cancel_background_tasks();
         }
         guard.take();
     }
@@ -107,8 +116,7 @@ pub async fn list_devices(
     filter: Option<DeviceFilter>,
 ) -> crate::AppResult<DeviceListResult> {
     let guard = net.lock().await;
-    let manager = guard.as_ref().ok_or_else(not_started)?;
-
+    let manager = guard.as_ref().ok_or(AppError::NodeNotStarted)?;
     let devices = manager.devices().get_devices(filter.unwrap_or_default());
     let total = devices.len();
     Ok(DeviceListResult { devices, total })

@@ -18,6 +18,7 @@ import {
 import { Trans } from "@lingui/react/macro";
 import { useShallow } from "zustand/react/shallow";
 import { usePairingStore } from "@/stores/pairing-store";
+import { usePairingSuccess } from "@/hooks/use-pairing-success";
 import {
   DesktopDeviceFoundContent,
   useDeviceFoundState,
@@ -30,10 +31,9 @@ export const Route = createLazyFileRoute("/_app/pairing/input")({
 function PairingInputPage() {
   const navigate = useNavigate();
 
-  const { current, searchDevice, sendPairingRequest, openInput, reset } =
+  const { searchDevice, sendPairingRequest, openInput, reset } =
     usePairingStore(
       useShallow((state) => ({
-        current: state.current,
         searchDevice: state.searchDevice,
         sendPairingRequest: state.sendPairingRequest,
         openInput: state.openInput,
@@ -53,29 +53,25 @@ function PairingInputPage() {
     };
   }, [openInput]);
 
-  // 配对成功后自动返回
-  useEffect(() => {
-    if (current.phase === "success") {
-      void navigate({ to: "/devices" });
-    }
-  }, [current.phase, navigate]);
+  // 配对成功后自动跳转到设备页面
+  usePairingSuccess();
 
-  const isSearching = current.phase === "searching";
+  const isSearching = usePairingStore((s) => s.current.phase === "searching");
 
   const handleCodeComplete = (value: string) => {
     if (value.length === 6) {
-      void searchDevice(value);
+      searchDevice(value);
     }
   };
 
   const handleConfirm = () => {
     if (code.length === 6) {
-      void searchDevice(code);
+      searchDevice(code);
     }
   };
 
   const handleBack = () => {
-    void navigate({ to: "/devices" });
+    navigate({ to: "/devices" });
   };
 
   // ─── 设备详情视图 ───
@@ -97,7 +93,7 @@ function PairingInputPage() {
           <DesktopDeviceFoundContent
             deviceInfo={deviceInfo}
             isRequesting={isRequesting}
-            onSendRequest={() => void sendPairingRequest()}
+            onSendRequest={() => sendPairingRequest()}
             onCancel={reset}
           />
         </div>

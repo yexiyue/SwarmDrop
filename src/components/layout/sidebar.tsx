@@ -1,14 +1,19 @@
 import { cn } from "@/lib/utils";
-import { Send } from "lucide-react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useLingui } from "@lingui/react/macro";
-import { useState, useEffect, useRef } from "react";
-import { hostname } from "@tauri-apps/plugin-os";
-import { useNetworkStore, type NodeStatus } from "@/stores/network-store";
-import { StartNodeSheet } from "@/components/network/start-node-sheet";
-import { StopNodeSheet } from "@/components/network/stop-node-sheet";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useEffect, useRef } from "react";
+import { useTheme } from "next-themes";
+import { Sun, Moon, Monitor, Globe } from "lucide-react";
+import { msg } from "@lingui/core/macro";
+import type { MessageDescriptor } from "@lingui/core";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
+import { usePreferencesStore } from "@/stores/preferences-store";
+import { locales, type LocaleKey } from "@/lib/i18n";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Sidebar,
   SidebarContent,
@@ -22,62 +27,40 @@ import {
   SidebarSeparator,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { navItems } from "@/components/layout/nav-items";
-import { msg } from "@lingui/core/macro";
-import type { MessageDescriptor } from "@lingui/core";
+import { navItems, isNavActive } from "@/components/layout/nav-items";
 
-const statusConfig: Record<
-  NodeStatus,
-  {
-    label: MessageDescriptor;
-    dotColor: string;
-    bgColor: string;
-    textColor: string;
+const themeOptions: {
+  value: string;
+  label: MessageDescriptor;
+  icon: typeof Sun;
+}[] = [
+  { value: "system", label: msg`跟随系统`, icon: Monitor },
+  { value: "light", label: msg`浅色`, icon: Sun },
+  { value: "dark", label: msg`深色`, icon: Moon },
+];
+
+function ThemeIcon({ theme }: { theme: string | undefined }) {
+  switch (theme) {
+    case "light":
+      return <Sun className="size-4" />;
+    case "dark":
+      return <Moon className="size-4" />;
+    default:
+      return <Monitor className="size-4" />;
   }
-> = {
-  stopped: {
-    label: msg`离线`,
-    dotColor: "bg-muted-foreground",
-    bgColor: "hover:bg-muted",
-    textColor: "text-muted-foreground",
-  },
-  starting: {
-    label: msg`连接中`,
-    dotColor: "bg-yellow-500 animate-pulse",
-    bgColor: "bg-yellow-500/10 hover:bg-yellow-500/20",
-    textColor: "text-yellow-600",
-  },
-  running: {
-    label: msg`在线`,
-    dotColor: "bg-green-500",
-    bgColor: "bg-green-500/10 hover:bg-green-500/20",
-    textColor: "text-green-500",
-  },
-  error: {
-    label: msg`错误`,
-    dotColor: "bg-red-500",
-    bgColor: "bg-red-500/10 hover:bg-red-500/20",
-    textColor: "text-red-500",
-  },
-};
+}
 
 export function AppSidebar() {
   const { t } = useLingui();
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
-  const [startSheetOpen, setStartSheetOpen] = useState(false);
-  const [stopSheetOpen, setStopSheetOpen] = useState(false);
-  const [deviceName, setDeviceName] = useState<string>("");
-  const status = useNetworkStore((state) => state.status);
-  const config = statusConfig[status];
+  const { theme, setTheme } = useTheme();
+  const locale = usePreferencesStore((s) => s.locale);
+  const setLocale = usePreferencesStore((s) => s.setLocale);
   const { state, toggleSidebar, setOpen } = useSidebar();
   const isCollapsed = state === "collapsed";
   const breakpoint = useBreakpoint();
   const isDesktop = breakpoint === "desktop";
-
-  useEffect(() => {
-    hostname().then((name) => setDeviceName(name ?? ""));
-  }, []);
 
   // 断点变化时同步侧边栏状态（用 ref 避免 setOpen 引用变化导致重复触发）
   const prevIsDesktop = useRef(isDesktop);
@@ -88,10 +71,6 @@ export function AppSidebar() {
     }
   }, [isDesktop, setOpen]);
 
-  const avatarInitials = deviceName
-    ? deviceName.slice(0, 2).toUpperCase()
-    : "SD";
-
   return (
     <Sidebar collapsible="icon" className="border-r border-sidebar-border">
       <SidebarHeader
@@ -99,9 +78,11 @@ export function AppSidebar() {
         onClick={toggleSidebar}
       >
         <div className="flex items-center gap-2">
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-linear-to-br from-blue-600 to-blue-500">
-            <Send className="size-4 text-white" />
-          </div>
+          <img
+            src="/app-icon.svg"
+            alt="SwarmDrop"
+            className="size-7 shrink-0 rounded-md"
+          />
           {!isCollapsed && (
             <span className="text-[15px] font-semibold text-sidebar-foreground">
               SwarmDrop
@@ -117,10 +98,7 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu className="gap-0.5">
               {navItems.map((item) => {
-                const isActive =
-                  currentPath === item.href ||
-                  (item.href === "/devices" && currentPath.startsWith("/pairing")) ||
-                  (item.href !== "/" && currentPath.startsWith(item.href));
+                const isActive = isNavActive(currentPath, item.href);
                 const Icon = item.icon;
 
                 return (
@@ -153,65 +131,92 @@ export function AppSidebar() {
 
       <SidebarSeparator />
 
-      <SidebarFooter className="p-3">
-        <div
-          className={cn(
-            "flex items-center px-1",
-            isCollapsed ? "justify-center" : "justify-between",
-          )}
-        >
-          {isCollapsed ? (
-            <button
-              type="button"
-              onClick={() => status === "running" ? setStopSheetOpen(true) : setStartSheetOpen(true)}
-              className="relative cursor-pointer"
-            >
-              <Avatar className="size-7 shrink-0">
-                <AvatarFallback className="text-[11px]">
-                  {avatarInitials}
-                </AvatarFallback>
-              </Avatar>
-              <span
-                className={cn(
-                  "absolute -right-0.5 -top-0.5 size-2.5 rounded-full border-2 border-sidebar",
-                  config.dotColor,
-                )}
-              />
-            </button>
-          ) : (
-            <>
-              <div className="flex items-center gap-2">
-                <Avatar className="size-7 shrink-0">
-                  <AvatarFallback className="text-[11px]">
-                    {avatarInitials}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="truncate text-[13px] text-sidebar-foreground">
-                  {deviceName || "SwarmDrop"}
-                </span>
-              </div>
+      <SidebarFooter>
+        <div className="flex flex-col gap-1">
+          {/* 主题切换 Popover */}
+          <Popover>
+            <PopoverTrigger asChild className="cursor-pointer">
               <button
                 type="button"
-                onClick={() => status === "running" ? setStopSheetOpen(true) : setStartSheetOpen(true)}
                 className={cn(
-                  "flex cursor-pointer items-center gap-1 rounded px-1.5 py-1 transition-colors",
-                  config.bgColor,
+                  "flex items-center gap-2 rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                  isCollapsed ? "size-8 justify-center" : "h-8 px-2.5",
                 )}
               >
-                <span
-                  className={cn("size-1.5 rounded-full", config.dotColor)}
-                />
-                <span className={cn("text-[11px]", config.textColor)}>
-                  {t(config.label)}
-                </span>
+                <ThemeIcon theme={theme} />
+                {!isCollapsed && (
+                  <span className="text-[12px]">
+                    {t(
+                      themeOptions.find((o) => o.value === theme)?.label ??
+                        themeOptions[0].label,
+                    )}
+                  </span>
+                )}
               </button>
-            </>
-          )}
+            </PopoverTrigger>
+            <PopoverContent
+              side={isCollapsed ? "right" : "top"}
+              align={isCollapsed ? "end" : "start"}
+              className="w-36 p-1"
+            >
+              {themeOptions.map((option) => {
+                const Icon = option.icon;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setTheme(option.value)}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-[13px] transition-colors hover:bg-accent",
+                      theme === option.value && "bg-accent font-medium",
+                    )}
+                  >
+                    <Icon className="size-3.5" />
+                    {t(option.label)}
+                  </button>
+                );
+              })}
+            </PopoverContent>
+          </Popover>
+
+          {/* 语言切换 Popover */}
+          <Popover>
+            <PopoverTrigger asChild className="cursor-pointer">
+              <button
+                type="button"
+                className={cn(
+                  "flex items-center gap-2 rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground",
+                  isCollapsed ? "size-8 justify-center" : "h-8 px-2.5",
+                )}
+              >
+                <Globe className="size-4" />
+                {!isCollapsed && (
+                  <span className="text-[12px]">{locales[locale]}</span>
+                )}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              side={isCollapsed ? "right" : "top"}
+              align={isCollapsed ? "end" : "start"}
+              className="w-36 p-1"
+            >
+              {Object.entries(locales).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setLocale(key as LocaleKey)}
+                  className={cn(
+                    "flex w-full items-center rounded-sm px-2 py-1.5 text-[13px] transition-colors hover:bg-accent",
+                    locale === key && "bg-accent font-medium",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </PopoverContent>
+          </Popover>
         </div>
       </SidebarFooter>
-
-      <StartNodeSheet open={startSheetOpen} onOpenChange={setStartSheetOpen} />
-      <StopNodeSheet open={stopSheetOpen} onOpenChange={setStopSheetOpen} />
     </Sidebar>
   );
 }

@@ -12,12 +12,9 @@ import {
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { Trans } from "@lingui/react/macro";
-import { useLingui } from "@lingui/react";
-import { msg } from "@lingui/core/macro";
 import type { Device } from "@/commands/network";
 import type { FileSource, PrepareProgress } from "@/commands/transfer";
 import { prepareSend, startSend } from "@/commands/transfer";
-import { removePairedDevice } from "@/commands/pairing";
 import { useTransferStore } from "@/stores/transfer-store";
 import { useNetworkStore } from "@/stores/network-store";
 import { useSecretStore } from "@/stores/secret-store";
@@ -40,7 +37,6 @@ function SendPage() {
   const router = useRouter();
   const breakpoint = useBreakpoint();
   const isMobile = breakpoint === "mobile";
-  const { _ } = useLingui();
 
   const fileSelection = useFileSelection();
   const [sending, setSending] = useState(false);
@@ -88,25 +84,11 @@ function SendPage() {
       const result = await startSend(
         prepared.preparedId,
         device.peerId,
+        device.hostname,
         fileIds,
       );
 
-      if (!result.accepted) {
-        if (result.reason?.type === "not_paired") {
-          void removePairedDevice(device.peerId);
-          useSecretStore.getState().removePairedDevice(device.peerId);
-          toast.error(_(msg`设备已取消配对`), {
-            action: {
-              label: _(msg`去配对`),
-              onClick: () => void navigate({ to: "/devices" }),
-            },
-          });
-        } else {
-          toast.error(_(msg`对方拒绝了请求`));
-        }
-        return;
-      }
-
+      // startSend 立即返回 session_id，后续通过事件通知结果
       useTransferStore.getState().addSession({
         sessionId: result.sessionId,
         direction: "send",
@@ -114,14 +96,17 @@ function SendPage() {
         deviceName: device.hostname,
         files: prepared.files,
         totalSize: prepared.totalSize,
-        status: "transferring",
+        status: "waiting_accept",
         progress: null,
         error: null,
         startedAt: Date.now(),
         completedAt: null,
       });
 
-      void navigate({ to: "/transfer" });
+      navigate({
+        to: "/transfer/$sessionId",
+        params: { sessionId: result.sessionId },
+      });
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
@@ -134,7 +119,7 @@ function SendPage() {
     if (router.history.length > 1) {
       router.history.back();
     } else {
-      void navigate({ to: "/devices" });
+      navigate({ to: "/devices" });
     }
   };
 

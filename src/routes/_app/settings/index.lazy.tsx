@@ -3,14 +3,11 @@
  * 设置页面 - 懒加载组件
  */
 
-import { useState, useEffect } from "react";
 import { createLazyFileRoute } from "@tanstack/react-router";
-import { hostname } from "@tauri-apps/plugin-os";
 import { Trans } from "@lingui/react/macro";
 import { useLingui } from "@lingui/react/macro";
 import { msg } from "@lingui/core/macro";
 import { useTheme } from "next-themes";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Select,
   SelectContent,
@@ -22,9 +19,11 @@ import { useShallow } from "zustand/react/shallow";
 import { usePreferencesStore } from "@/stores/preferences-store";
 import { locales, type LocaleKey } from "@/lib/i18n";
 import { AboutSection } from "./-about-section";
+import { DeviceInfoSection } from "./-device-info-section";
 import { NetworkSettingsSection } from "./-network-settings-section";
 import { BootstrapNodesSection } from "./-bootstrap-nodes-section";
 import { TransferSettingsSection } from "./-transfer-settings-section";
+import { McpSection } from "./-mcp-section";
 
 export const Route = createLazyFileRoute("/_app/settings/")({
   component: SettingsPage,
@@ -39,24 +38,15 @@ const themeOptions = [
 function SettingsPage() {
   const { t } = useLingui();
   const { theme, setTheme } = useTheme();
-  const { locale, deviceName, setLocale } = usePreferencesStore(
+  const { locale, setLocale } = usePreferencesStore(
     useShallow((state) => ({
       locale: state.locale,
-      deviceName: state.deviceName,
       setLocale: state.setLocale,
     }))
   );
-  const [systemHostname, setSystemHostname] = useState("");
-
-  useEffect(() => {
-    hostname().then((name) => setSystemHostname(name ?? ""));
-  }, []);
-
-  const displayName = deviceName || systemHostname || "SwarmDrop";
-  const avatarInitials = displayName.slice(0, 2).toUpperCase();
 
   return (
-    <main className="flex h-full flex-1 flex-col bg-background">
+    <main className="flex h-full min-h-0 flex-1 flex-col bg-background">
       {/* Toolbar */}
       <header className="flex h-13 items-center justify-between border-b border-border p-4 md:p-5 lg:p-6">
         <h1 className="text-[15px] font-medium text-foreground">
@@ -71,26 +61,7 @@ function SettingsPage() {
           <AboutSection />
 
           {/* 设备信息 */}
-          <section className="flex flex-col gap-3">
-            <h2 className="text-sm font-semibold text-foreground">
-              <Trans>设备信息</Trans>
-            </h2>
-            <div className="flex items-center gap-4 rounded-lg border border-border p-4">
-              <Avatar className="size-14">
-                <AvatarFallback className="text-lg font-semibold">
-                  {avatarInitials}
-                </AvatarFallback>
-              </Avatar>
-              <div className="flex flex-col gap-1">
-                <span className="text-base font-medium text-foreground">
-                  {displayName}
-                </span>
-                <span className="text-[13px] text-muted-foreground">
-                  {systemHostname}
-                </span>
-              </div>
-            </div>
-          </section>
+          <DeviceInfoSection />
 
           {/* 网络 */}
           <NetworkSettingsSection />
@@ -159,6 +130,9 @@ function SettingsPage() {
 
           {/* 文件传输设置 */}
           <TransferSettingsSection />
+
+          {/* MCP Server */}
+          <McpSection />
         </div>
       </div>
     </main>

@@ -118,19 +118,25 @@ SwarmDrop 会自动选择最优传输路径：
 
 ## 技术架构
 
-```
-┌─────────────────────────────────────┐
-│  React 19 + TypeScript + Vite 7     │  ← 前端 UI
-│  TanStack Router · Zustand · Lingui │
-├──────────── Tauri IPC ──────────────┤
-│  Rust + Tauri 2                     │  ← 后端逻辑
-│  文件读写 · 分块校验 · E2E 加密      │
-├──────────── libp2p ─────────────────┤
-│  Request-Response  文件传输          │
-│  mDNS              局域网发现        │  ← P2P 网络
-│  Kademlia DHT      跨网络发现        │
-│  Relay + DCUtR     NAT 穿透         │
-└─────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph Frontend["前端 UI"]
+        A["React 19 + TypeScript + Vite 7<br/>TanStack Router · Zustand · Lingui"]
+    end
+
+    subgraph Backend["后端逻辑 — Rust + Tauri 2"]
+        B["文件读写 · 分块校验 · E2E 加密"]
+    end
+
+    subgraph P2P["P2P 网络 — libp2p"]
+        C["Request-Response — 文件传输"]
+        D["mDNS — 局域网发现"]
+        E["Kademlia DHT — 跨网络发现"]
+        F["Relay + DCUtR — NAT 穿透"]
+    end
+
+    Frontend -- "Tauri IPC" --> Backend
+    Backend -- "libp2p" --> P2P
 ```
 
 <details>

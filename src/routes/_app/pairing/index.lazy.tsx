@@ -14,6 +14,7 @@ import { Trans } from "@lingui/react/macro";
 import { useShallow } from "zustand/react/shallow";
 import { usePairingStore } from "@/stores/pairing-store";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
+import { usePairingSuccess } from "@/hooks/use-pairing-success";
 import { MobileGenerateCodeView } from "./-components/mobile-generate-code-view";
 import { MobileInputCodeView } from "./-components/mobile-input-code-view";
 import {
@@ -29,10 +30,9 @@ function MobilePairingPage() {
   const navigate = useNavigate();
   const breakpoint = useBreakpoint();
 
-  const { current, generateCode, openInput, sendPairingRequest, reset } =
+  const { generateCode, openInput, sendPairingRequest, reset } =
     usePairingStore(
       useShallow((state) => ({
-        current: state.current,
         generateCode: state.generateCode,
         openInput: state.openInput,
         sendPairingRequest: state.sendPairingRequest,
@@ -47,27 +47,23 @@ function MobilePairingPage() {
   // 桌面端重定向到 /pairing/generate
   useEffect(() => {
     if (breakpoint !== "mobile") {
-      void navigate({ to: "/pairing/generate", replace: true });
+      navigate({ to: "/pairing/generate", replace: true });
     }
   }, [breakpoint, navigate]);
 
   // 进入页面时生成配对码
   useEffect(() => {
-    void generateCode();
+    generateCode();
     return () => {
       usePairingStore.getState().reset();
     };
   }, [generateCode]);
 
-  // 配对成功后自动返回
-  useEffect(() => {
-    if (current.phase === "success") {
-      void navigate({ to: "/devices" });
-    }
-  }, [current.phase, navigate]);
+  // 配对成功后自动跳转到设备页面
+  usePairingSuccess();
 
   const handleClose = () => {
-    void navigate({ to: "/devices" });
+    navigate({ to: "/devices" });
   };
 
   const handleTabChange = (value: string) => {
@@ -75,7 +71,7 @@ function MobilePairingPage() {
     setActiveTab(tab);
     reset();
     if (tab === "generate") {
-      void generateCode();
+      generateCode();
     } else {
       openInput();
     }
@@ -93,7 +89,7 @@ function MobilePairingPage() {
         <MobileDeviceFoundView
           deviceInfo={deviceInfo}
           isRequesting={isRequesting}
-          onSendRequest={() => void sendPairingRequest()}
+          onSendRequest={() => sendPairingRequest()}
           onBack={reset}
         />
       </div>

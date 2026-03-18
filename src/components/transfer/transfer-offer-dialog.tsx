@@ -1,10 +1,6 @@
-/**
- * TransferOfferDialog
- * 传输请求弹窗 - 显示文件预览、保存路径选择、接收/拒绝按钮
- */
-
 import { useState, useEffect, useMemo, useCallback, memo } from "react";
 import { Download, FolderOpen } from "lucide-react";
+import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ui/button";
 import {
   ResponsiveDialog,
@@ -16,27 +12,42 @@ import {
 } from "@/components/responsive-dialog";
 import { Trans } from "@lingui/react/macro";
 import { useTransferStore } from "@/stores/transfer-store";
-import { acceptReceive, rejectReceive } from "@/commands/transfer";
+import {
+  acceptReceive,
+  rejectReceive,
+  type SaveLocation,
+} from "@/commands/transfer";
 import { FileTree } from "@/routes/_app/send/-components/file-tree";
 import { buildTreeDataFromOffer } from "@/routes/_app/send/-file-tree";
 import { pickFolder, getDefaultSavePath, isAndroid } from "@/lib/file-picker";
 import { useNavigate } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
-import type { TransferOfferEvent } from "@/commands/transfer";
 
 export function TransferOfferDialog() {
   const navigate = useNavigate();
-  const [currentOffer, setCurrentOffer] = useState<TransferOfferEvent | null>(null);
   const [savePath, setSavePath] = useState("");
   const [processing, setProcessing] = useState(false);
+  const [dismissedSessionId, setDismissedSessionId] = useState<string | null>(
+    null,
+  );
 
-  // 使用细粒度选择器
-  const shiftOffer = useTransferStore(useCallback((s) => s.shiftOffer, []));
-  const pendingOffers = useTransferStore(useCallback((s) => s.pendingOffers, []));
-  const addSession = useTransferStore(useCallback((s) => s.addSession, []));
+  const { shiftOffer, pendingOffers, addSession } = useTransferStore(
+    useShallow((s) => ({
+      shiftOffer: s.shiftOffer,
+      pendingOffers: s.pendingOffers,
+      addSession: s.addSession,
+    })),
+  );
 
-  // 初始化默认保存路径
+  // 获取当前要显示的 offer（队列第一个且未被用户关闭的）
+  const currentOffer = useMemo(() => {
+    if (pendingOffers.length === 0) return null;
+    const first = pendingOffers[0];
+    if (first.sessionId === dismissedSessionId) return null;
+    return first;
+  }, [pendingOffers, dismissedSessionId]);
+
   useEffect(() => {
     let cancelled = false;
     getDefaultSavePath().then((path) => {
@@ -47,13 +58,15 @@ export function TransferOfferDialog() {
     };
   }, []);
 
-  // 从队列取出第一个 offer
+  // 当 dismissedSessionId 对应的 offer 被移除后，清除 dismissedSessionId
   useEffect(() => {
-    if (currentOffer === null && pendingOffers.length > 0) {
-      const offer = shiftOffer();
-      if (offer) setCurrentOffer(offer);
+    if (
+      dismissedSessionId &&
+      !pendingOffers.some((o) => o.sessionId === dismissedSessionId)
+    ) {
+      setDismissedSessionId(null);
     }
-  }, [currentOffer, pendingOffers, shiftOffer]);
+  }, [pendingOffers, dismissedSessionId]);
 
   const treeData = useMemo(() => {
     if (!currentOffer) return null;
@@ -71,7 +84,11 @@ export function TransferOfferDialog() {
     if (!currentOffer) return;
     setProcessing(true);
     try {
-      await acceptReceive(currentOffer.sessionId, savePath);
+      const saveLocation: SaveLocation = isAndroid()
+        ? { type: "androidPublicDir", subdir: "SwarmDrop" }
+        : { type: "path", path: savePath };
+
+      await acceptReceive(currentOffer.sessionId, saveLocation);
 
       addSession({
         sessionId: currentOffer.sessionId,
@@ -85,12 +102,11 @@ export function TransferOfferDialog() {
         error: null,
         startedAt: Date.now(),
         completedAt: null,
-        savePath,
+        saveLocation,
       });
 
-      // 关闭当前弹窗并跳转到详情页
-      setCurrentOffer(null);
-      void navigate({
+      // 从队列移除并跳转到详情页
+      navigate({
         to: "/transfer/$sessionId",
         params: { sessionId: currentOffer.sessionId },
       });
@@ -98,26 +114,28 @@ export function TransferOfferDialog() {
       toast.error(getErrorMessage(err));
     } finally {
       setProcessing(false);
+      shiftOffer();
     }
-  }, [currentOffer, savePath, addSession, navigate]);
+  }, [currentOffer, savePath, addSession, navigate, shiftOffer]);
 
   const handleReject = useCallback(async () => {
     if (!currentOffer) return;
     setProcessing(true);
     try {
       await rejectReceive(currentOffer.sessionId);
-      setCurrentOffer(null);
+      // 从队列移除
     } catch (err) {
       toast.error(getErrorMessage(err));
     } finally {
       setProcessing(false);
+      shiftOffer();
     }
-  }, [currentOffer]);
+  }, [currentOffer, shiftOffer]);
 
   const handleOpenChange = useCallback(
     (open: boolean) => {
       if (!open && !processing) {
-        void handleReject();
+        handleReject();
       }
     },
     [processing, handleReject],
@@ -144,10 +162,8 @@ export function TransferOfferDialog() {
           </ResponsiveDialogDescription>
         </ResponsiveDialogHeader>
 
-        {/* 中间内容区域 - 可滚动 */}
         <div className="flex-1 overflow-y-auto px-4 sm:px-0">
-          {/* 文件树预览 */}
-          <div className="max-h-[40vh] min-h-[120px]">
+          <div className="max-h-[40vh] min-h-30">
             <FileTree
               mode="select"
               dataLoader={treeData.dataLoader}
@@ -158,7 +174,6 @@ export function TransferOfferDialog() {
             />
           </div>
 
-          {/* 保存路径（移动端不允许更改） */}
           {!isAndroid() && (
             <div className="mt-4">
               <SavePathSelector
@@ -192,7 +207,6 @@ export function TransferOfferDialog() {
   );
 }
 
-// 拆分为独立组件，避免不必要的渲染
 const SavePathSelector = memo(function SavePathSelector({
   savePath,
   onChangePath,

@@ -41,7 +41,7 @@ interface FileTreeProps {
 }
 
 /** 行高（px） */
-const ROW_HEIGHT = 34;
+const ROW_HEIGHT = 40;
 /** 缩进步长（px） */
 const INDENT_SIZE = 22;
 
@@ -125,7 +125,7 @@ export function FileTree({
       {/* 树列表（虚拟滚动） */}
       <div
         ref={scrollRef}
-        className="max-h-64 overflow-auto rounded-md border bg-card p-1 md:max-h-none md:min-h-0 md:flex-1"
+        className="max-h-64 overflow-auto rounded-lg border bg-card p-1.5 md:max-h-none md:min-h-0 md:flex-1"
       >
         <div
           className="relative w-full"
@@ -149,17 +149,29 @@ export function FileTree({
                   ))
                 : null;
 
-            if (data.type === "directory") {
-              return (
-                <div
-                  key={data.id}
-                  className="absolute left-0 top-0 w-full"
-                  style={{
-                    height: `${virtualItem.size}px`,
-                    transform: `translateY(${virtualItem.start}px)`,
-                  }}
-                >
-                  {guides}
+            // 文件行
+            const fileStatus =
+              data.type !== "directory"
+                ? getFileStatus(data, mode, progress, completedFileIds, errorFileIds)
+                : undefined;
+
+            // 共享的 onRemove 回调
+            const onRemove =
+              mode === "select" && onRemoveFile && data.absolutePath
+                ? () => onRemoveFile(data.absolutePath!)
+                : undefined;
+
+            return (
+              <div
+                key={data.id}
+                className="absolute left-0 top-0 w-full"
+                style={{
+                  height: `${virtualItem.size}px`,
+                  transform: `translateY(${virtualItem.start}px)`,
+                }}
+              >
+                {guides}
+                {data.type === "directory" ? (
                   <FolderRow
                     name={data.name}
                     isExpanded={item.isExpanded()}
@@ -174,52 +186,23 @@ export function FileTree({
                         item.expand();
                       }
                     }}
-                    onRemove={
-                      mode === "select" && onRemoveFile && data.absolutePath
-                        ? () => onRemoveFile(data.absolutePath!)
+                    onRemove={onRemove}
+                  />
+                ) : (
+                  <FileTreeItem
+                    name={data.name}
+                    size={data.size}
+                    variant={fileStatus!}
+                    level={level}
+                    progress={getFileProgress(data, progress)}
+                    onRemove={onRemove}
+                    onRetry={
+                      fileStatus === "error" && onRetryFile && data.fileId != null
+                        ? () => onRetryFile(data.fileId!)
                         : undefined
                     }
                   />
-                </div>
-              );
-            }
-
-            // 文件行
-            const fileStatus = getFileStatus(
-              data,
-              mode,
-              progress,
-              completedFileIds,
-              errorFileIds,
-            );
-
-            return (
-              <div
-                key={data.id}
-                className="absolute left-0 top-0 w-full"
-                style={{
-                  height: `${virtualItem.size}px`,
-                  transform: `translateY(${virtualItem.start}px)`,
-                }}
-              >
-                {guides}
-                <FileTreeItem
-                  name={data.name}
-                  size={data.size}
-                  variant={fileStatus}
-                  level={level}
-                  progress={getFileProgress(data, progress)}
-                  onRemove={
-                    mode === "select" && onRemoveFile && data.absolutePath
-                      ? () => onRemoveFile(data.absolutePath!)
-                      : undefined
-                  }
-                  onRetry={
-                    fileStatus === "error" && onRetryFile && data.fileId != null
-                      ? () => onRetryFile(data.fileId!)
-                      : undefined
-                  }
-                />
+                )}
               </div>
             );
           })}

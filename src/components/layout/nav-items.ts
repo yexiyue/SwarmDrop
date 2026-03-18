@@ -15,8 +15,9 @@ export const navItems: NavItem[] = [
   { icon: Settings, label: msg`设置`, href: "/settings" },
 ];
 
-/** @deprecated 使用 navItems */
-export const desktopNavItems = navItems;
-
-/** @deprecated 使用 navItems */
-export const mobileNavItems = navItems;
+/** 判断导航项是否处于激活状态 */
+export function isNavActive(currentPath: string, href: string): boolean {
+  if (currentPath === href) return true;
+  if (href === "/devices" && currentPath.startsWith("/pairing")) return true;
+  return href !== "/" && currentPath.startsWith(href);
+}

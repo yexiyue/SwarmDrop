@@ -30,7 +30,7 @@ export function MobileInputCodeView() {
 
   const handleCodeComplete = (value: string) => {
     if (value.length === 6) {
-      void searchDevice(value);
+      searchDevice(value);
     }
   };
 
@@ -70,7 +70,7 @@ export function MobileInputCodeView() {
 
       {/* 查找设备按钮 */}
       <Button
-        onClick={() => code.length === 6 && void searchDevice(code)}
+        onClick={() => code.length === 6 && searchDevice(code)}
         disabled={code.length < 6 || isSearching}
         className="w-full bg-blue-600 hover:bg-blue-700"
         size="lg"

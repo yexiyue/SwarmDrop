@@ -99,8 +99,8 @@ interface PairingState {
   sendPairingRequest: () => Promise<void>;
   /** 处理收到的入站配对请求 */
   handleInboundRequest: (payload: QueuedInboundRequest) => void;
-  /** 接受配对请求 */
-  acceptRequest: () => Promise<void>;
+  /** 接受配对请求，返回是否成功 */
+  acceptRequest: () => Promise<boolean>;
   /** 拒绝配对请求 */
   rejectRequest: () => Promise<void>;
   /** Direct 模式配对（附近设备直连） */
@@ -209,9 +209,11 @@ export const usePairingStore = create<PairingState>()(
 
     async acceptRequest() {
       const { incomingRequest, current } = get();
-      if (!incomingRequest) return;
+      if (!incomingRequest) return false;
 
       const { pendingId, osInfo, method } = incomingRequest;
+      // 立即清空，防止双击导致重复发送响应（pending channel 只能消费一次）
+      set({ incomingRequest: null });
       try {
         await respondPairingRequest(
           pendingId,
@@ -220,7 +222,6 @@ export const usePairingStore = create<PairingState>()(
         );
 
         // 已配对设备由后端通过 paired-device-added 事件同步到 Stronghold
-        set({ incomingRequest: null });
         toast.success(t`已与 ${osInfo.hostname} 配对成功`);
         // 处理队列中的下一个请求
         get().processNextInbound();
@@ -233,15 +234,16 @@ export const usePairingStore = create<PairingState>()(
           }));
           // 若当前仍在展示配对码，自动重新生成
           if (current.phase === "generating") {
-            void get().generateCode();
+            get().generateCode();
           }
         }
+        return true;
       } catch (err) {
-        if (handleNodeNotStarted(err)) return;
+        if (handleNodeNotStarted(err)) return false;
         const message = getErrorMessage(err);
-        set({ incomingRequest: null });
         toast.error(message);
         get().processNextInbound();
+        return false;
       }
     },
 
@@ -250,20 +252,20 @@ export const usePairingStore = create<PairingState>()(
       if (!incomingRequest) return;
 
       const { pendingId, osInfo, method } = incomingRequest;
+      // 立即清空，防止双击导致重复发送响应
+      set({ incomingRequest: null });
       try {
         await respondPairingRequest(
           pendingId,
           method,
           { status: "refused", reason: { type: "user_rejected" } },
         );
-        set({ incomingRequest: null });
         toast.success(t`已拒绝来自 ${osInfo.hostname} 的配对请求`);
         // 处理队列中的下一个请求
         get().processNextInbound();
       } catch (err) {
         if (handleNodeNotStarted(err)) return;
         const message = getErrorMessage(err);
-        set({ incomingRequest: null });
         toast.error(message);
         get().processNextInbound();
       }
@@ -319,7 +321,11 @@ export const usePairingStore = create<PairingState>()(
     reset() {
       // 递增搜索版本以取消进行中的搜索
       searchVersion++;
-      set({ current: { phase: "idle" } });
+      set({
+        current: { phase: "idle" },
+        incomingRequest: null,
+        inboundQueue: [],
+      });
     },
 
   }),

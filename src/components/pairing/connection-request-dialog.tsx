@@ -15,10 +15,12 @@ import {
 } from "@/components/responsive-dialog";
 import { Trans } from "@lingui/react/macro";
 import { useShallow } from "zustand/react/shallow";
+import { useNavigate } from "@tanstack/react-router";
 import { usePairingStore } from "@/stores/pairing-store";
 import { getDeviceIcon } from "@/components/pairing/device-icon";
 
 export function ConnectionRequestDialog() {
+  const navigate = useNavigate();
   const { incomingRequest, acceptRequest, rejectRequest } = usePairingStore(
     useShallow((state) => ({
       incomingRequest: state.incomingRequest,
@@ -31,9 +33,16 @@ export function ConnectionRequestDialog() {
 
   const DeviceIcon = incomingRequest ? getDeviceIcon(incomingRequest.osInfo.os) : Monitor;
 
+  const handleAccept = async () => {
+    const success = await acceptRequest();
+    if (success) {
+      navigate({ to: "/devices" });
+    }
+  };
+
   const handleOpenChange = (open: boolean) => {
     if (!open) {
-      void rejectRequest();
+      rejectRequest();
     }
   };
 
@@ -82,10 +91,10 @@ export function ConnectionRequestDialog() {
         )}
 
         <ResponsiveDialogFooter className="flex-row justify-center gap-3 sm:justify-center">
-          <Button variant="outline" onClick={() => void rejectRequest()}>
+          <Button variant="outline" onClick={() => rejectRequest()}>
             <Trans>拒绝</Trans>
           </Button>
-          <Button onClick={() => void acceptRequest()}>
+          <Button onClick={handleAccept}>
             <Trans>接受配对</Trans>
           </Button>
         </ResponsiveDialogFooter>

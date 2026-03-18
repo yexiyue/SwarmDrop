@@ -183,20 +183,22 @@ pub struct TransferRecord {
 
 ### Checkpoint 结构
 
-```rust
-/// 传输检查点（持久化到 SQLite）
-pub struct TransferCheckpoint {
-    pub session_id: String,
-    pub file_checkpoints: Vec<FileCheckpoint>,
-}
+> **更新（2026-02-28）**: 不再使用独立的 checkpoint 表，改为在 `transfer_files` 上内联 bitmap 字段。
+> 详见 [传输场景设计](./transfer-scenarios-design.md)。
 
-pub struct FileCheckpoint {
-    pub file_id: u32,
-    pub total_chunks: u32,
-    pub completed_chunks: BitVec,  // 位图标记每个分块是否完成
-    pub checksum: String,          // 用于校验文件一致性
-}
+checkpoint 信息直接存储在 `transfer_files` 表的两个字段中：
+
+```rust
+// transfer_files 表中的 checkpoint 字段
+pub total_chunks: i32,         // ceil(file_size / 256KB)
+pub completed_chunks: Vec<u8>, // BLOB bitmap，每 bit = 1 个 chunk，1 = 已接收
 ```
+
+优势（相比独立 checkpoint 表）：
+- **写入开销**: 每 10 chunk 只需 1 次 UPDATE（改 1 个 BLOB 字段），而非 10 次 INSERT
+- **原子性**: 单行 UPDATE，天然原子，无需显式事务
+- **存储**: 1GB 文件 = 4096 chunk = 512 字节 bitmap（vs 独立表 ~200KB）
+- **查缺口**: 位运算扫描 O(n/64)，无需 SQL 集合差集
 
 ### 恢复流程
 
@@ -218,9 +220,9 @@ sequenceDiagram
 ### 核心挑战
 
 1. **文件变更检测**: 恢复前需用 BLAKE3 校验和验证源文件未被修改
-2. **协议扩展**: 需要新增 `ResumeRequest` / `ResumeAccept` 协议变体
-3. **发送方也需缓存**: 发送方必须保留 PreparedTransfer（当前是一次性消费），或重新扫描
-4. **超时清理**: 长期未恢复的 Checkpoint 需要定期清理
+2. **协议扩展**: 需要新增 `ResumeRequest` / `ResumeAccept` / `ResumeReject` 协议变体
+3. **发送方恢复**: 发送方不持久化 checkpoint，恢复时重新扫描源文件并验证校验和（含 app 重启后从 `failed` 恢复的场景）
+4. **超时清理**: `transfer_sessions.updated_at` 用于 7 天过期检查，app 启动时清理
 
 ---
 
@@ -230,7 +232,7 @@ sequenceDiagram
 |------|---------|---------|-----------|--------|
 | 分块传输 | 3 (session/sender/receiver) | protocol.rs, event_loop.rs, commands/transfer.rs, lib.rs | 状态机、并发分块、加解密管线、进度计算 | **高** |
 | 传输记录 | 2 (db.rs, record.rs) | commands/transfer.rs, lib.rs | SQLite 集成、迁移、查询 API | **中** |
-| 断点续传 | 1 (checkpoint.rs) | protocol.rs, receiver.rs, sender.rs | BitVec 追踪、会话恢复协商、文件变更检测 | **高** |
+| 断点续传 | 0（bitmap 内联在 transfer_files） | protocol.rs, receiver.rs, sender.rs | bitmap 位操作、会话恢复协商、文件变更检测 | **高** |
 
 ---
 

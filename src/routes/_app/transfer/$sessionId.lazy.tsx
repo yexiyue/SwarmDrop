@@ -10,42 +10,41 @@ import {
   CheckCircle2,
   XCircle,
   FolderOpen,
-  ArrowUp,
-  ArrowDown,
   Loader2,
   X,
+  Pause,
+  Play,
 } from "lucide-react";
 import { Trans } from "@lingui/react/macro";
+import { t } from "@lingui/core/macro";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useTransferStore } from "@/stores/transfer-store";
+import { useNetworkStore } from "@/stores/network-store";
+import { useSecretStore } from "@/stores/secret-store";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { formatFileSize, formatSpeed, formatDuration } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { openTransferResult } from "@/lib/file-picker";
 import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
-import { cancelSend, cancelReceive } from "@/commands/transfer";
+import { getDeviceIcon } from "@/components/pairing/device-icon";
 import { FileTree } from "../send/-components/file-tree";
 import { buildTreeDataFromSession } from "../send/-file-tree";
-import type { TransferSession } from "@/commands/transfer";
+import type { TransferSession, TransferHistoryItem } from "@/commands/transfer";
+import {
+  calcPercent,
+  isActiveStatus,
+  STATUS_CLASSNAMES,
+  historyToSession,
+  doPauseTransfer,
+  doCancelTransfer,
+  doResumeTransfer,
+} from "./-shared";
 
 export const Route = createLazyFileRoute("/_app/transfer/$sessionId")({
   component: TransferDetailPage,
 });
-
-// 静态配置对象 - 避免每次渲染重新创建
-const STATUS_CONFIG = {
-  pending: { label: "等待中", className: "bg-gray-100 text-gray-600" },
-  waiting_accept: {
-    label: "等待确认",
-    className: "bg-yellow-100 text-yellow-600",
-  },
-  transferring: { label: "传输中", className: "bg-blue-100 text-blue-600" },
-  completed: { label: "已完成", className: "bg-green-100 text-green-600" },
-  failed: { label: "失败", className: "bg-red-100 text-red-600" },
-  cancelled: { label: "已取消", className: "bg-gray-100 text-gray-600" },
-} as const;
 
 function TransferDetailPage() {
   const { sessionId } = Route.useParams();
@@ -53,18 +52,28 @@ function TransferDetailPage() {
   const breakpoint = useBreakpoint();
   const isMobile = breakpoint === "mobile";
 
-  // 使用细粒度选择器，只订阅需要的 state
-  const session = useTransferStore(
+  // 拆分 selector：分别订阅原始数据，避免 historyToSession 每次创建新对象
+  const activeSession = useTransferStore(
+    useCallback((s) => s.sessions[sessionId], [sessionId]),
+  );
+  const historyItem = useTransferStore(
     useCallback(
       (s) =>
-        s.sessions[sessionId] ??
-        s.history.find((h) => h.sessionId === sessionId),
+        s.sessions[sessionId]
+          ? undefined
+          : s.dbHistory.find((h) => h.sessionId === sessionId),
       [sessionId],
     ),
   );
+  const session = useMemo(
+    () =>
+      activeSession ??
+      (historyItem ? historyToSession(historyItem) : undefined),
+    [activeSession, historyItem],
+  );
 
   const handleBack = useCallback(() => {
-    void navigate({ to: "/transfer" });
+    navigate({ to: "/transfer" });
   }, [navigate]);
 
   if (!session) {
@@ -80,11 +89,14 @@ function TransferDetailPage() {
     );
   }
 
-  if (isMobile) {
-    return <MobileTransferDetailView session={session} onBack={handleBack} />;
-  }
-
-  return <DesktopTransferDetailView session={session} onBack={handleBack} />;
+  return (
+    <TransferDetailContent
+      session={session}
+      historyItem={historyItem}
+      onBack={handleBack}
+      isMobile={isMobile}
+    />
+  );
 }
 
 /* ─────────────────── 共享组件 ─────────────────── */
@@ -95,35 +107,47 @@ const TransferStatusHeader = memo(function TransferStatusHeader({
   session: TransferSession;
 }) {
   const isSend = session.direction === "send";
-  const isActive =
-    session.status === "pending" ||
-    session.status === "waiting_accept" ||
-    session.status === "transferring";
+  const isActive = isActiveStatus(session.status);
+
+  // 从 network store / secret store 查找设备 OS
+  const deviceOs = useNetworkStore(
+    (s) => s.devices.find((d) => d.peerId === session.peerId)?.os,
+  );
+  const pairedOs = useSecretStore(
+    (s) => s.pairedDevices.find((d) => d.peerId === session.peerId)?.os,
+  );
+  const os = deviceOs ?? pairedOs ?? "";
+  const DeviceIcon = getDeviceIcon(os);
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-3 md:gap-3.5">
+      {/* 设备平台图标 */}
       <div
         className={cn(
-          "flex size-10 items-center justify-center rounded-full",
-          isSend ? "bg-blue-100 text-blue-600" : "bg-green-100 text-green-600",
+          "flex size-11 shrink-0 items-center justify-center rounded-full md:size-12",
+          isSend
+            ? "bg-blue-50 dark:bg-blue-500/15"
+            : "bg-green-50 dark:bg-green-500/15",
         )}
       >
-        {isSend ? (
-          <ArrowUp className="size-5" />
-        ) : (
-          <ArrowDown className="size-5" />
-        )}
-      </div>
-      <div>
-        <h2 className="text-lg font-semibold text-foreground">
-          {isSend ? (
-            <Trans>发送到 {session.deviceName}</Trans>
-          ) : (
-            <Trans>来自 {session.deviceName}</Trans>
+        <DeviceIcon
+          className={cn(
+            "size-5.5 md:size-6",
+            isSend
+              ? "text-blue-600 dark:text-blue-400"
+              : "text-green-600 dark:text-green-400",
           )}
+        />
+      </div>
+      <div className="min-w-0 flex-1">
+        <h2 className="truncate text-[15px] font-semibold text-foreground md:text-base">
+          {session.deviceName}
         </h2>
-        <p className="text-sm text-muted-foreground">
-          {session.files.length} <Trans>个文件</Trans> ·{" "}
+        <p className="text-[11px] text-muted-foreground md:text-xs">
+          {isSend ? <Trans>发送</Trans> : <Trans>接收</Trans>}
+          {" · "}
+          {session.files.length} <Trans>个文件</Trans>
+          {" · "}
           {formatFileSize(session.totalSize)}
         </p>
       </div>
@@ -137,42 +161,81 @@ const StatusBadge = memo(function StatusBadge({
 }: {
   status: TransferSession["status"];
 }) {
-  const config = STATUS_CONFIG[status];
+  const labels: Record<TransferSession["status"], string> = {
+    pending: t`等待中`,
+    waiting_accept: t`等待确认`,
+    transferring: t`传输中`,
+    completed: t`已完成`,
+    failed: t`失败`,
+    cancelled: t`已取消`,
+  };
 
   return (
     <span
       className={cn(
-        "rounded-full px-2.5 py-0.5 text-xs font-medium",
-        config.className,
+        "shrink-0 rounded-full px-2 py-0.5 text-xs font-medium md:px-2.5",
+        STATUS_CLASSNAMES[status],
       )}
     >
-      <Trans>{config.label}</Trans>
+      {labels[status]}
     </span>
   );
 });
 
 const TransferProgress = memo(function TransferProgress({
   session,
+  historyItem,
 }: {
   session: TransferSession;
+  historyItem?: TransferHistoryItem;
 }) {
   const progressPercent = session.progress
-    ? Math.round((session.progress.transferredBytes / session.progress.totalBytes) * 100)
+    ? calcPercent(
+        session.progress.transferredBytes,
+        session.progress.totalBytes,
+      )
     : 0;
+
+  // 来自历史记录的暂停会话（status 运行时为 "paused"）
+  if ((session.status as string) === "paused" && historyItem) {
+    const pausedPercent = calcPercent(
+      historyItem.transferredBytes,
+      historyItem.totalSize,
+    );
+    return (
+      <div className="flex flex-col gap-2 md:gap-2.5">
+        <div className="flex items-baseline justify-between">
+          <span className="text-2xl font-bold tabular-nums text-foreground md:text-3xl">
+            {pausedPercent}%
+          </span>
+          <span className="text-[11px] text-muted-foreground md:text-xs">
+            <Trans>已暂停</Trans>
+          </span>
+        </div>
+        <Progress value={pausedPercent} className="h-1.5 md:h-2" />
+        <div className="flex items-center justify-between text-[11px] text-muted-foreground md:text-xs">
+          <span>
+            {formatFileSize(historyItem.transferredBytes)} /{" "}
+            {formatFileSize(historyItem.totalSize)}
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   if (session.status === "transferring" && session.progress) {
     return (
-      <div className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <span className="text-3xl font-bold text-foreground">
+      <div className="flex flex-col gap-2 md:gap-2.5">
+        <div className="flex items-baseline justify-between">
+          <span className="text-2xl font-bold tabular-nums text-foreground md:text-3xl">
             {progressPercent}%
           </span>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-[11px] text-muted-foreground md:text-xs">
             {formatSpeed(session.progress.speed)}
           </span>
         </div>
-        <Progress value={progressPercent} className="h-2" />
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <Progress value={progressPercent} className="h-1.5 md:h-2" />
+        <div className="flex items-center justify-between text-[11px] text-muted-foreground md:text-xs">
           <span>
             {formatFileSize(session.progress.transferredBytes)} /{" "}
             {formatFileSize(session.progress.totalBytes)}
@@ -193,36 +256,36 @@ const TransferProgress = memo(function TransferProgress({
       : 0;
 
     return (
-      <div className="flex flex-col items-center gap-4 py-4">
-        <div className="flex size-20 items-center justify-center rounded-full bg-green-100">
-          <CheckCircle2 className="size-10 text-green-600" />
+      <div className="flex flex-col items-center gap-2.5 py-2 md:gap-3 md:py-4">
+        <div className="flex size-14 items-center justify-center rounded-full bg-green-100 dark:bg-green-500/15 md:size-16">
+          <CheckCircle2 className="size-7 text-green-600 dark:text-green-400 md:size-8" />
         </div>
-        <h3 className="text-xl font-semibold text-foreground">
+        <h3 className="text-base font-semibold text-foreground md:text-lg">
           <Trans>所有文件传输完成！</Trans>
         </h3>
 
-        <div className="flex w-full justify-center gap-12">
-          <div className="flex flex-col items-center gap-1">
-            <span className="text-2xl font-bold text-foreground">
+        <div className="flex w-full max-w-xs justify-between px-4 md:max-w-sm md:gap-8 md:justify-center md:px-0">
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="text-lg font-bold tabular-nums text-foreground md:text-xl">
               {session.files.length}
             </span>
-            <span className="text-xs text-muted-foreground">
+            <span className="text-[10px] text-muted-foreground md:text-[11px]">
               <Trans>文件</Trans>
             </span>
           </div>
-          <div className="flex flex-col items-center gap-1">
-            <span className="text-2xl font-bold text-foreground">
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="text-lg font-bold tabular-nums text-foreground md:text-xl">
               {formatFileSize(session.totalSize)}
             </span>
-            <span className="text-xs text-muted-foreground">
+            <span className="text-[10px] text-muted-foreground md:text-[11px]">
               <Trans>总大小</Trans>
             </span>
           </div>
-          <div className="flex flex-col items-center gap-1">
-            <span className="text-2xl font-bold text-foreground">
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="text-lg font-bold tabular-nums text-foreground md:text-xl">
               {formatDuration(duration)}
             </span>
-            <span className="text-xs text-muted-foreground">
+            <span className="text-[10px] text-muted-foreground md:text-[11px]">
               <Trans>用时</Trans>
             </span>
           </div>
@@ -233,15 +296,17 @@ const TransferProgress = memo(function TransferProgress({
 
   if (session.status === "failed") {
     return (
-      <div className="flex flex-col items-center gap-4 py-4">
-        <div className="flex size-20 items-center justify-center rounded-full bg-red-100">
-          <XCircle className="size-10 text-red-600" />
+      <div className="flex flex-col items-center gap-2.5 py-2 md:gap-3 md:py-4">
+        <div className="flex size-14 items-center justify-center rounded-full bg-red-100 dark:bg-red-500/15 md:size-16">
+          <XCircle className="size-7 text-red-600 dark:text-red-400 md:size-8" />
         </div>
-        <h3 className="text-xl font-semibold text-foreground">
+        <h3 className="text-base font-semibold text-foreground md:text-lg">
           <Trans>传输失败</Trans>
         </h3>
         {session.error && (
-          <p className="text-sm text-muted-foreground">{session.error}</p>
+          <p className="max-w-xs text-center text-[11px] text-muted-foreground md:max-w-sm md:text-xs">
+            {session.error}
+          </p>
         )}
       </div>
     );
@@ -249,9 +314,9 @@ const TransferProgress = memo(function TransferProgress({
 
   if (session.status === "waiting_accept") {
     return (
-      <div className="flex flex-col items-center gap-2 py-4">
-        <Loader2 className="size-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">
+      <div className="flex flex-col items-center gap-2 py-2 md:py-4">
+        <Loader2 className="size-6 animate-spin text-primary md:size-7" />
+        <p className="text-[11px] text-muted-foreground md:text-xs">
           <Trans>等待对方确认...</Trans>
         </p>
       </div>
@@ -263,25 +328,27 @@ const TransferProgress = memo(function TransferProgress({
 
 const TransferActions = memo(function TransferActions({
   session,
+  historyItem,
 }: {
   session: TransferSession;
+  historyItem?: TransferHistoryItem;
 }) {
   const isSend = session.direction === "send";
-  const isActive =
-    session.status === "pending" ||
-    session.status === "waiting_accept" ||
-    session.status === "transferring";
+  const isActive = isActiveStatus(session.status);
+  const isPaused = (session.status as string) === "paused";
+  const navigate = useNavigate();
+
+  const handlePause = useCallback(async () => {
+    try {
+      await doPauseTransfer(session.sessionId);
+      navigate({ to: "/transfer" });
+    } catch {
+      // doPauseTransfer 已 toast
+    }
+  }, [session.sessionId, navigate]);
 
   const handleCancel = useCallback(async () => {
-    try {
-      if (isSend) {
-        await cancelSend(session.sessionId);
-      } else {
-        await cancelReceive(session.sessionId);
-      }
-    } catch (err) {
-      toast.error(getErrorMessage(err));
-    }
+    await doCancelTransfer(session.sessionId, isSend ? "send" : "receive");
   }, [isSend, session.sessionId]);
 
   const handleOpenFolder = useCallback(async () => {
@@ -292,20 +359,46 @@ const TransferActions = memo(function TransferActions({
     }
   }, [session]);
 
-  if (isActive) {
+  const handleResume = useCallback(async () => {
+    if (!historyItem) return;
+    try {
+      const newSessionId = await doResumeTransfer(historyItem.sessionId);
+      navigate({
+        to: "/transfer/$sessionId",
+        params: { sessionId: newSessionId },
+      });
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    }
+  }, [historyItem, navigate]);
+
+  if (isPaused && historyItem) {
     return (
-      <Button
-        variant="outline"
-        onClick={handleCancel}
-        className="w-full"
-      >
-        <X className="mr-2 size-4" />
-        <Trans>取消传输</Trans>
+      <Button onClick={handleResume} className="w-full">
+        <Play className="mr-2 size-4" />
+        <Trans>恢复传输</Trans>
       </Button>
     );
   }
 
-  if (session.status === "completed" && session.savePath) {
+  if (isActive) {
+    return (
+      <div className="flex w-full gap-2">
+        {session.status === "transferring" && (
+          <Button variant="secondary" onClick={handlePause} className="flex-1">
+            <Pause className="mr-2 size-4" />
+            <Trans>暂停传输</Trans>
+          </Button>
+        )}
+        <Button variant="outline" onClick={handleCancel} className="flex-1">
+          <X className="mr-2 size-4" />
+          <Trans>取消传输</Trans>
+        </Button>
+      </div>
+    );
+  }
+
+  if (session.status === "completed" && session.saveLocation) {
     return (
       <Button onClick={handleOpenFolder} className="w-full">
         <FolderOpen className="mr-2 size-4" />
@@ -317,76 +410,18 @@ const TransferActions = memo(function TransferActions({
   return null;
 });
 
-/* ─────────────────── 移动端视图 ─────────────────── */
+/* ─────────────────── 统一详情视图 ─────────────────── */
 
-const MobileTransferDetailView = memo(function MobileTransferDetailView({
+const TransferDetailContent = memo(function TransferDetailContent({
   session,
+  historyItem,
   onBack,
+  isMobile,
 }: {
   session: TransferSession;
+  historyItem?: TransferHistoryItem;
   onBack: () => void;
-}) {
-  const treeData = useMemo(() => {
-    return buildTreeDataFromSession(session);
-  }, [session]);
-
-  return (
-    <main className="flex h-full flex-col bg-background">
-      {/* 头部 */}
-      <header className="flex items-center gap-3 border-b border-border px-4 py-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="flex size-9 items-center justify-center rounded-full hover:bg-muted"
-        >
-          <ArrowLeft className="size-5" />
-        </button>
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate text-base font-semibold text-foreground">
-            <Trans>传输详情</Trans>
-          </h1>
-        </div>
-      </header>
-
-      {/* 内容 */}
-      <div className="flex-1 overflow-auto px-4 py-4">
-        <div className="flex flex-col gap-5">
-          <TransferStatusHeader session={session} />
-
-          <TransferProgress session={session} />
-
-          <div className="flex flex-col gap-2">
-            <h3 className="text-sm font-semibold text-foreground">
-              <Trans>传输详情</Trans>
-            </h3>
-            <FileTree
-              mode={session.status === "transferring" ? "transfer" : "select"}
-              dataLoader={treeData.dataLoader}
-              rootChildren={treeData.rootChildren}
-              totalCount={session.files.length}
-              totalSize={session.totalSize}
-              progress={session.progress}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* 底部操作 */}
-      <div className="border-t border-border px-4 py-3">
-        <TransferActions session={session} />
-      </div>
-    </main>
-  );
-});
-
-/* ─────────────────── 桌面端视图 ─────────────────── */
-
-const DesktopTransferDetailView = memo(function DesktopTransferDetailView({
-  session,
-  onBack,
-}: {
-  session: TransferSession;
-  onBack: () => void;
+  isMobile: boolean;
 }) {
   const treeData = useMemo(() => {
     return buildTreeDataFromSession(session);
@@ -394,8 +429,8 @@ const DesktopTransferDetailView = memo(function DesktopTransferDetailView({
 
   return (
     <main className="flex h-full flex-1 flex-col bg-background">
-      {/* Toolbar */}
-      <header className="flex h-13 items-center gap-2 border-b border-border px-4 lg:px-5">
+      {/* 头部 */}
+      <header className="flex h-12 items-center gap-2 border-b border-border px-3 md:h-13 md:px-4 lg:px-5">
         <button
           type="button"
           onClick={onBack}
@@ -403,20 +438,20 @@ const DesktopTransferDetailView = memo(function DesktopTransferDetailView({
         >
           <ArrowLeft className="size-4" />
         </button>
-        <h1 className="text-[15px] font-medium text-foreground">
+        <h1 className="min-w-0 truncate text-[13px] font-medium text-foreground md:text-sm">
           <Trans>传输详情</Trans>
         </h1>
       </header>
 
-      {/* Content */}
-      <div className="flex-1 overflow-auto p-5 lg:p-6">
-        <div className="mx-auto flex max-w-2xl flex-col gap-6">
+      {/* 内容 */}
+      <div className="flex-1 overflow-auto px-3 py-3 md:p-4 lg:p-5">
+        <div className="mx-auto flex max-w-2xl flex-col gap-3 md:gap-5">
           <TransferStatusHeader session={session} />
 
-          <TransferProgress session={session} />
+          <TransferProgress session={session} historyItem={historyItem} />
 
-          <div className="flex flex-col gap-3">
-            <h3 className="text-sm font-semibold text-foreground">
+          <div className="flex flex-col gap-1.5 md:gap-2">
+            <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground md:text-xs">
               <Trans>传输详情</Trans>
             </h3>
             <FileTree
@@ -429,11 +464,20 @@ const DesktopTransferDetailView = memo(function DesktopTransferDetailView({
             />
           </div>
 
-          <div className="flex justify-end">
-            <TransferActions session={session} />
-          </div>
+          {!isMobile && (
+            <div className="flex justify-end">
+              <TransferActions session={session} historyItem={historyItem} />
+            </div>
+          )}
         </div>
       </div>
+
+      {/* 移动端底部操作栏 */}
+      {isMobile && (
+        <div className="border-t border-border px-3 py-2">
+          <TransferActions session={session} historyItem={historyItem} />
+        </div>
+      )}
     </main>
   );
 });
