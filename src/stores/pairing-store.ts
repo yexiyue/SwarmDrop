@@ -69,7 +69,7 @@ export type PairingPhase =
   | { phase: "error"; message: string };
 
 /** 入站配对请求（对应后端 PairingRequestPayload，flatten 了 PairingRequest） */
-interface QueuedInboundRequest {
+export interface QueuedInboundRequest {
   peerId: PeerId;
   pendingId: number;
   osInfo: { hostname: string; os: string; platform: string; arch: string };

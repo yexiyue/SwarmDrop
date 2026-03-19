@@ -126,7 +126,7 @@ impl PartFile {
     /// 不修改文件偏移量，多个分块可安全并发写入同一文件。
     pub async fn write_chunk(&self, chunk_index: u32, data: &[u8]) -> AppResult<()> {
         let handle = {
-            let guard = self.write_handle.lock().unwrap();
+            let guard = self.write_handle.lock().unwrap_or_else(|e| e.into_inner());
             guard
                 .as_ref()
                 .ok_or_else(|| AppError::Transfer("写入句柄已关闭".into()))?
@@ -146,7 +146,7 @@ impl PartFile {
     /// 校验前调用，确保所有数据已落盘且文件句柄释放（Windows 下 rename 需要）。
     /// 幂等操作，多次调用安全。
     pub fn close_write_handle(&self) {
-        let mut guard = self.write_handle.lock().unwrap();
+        let mut guard = self.write_handle.lock().unwrap_or_else(|e| e.into_inner());
         *guard = None;
     }
 

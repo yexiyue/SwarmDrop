@@ -9,6 +9,7 @@ import { createLazyFileRoute } from "@tanstack/react-router";
 import { ArrowLeftRight, Trash2 } from "lucide-react";
 import { Trans } from "@lingui/react/macro";
 import { t } from "@lingui/core/macro";
+import { useShallow } from "zustand/react/shallow";
 import { useBreakpoint } from "@/hooks/use-breakpoint";
 import { useTransferStore } from "@/stores/transfer-store";
 import { TransferItem } from "./-transfer-item";
@@ -30,6 +31,17 @@ import { toast } from "sonner";
 import { getErrorMessage } from "@/lib/errors";
 import { cn } from "@/lib/utils";
 
+/** 状态过滤选项（静态数据，使用函数获取以支持 i18n） */
+function getStatusFilters(): { value: HistorySessionStatus | "all"; label: string }[] {
+  return [
+    { value: "all", label: t`全部` },
+    { value: "completed", label: t`已完成` },
+    { value: "failed", label: t`失败` },
+    { value: "paused", label: t`已暂停` },
+    { value: "cancelled", label: t`已取消` },
+  ];
+}
+
 export const Route = createLazyFileRoute("/_app/transfer/")({
   component: TransferPage,
 });
@@ -38,9 +50,13 @@ function TransferPage() {
   const breakpoint = useBreakpoint();
   const isMobile = breakpoint === "mobile";
 
-  const sessions = useTransferStore((s) => s.sessions);
-  const dbHistory = useTransferStore((s) => s.dbHistory);
-  const loadHistory = useTransferStore((s) => s.loadHistory);
+  const { sessions, dbHistory, loadHistory } = useTransferStore(
+    useShallow((s) => ({
+      sessions: s.sessions,
+      dbHistory: s.dbHistory,
+      loadHistory: s.loadHistory,
+    })),
+  );
 
   // 进入传输列表页时主动刷新 DB 历史
   useEffect(() => {
@@ -51,16 +67,7 @@ function TransferPage() {
     HistorySessionStatus | "all"
   >("all");
 
-  const statusFilters: { value: HistorySessionStatus | "all"; label: string }[] = useMemo(
-    () => [
-      { value: "all", label: t`全部` },
-      { value: "completed", label: t`已完成` },
-      { value: "failed", label: t`失败` },
-      { value: "paused", label: t`已暂停` },
-      { value: "cancelled", label: t`已取消` },
-    ],
-    [],
-  );
+  const statusFilters = getStatusFilters();
 
   // 活跃传输 sessionId 列表（按开始时间倒序）
   const activeSessionIds = useMemo(

@@ -4,7 +4,7 @@
  * 根据断点渲染移动端/桌面端不同布局
  */
 
-import { useMemo, useState } from "react";
+import { memo, useMemo, useState, useCallback } from "react";
 import { createLazyFileRoute, useNavigate } from "@tanstack/react-router";
 import { DeviceCard } from "./-components/device-card";
 import type { Device } from "@/commands/network";
@@ -20,6 +20,8 @@ import { NetworkStatusBar } from "./-components/network-status-bar";
 import { OfflineEmptyState } from "./-components/offline-empty-state";
 import { StartNodeSheet } from "@/components/network/start-node-sheet";
 import { StopNodeSheet } from "@/components/network/stop-node-sheet";
+import { toast } from "sonner";
+import { getErrorMessage } from "@/lib/errors";
 
 export const Route = createLazyFileRoute("/_app/devices/")({
   component: DevicesPage,
@@ -69,46 +71,47 @@ function DevicesPage() {
     return devices.filter((d) => !d.isPaired);
   }, [devices]);
 
-  const handleSend = (device: Device) => {
+  const handleSend = useCallback((device: Device) => {
     navigate({ to: "/send", search: { peerId: device.peerId } });
-  };
+  }, [navigate]);
 
-  const handleConnect = (device: Device) => {
+  const handleConnect = useCallback((device: Device) => {
     directPairing(device.peerId);
-  };
+  }, [directPairing]);
 
-  const handleUnpair = (device: Device) => {
-    // 同时更新后端运行时状态（节点未运行时静默成功）
-    removePairedDevice(device.peerId);
-    useSecretStore.getState().removePairedDevice(device.peerId);
+  const handleUnpair = useCallback(async (device: Device) => {
+    try {
+      // 同时更新后端运行时状态（节点未运行时静默成功）
+      await removePairedDevice(device.peerId);
+      useSecretStore.getState().removePairedDevice(device.peerId);
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    }
+  }, []);
+
+  const handleStatusClick = useCallback(() => {
+    if (status === "running") setStopSheetOpen(true);
+    else setStartSheetOpen(true);
+  }, [status]);
+
+  const viewProps: DevicesViewProps = {
+    isOnline,
+    pairedDevices,
+    nearbyDevices: filteredNearbyDevices,
+    onSend: handleSend,
+    onConnect: handleConnect,
+    onUnpair: handleUnpair,
+    onStartClick: useCallback(() => setStartSheetOpen(true), []),
+    onStopClick: useCallback(() => setStopSheetOpen(true), []),
+    onStatusClick: handleStatusClick,
   };
 
   return (
     <>
       {isMobile ? (
-        <MobileDevicesView
-          isOnline={isOnline}
-          pairedDevices={pairedDevices}
-          nearbyDevices={filteredNearbyDevices}
-          onSend={handleSend}
-          onConnect={handleConnect}
-          onUnpair={handleUnpair}
-          onStartClick={() => setStartSheetOpen(true)}
-          onStopClick={() => setStopSheetOpen(true)}
-          onStatusClick={() => status === "running" ? setStopSheetOpen(true) : setStartSheetOpen(true)}
-        />
+        <MobileDevicesView {...viewProps} />
       ) : (
-        <DesktopDevicesView
-          isOnline={isOnline}
-          pairedDevices={pairedDevices}
-          nearbyDevices={filteredNearbyDevices}
-          onSend={handleSend}
-          onConnect={handleConnect}
-          onUnpair={handleUnpair}
-          onStartClick={() => setStartSheetOpen(true)}
-          onStopClick={() => setStopSheetOpen(true)}
-          onStatusClick={() => status === "running" ? setStopSheetOpen(true) : setStartSheetOpen(true)}
-        />
+        <DesktopDevicesView {...viewProps} />
       )}
 
       {/* 节点控制弹窗 */}
@@ -118,7 +121,7 @@ function DevicesPage() {
   );
 }
 
-/* ─────────────────── 共享类型 ─────────────────── */
+/* ─────────────────── 共享类型与组件 ─────────────────── */
 
 interface DevicesViewProps {
   isOnline: boolean;
@@ -132,9 +135,54 @@ interface DevicesViewProps {
   onStatusClick: () => void;
 }
 
+/** 设备列表分区（已配对 / 附近） */
+const DeviceSection = memo(function DeviceSection({
+  title,
+  devices,
+  variant,
+  containerClass,
+  onSend,
+  onConnect,
+  onUnpair,
+}: {
+  title: React.ReactNode;
+  devices: Device[];
+  variant?: "card" | "list";
+  containerClass: string;
+  onSend: (device: Device) => void;
+  onConnect: (device: Device) => void;
+  onUnpair?: (device: Device) => void;
+}) {
+  if (devices.length === 0) return null;
+  return (
+    <section className="flex flex-col gap-3 md:gap-4">
+      <div className="flex items-center gap-1.5 md:gap-2">
+        <h2 className="text-[15px] font-semibold text-foreground md:text-sm">
+          {title}
+        </h2>
+        <span className="text-[13px] text-muted-foreground">
+          ({devices.length})
+        </span>
+      </div>
+      <div className={containerClass}>
+        {devices.map((device) => (
+          <DeviceCard
+            key={device.peerId}
+            device={device}
+            variant={variant}
+            onSend={onSend}
+            onConnect={onConnect}
+            onUnpair={onUnpair}
+          />
+        ))}
+      </div>
+    </section>
+  );
+});
+
 /* ─────────────────── 移动端视图 ─────────────────── */
 
-function MobileDevicesView({
+const MobileDevicesView = memo(function MobileDevicesView({
   isOnline,
   pairedDevices,
   nearbyDevices,
@@ -147,65 +195,30 @@ function MobileDevicesView({
 }: DevicesViewProps) {
   return (
     <main className="flex h-full flex-1 flex-col bg-background">
-      {/* 网络状态条 */}
       <div className="px-4 pt-3">
         <NetworkStatusBar onStopClick={onStopClick} onStatusClick={onStatusClick} />
       </div>
 
-      {/* 内容区域 */}
       {isOnline ? (
         <div className="flex-1 overflow-auto px-4 py-4">
           <div className="flex flex-col gap-5">
-            {/* 已配对设备 */}
-            {pairedDevices.length > 0 && (
-              <section className="flex flex-col gap-3">
-                <div className="flex items-center gap-1.5">
-                  <h2 className="text-[15px] font-semibold text-foreground">
-                    <Trans>已配对设备</Trans>
-                  </h2>
-                  <span className="text-[13px] text-muted-foreground">
-                    ({pairedDevices.length})
-                  </span>
-                </div>
-                <div className="flex flex-col gap-2.5">
-                  {pairedDevices.map((device) => (
-                    <DeviceCard
-                      key={device.peerId}
-                      device={device}
-                      variant="list"
-                      onSend={onSend}
-                      onConnect={onConnect}
-                      onUnpair={onUnpair}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* 附近设备 */}
-            {nearbyDevices.length > 0 && (
-              <section className="flex flex-col gap-3">
-                <div className="flex items-center gap-1.5">
-                  <h2 className="text-[15px] font-semibold text-foreground">
-                    <Trans>附近设备</Trans>
-                  </h2>
-                  <span className="text-[13px] text-muted-foreground">
-                    ({nearbyDevices.length})
-                  </span>
-                </div>
-                <div className="flex flex-col gap-2.5">
-                  {nearbyDevices.map((device) => (
-                    <DeviceCard
-                      key={device.peerId}
-                      device={device}
-                      variant="list"
-                      onSend={onSend}
-                      onConnect={onConnect}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
+            <DeviceSection
+              title={<Trans>已配对设备</Trans>}
+              devices={pairedDevices}
+              variant="list"
+              containerClass="flex flex-col gap-2.5"
+              onSend={onSend}
+              onConnect={onConnect}
+              onUnpair={onUnpair}
+            />
+            <DeviceSection
+              title={<Trans>附近设备</Trans>}
+              devices={nearbyDevices}
+              variant="list"
+              containerClass="flex flex-col gap-2.5"
+              onSend={onSend}
+              onConnect={onConnect}
+            />
           </div>
         </div>
       ) : (
@@ -213,11 +226,11 @@ function MobileDevicesView({
       )}
     </main>
   );
-}
+});
 
 /* ─────────────────── 桌面端视图 ─────────────────── */
 
-function DesktopDevicesView({
+const DesktopDevicesView = memo(function DesktopDevicesView({
   isOnline,
   pairedDevices,
   nearbyDevices,
@@ -230,7 +243,6 @@ function DesktopDevicesView({
 }: DevicesViewProps) {
   return (
     <main className="flex h-full flex-1 flex-col bg-background">
-      {/* Toolbar */}
       <header className="flex h-13 items-center justify-between border-b border-border px-4 lg:px-5">
         <div className="flex items-center gap-2">
           <h1 className="text-[15px] font-medium text-foreground">
@@ -243,59 +255,28 @@ function DesktopDevicesView({
       </header>
 
       {isOnline ? (
-        /* Page Content */
         <div className="flex-1 overflow-auto p-5 lg:p-6">
           <div className="flex flex-col gap-6">
-            {/* 网络状态栏 */}
             <NetworkStatusBar onStopClick={onStopClick} onStatusClick={onStatusClick} />
 
-            {/* Paired Devices Section */}
-            <section className="flex flex-col gap-4">
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm font-semibold text-foreground">
-                  <Trans>已配对设备</Trans>
-                </h2>
-                <span className="text-[13px] text-muted-foreground">
-                  ({pairedDevices.length})
-                </span>
-              </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {pairedDevices.map((device) => (
-                  <DeviceCard
-                    key={device.peerId}
-                    device={device}
-                    onSend={onSend}
-                    onConnect={onConnect}
-                    onUnpair={onUnpair}
-                  />
-                ))}
-              </div>
-            </section>
+            <DeviceSection
+              title={<Trans>已配对设备</Trans>}
+              devices={pairedDevices}
+              containerClass="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"
+              onSend={onSend}
+              onConnect={onConnect}
+              onUnpair={onUnpair}
+            />
 
-            {/* Divider */}
             <div className="h-px bg-border" />
 
-            {/* Nearby Devices Section */}
-            <section className="flex flex-col gap-4">
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm font-semibold text-foreground">
-                  <Trans>附近设备</Trans>
-                </h2>
-                <span className="text-[13px] text-muted-foreground">
-                  ({nearbyDevices.length})
-                </span>
-              </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {nearbyDevices.map((device) => (
-                  <DeviceCard
-                    key={device.peerId}
-                    device={device}
-                    onSend={onSend}
-                    onConnect={onConnect}
-                  />
-                ))}
-              </div>
-            </section>
+            <DeviceSection
+              title={<Trans>附近设备</Trans>}
+              devices={nearbyDevices}
+              containerClass="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"
+              onSend={onSend}
+              onConnect={onConnect}
+            />
           </div>
         </div>
       ) : (
@@ -303,4 +284,4 @@ function DesktopDevicesView({
       )}
     </main>
   );
-}
+});
