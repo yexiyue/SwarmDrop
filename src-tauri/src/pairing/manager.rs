@@ -166,7 +166,7 @@ impl PairingManager {
         .await?;
 
         // 覆盖旧码（旧 DHT 记录靠 TTL 自然过期，无需显式删除）
-        *self.active_code.lock().unwrap() = Some(code_info.clone());
+        *self.active_code.lock().unwrap_or_else(|e| e.into_inner()) = Some(code_info.clone());
 
         Ok(code_info)
     }
@@ -272,7 +272,7 @@ impl PairingManager {
         // 仅在接受时验证并消耗配对码；拒绝时直接发响应，无需验证
         if let PairingMethod::Code { code } = method {
             if matches!(response, PairingResponse::Success) {
-                let mut guard = self.active_code.lock().unwrap();
+                let mut guard = self.active_code.lock().unwrap_or_else(|e| e.into_inner());
                 let info = guard.as_ref().ok_or(AppError::InvalidCode)?;
                 if &info.code != code {
                     return Err(AppError::InvalidCode);

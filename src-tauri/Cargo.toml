@@ -93,3 +93,9 @@ opt-level = 3
 # Stronghold 相关依赖特别需要优化
 [profile.dev.package.tauri-plugin-stronghold]
 opt-level = 3
+
+# Release 构建优化：启用 LTO 和符号剥离，减小二进制体积
+[profile.release]
+lto = true
+strip = true
+codegen-units = 1

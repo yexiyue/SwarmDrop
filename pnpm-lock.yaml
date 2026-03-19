@@ -17,9 +17,6 @@ importers:
       '@headless-tree/react':
         specifier: ^1.6.3
         version: 1.6.3(@headless-tree/core@1.6.3)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      '@icons-pack/react-simple-icons':
-        specifier: ^13.8.0
-        version: 13.8.0(react@19.2.4)
       '@lingui/core':
         specifier: ^5.9.0
         version: 5.9.0(@lingui/babel-plugin-lingui-macro@5.9.0(typescript@5.8.3))
@@ -104,9 +101,6 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
-      dayjs:
-        specifier: ^1.11.19
-        version: 1.11.19
       input-otp:
         specifier: ^1.4.2
         version: 1.4.2(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -645,11 +639,6 @@ packages:
       '@headless-tree/core': '*'
       react: '*'
       react-dom: '*'
-
-  '@icons-pack/react-simple-icons@13.8.0':
-    resolution: {integrity: sha512-iZrhL1fSklfCCVn68IYHaAoKfcby3RakUTn2tRPyHBkhr2tkYqeQbjJWf+NizIYBzKBn2IarDJXmTdXd6CuEfw==}
-    peerDependencies:
-      react: ^16.13 || ^17 || ^18 || ^19
 
   '@isaacs/balanced-match@4.0.1':
     resolution: {integrity: sha512-yzMTt9lEb8Gv7zRioUilSglI0c0smZ9k5D65677DLWLtWJaXIS3CqcGyUFByYKlnUj6TkjLVs54fBl6+TiGQDQ==}
@@ -2251,9 +2240,6 @@ packages:
   date-fns@3.6.0:
     resolution: {integrity: sha512-fRHTG8g/Gif+kSh50gaGEdToemgfj74aRX3swtiouboip5JDLAyDE9F11nHMIcvOaXeOC6D7SpNhi7uFyB7Uww==}
 
-  dayjs@1.11.19:
-    resolution: {integrity: sha512-t5EcLVS6QPBNqM2z8fakk/NKel+Xzshgt8FFKAn+qwlD1pzZWxh0nVCrvFK7ZDb6XucZeF9z8C7CBWTRIVApAw==}
-
   debug@4.4.3:
     resolution: {integrity: sha512-RGwwWnwQvkVfavKVt22FGLw+xYSdzARwm0ru6DhTVA3umU5hZc28V3kO4stgYryrTlLpuvgI9GiijltAjNbcqA==}
     engines: {node: '>=6.0'}
@@ -3595,10 +3581,6 @@ snapshots:
       '@headless-tree/core': 1.6.3
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
-
-  '@icons-pack/react-simple-icons@13.8.0(react@19.2.4)':
-    dependencies:
-      react: 19.2.4
 
   '@isaacs/balanced-match@4.0.1': {}
 
@@ -5204,8 +5186,6 @@ snapshots:
   csstype@3.2.3: {}
 
   date-fns@3.6.0: {}
-
-  dayjs@1.11.19: {}
 
   debug@4.4.3:
     dependencies:
